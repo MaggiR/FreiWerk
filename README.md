@@ -145,7 +145,7 @@ Die KI hat ausschließlich eine assistierende Funktion. Sie darf keine Beiträge
 FreiWerk als Full-Stack-Webanwendung setzt auf **Nuxt v4**. Für die Datenbank wird **PostgreSQL** verwendet. **Nginx** wird als Middleware eingesetzt. Zur Authentifizierung wird zunächst mit Nuxt-Bordmitteln gearbeitet (später kann auf einen externen Identity-Provider umgestellt werden.) Das Deployment erfolgt via **Docker**. Über GitHub Actions wird eine CI/CD Pipeline für automatisierte Tests, Builds und Deployments eingesetzt. Mit Icons von **FontAwesome** wird für eine visuell ansprechende UI gesorgt. **TipTap** wird für Texteditoren verwendet. Die KI-Einbindung erfolgt je nach Konfiguration über Ollama, OpenAI, Google AI oder Claude.
 ### Zentrale Leitlinien
 - Moderne, einfache und ästhetische Benutzeroberfläche mit starkem Fokus auf eine gute UX.
-- Die Gestaltung orientiert sich am FDP Corporate Design, mit den Farben:
+- Die Gestaltung orientiert sich am FDP Corporate Design, mit DejaVu Sans als Schriftart und den Farben:
 	- `#FFE000` (Gelb, Primärfarbe)
 	- `#032D67` (Blau, Sekundärfarbe)
 	- `#00A7E7` (Cyan, Tertiärfarbe)

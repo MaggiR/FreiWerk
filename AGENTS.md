@@ -58,7 +58,7 @@ On first start the app container runs `npm install`, migrations, seed, and `nuxt
 - Motion CRUD: draft → publish → debate, featuring a TipTap editor with all basic formatting options
 - Linear debate posts under a motion
 - Non-binding mood poll (approve / reject / abstain / undecided) with charts
-- Landing page and dark/light mode
+- Landing page, sleek and modern look (glass morphism header menu), and dark/light mode
 
 **Out of scope until explicitly requested:**
 
