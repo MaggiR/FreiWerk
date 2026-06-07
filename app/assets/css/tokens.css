@@ -1,0 +1,119 @@
+/*
+ * FreiWerk design tokens.
+ * Central source of truth for brand colors, typography, spacing and surfaces.
+ * Components must reference these variables — no hardcoded brand values.
+ */
+
+/* DejaVu Sans is self-hosted. Drop the font files into public/fonts/
+   (see public/fonts/README.md). The stack falls back gracefully. */
+@font-face {
+  font-family: 'DejaVu Sans';
+  src: url('/fonts/DejaVuSans.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DejaVu Sans';
+  src: url('/fonts/DejaVuSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Brand palette (FDP corporate design) */
+  --brand-yellow: #ffe000;
+  --brand-blue: #032d67;
+  --brand-cyan: #00a7e7;
+
+  /* Semantic brand roles */
+  --color-primary: var(--brand-yellow);
+  --color-secondary: var(--brand-blue);
+  --color-tertiary: var(--brand-cyan);
+
+  /* Typography */
+  --font-sans: 'DejaVu Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-size-base: 16px;
+  --line-height-base: 1.6;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* Radii & shadows */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 3px rgba(3, 45, 103, 0.08);
+  --shadow-md: 0 8px 24px rgba(3, 45, 103, 0.12);
+
+  /* Layout */
+  --layout-max-width: 1080px;
+  --header-height: 64px;
+
+  /* Light theme surfaces */
+  --color-bg: #f6f8fc;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-text: #0f1b33;
+  --color-text-muted: #5b6678;
+  --color-border: #e2e8f2;
+  --color-accent: var(--brand-blue);
+  --color-accent-contrast: #ffffff;
+  --color-danger: #c0392b;
+  --color-success: #1e8e5a;
+
+  /* Mood poll (cold-toned, harmonizes with brand cyan/navy) */
+  --mood-approve: #2a9d7a;
+  --mood-reject: #b84a5c;
+  --mood-abstain: #9aa3b2;
+
+  /* Glass morphism */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-blur: 14px;
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    rgba(0, 167, 231, 0.15),
+    rgba(255, 224, 0, 0.18)
+  );
+}
+
+/* Dark theme overrides (color-mode adds `.dark` on <html>) */
+.dark {
+  --color-bg: #0a1124;
+  --color-bg-elevated: #111b34;
+  --color-surface: #131f3c;
+  --color-text: #eef2fb;
+  --color-text-muted: #9aa7c2;
+  --color-border: #243353;
+  --color-accent: var(--brand-cyan);
+  --color-accent-contrast: #04122b;
+  --color-danger: #ff6b5e;
+  --color-success: #4cd093;
+
+  --mood-approve: #3cb892;
+  --mood-reject: #d45f72;
+  --mood-abstain: #9aa3b2;
+
+  --glass-bg: rgba(17, 27, 52, 0.6);
+  --glass-border: rgba(120, 150, 200, 0.18);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  --gradient-hero: linear-gradient(
+    135deg,
+    rgba(0, 167, 231, 0.18),
+    rgba(3, 45, 103, 0.35)
+  );
+}
