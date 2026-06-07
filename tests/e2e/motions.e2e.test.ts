@@ -9,7 +9,7 @@ const runE2E = process.env.RUN_E2E === '1'
 describe.skipIf(!runE2E)('motions API (e2e)', async () => {
   await setup({ server: true, browser: false })
 
-  it('lists published motions and excludes drafts', async () => {
+  it('lists published motions and excludes drafts for anonymous users', async () => {
     const res = await $fetch<{ motions: Array<{ status: string }> }>('/api/motions')
     expect(Array.isArray(res.motions)).toBe(true)
     expect(res.motions.every((m) => m.status !== 'draft')).toBe(true)

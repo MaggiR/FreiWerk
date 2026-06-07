@@ -2,6 +2,7 @@
 import type { MotionListItem } from '../../shared/types'
 
 const { loggedIn, user } = useAuthUser()
+const { open: openAuthModal } = useAuthModal()
 
 useHead({ title: 'FreiWerk — Marktplatz liberaler Ideen' })
 
@@ -37,6 +38,11 @@ const recentMotions = computed<MotionListItem[]>(
 const myMotions = computed<MotionListItem[]>(
   () => (mine.value?.motions ?? []).slice(0, 3) as MotionListItem[],
 )
+
+const myMotionsTo = computed(() => ({
+  path: '/motions',
+  query: user.value?.id ? { authorId: user.value.id } : {},
+}))
 </script>
 
 <template>
@@ -50,12 +56,16 @@ const myMotions = computed<MotionListItem[]>(
           Unterstützung sichtbar — offen, transparent und verbindlich.
         </p>
         <div class="hero__actions">
-          <NuxtLink :to="loggedIn ? '/motions/new' : '/auth/register'">
+          <NuxtLink v-if="loggedIn" to="/motions/new">
             <FwButton variant="primary">
               <FontAwesomeIcon icon="plus" />
-              {{ loggedIn ? 'Antrag stellen' : 'Jetzt mitmachen' }}
+              Antrag stellen
             </FwButton>
           </NuxtLink>
+          <FwButton v-else variant="primary" @click="openAuthModal('register')">
+            <FontAwesomeIcon icon="plus" />
+            Jetzt mitmachen
+          </FwButton>
           <NuxtLink to="/motions">
             <FwButton variant="ghost">Anträge entdecken</FwButton>
           </NuxtLink>
@@ -66,7 +76,7 @@ const myMotions = computed<MotionListItem[]>(
     <section v-if="loggedIn && myMotions.length > 0" class="section">
       <div class="section__head">
         <h2><FontAwesomeIcon icon="seedling" /> Deine Anträge</h2>
-        <NuxtLink :to="`/motions?authorId=${user?.id}`">Alle anzeigen</NuxtLink>
+        <NuxtLink :to="myMotionsTo">Alle anzeigen</NuxtLink>
       </div>
       <div class="grid">
         <MotionCard v-for="m in myMotions" :key="m.id" :motion="m" />

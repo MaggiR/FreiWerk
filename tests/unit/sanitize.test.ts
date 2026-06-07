@@ -28,6 +28,15 @@ describe('sanitizeRichText', () => {
     const clean = sanitizeRichText('<a href="javascript:alert(1)">x</a>')
     expect(clean).not.toContain('javascript:')
   })
+
+  it('keeps uploaded images and headings', () => {
+    const clean = sanitizeRichText(
+      '<h2>Titel</h2><p>Text</p><img src="/uploads/abc.png" alt="Grafik">',
+    )
+    expect(clean).toContain('<h2>Titel</h2>')
+    expect(clean).toContain('src="/uploads/abc.png"')
+    expect(clean).toContain('alt="Grafik"')
+  })
 })
 
 describe('htmlToText', () => {

@@ -14,5 +14,6 @@ export interface MotionListItem {
   divisionName: string | null
   postCount: number
   approvalCount: number
+  rejectCount: number
   voteCount: number
 }

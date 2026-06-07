@@ -14,7 +14,7 @@ export const loginSchema = z.object({
 
 export const motionCreateSchema = z.object({
   title: z.string().trim().min(5).max(200),
-  summary: z.string().trim().min(10).max(500),
+  summary: z.string().trim().min(50).max(200),
   // Raw TipTap HTML; sanitized server-side before persistence.
   bodyHtml: z.string().min(1).max(100_000),
   topic: z.enum(TOPICS),

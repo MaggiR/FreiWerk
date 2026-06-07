@@ -15,7 +15,7 @@ import {
 import {
   MOOD_POLL_CHOICES,
   MOOD_LABELS,
-  MOOD_COLORS,
+  moodColorsForScheme,
   type MoodPollChoice,
 } from '../../shared/constants'
 
@@ -35,8 +35,13 @@ type TrendPoint = { t: string } & Record<MoodPollChoice, number>
 const props = defineProps<{ trend: TrendPoint[] }>()
 
 const colorMode = useColorMode()
+const isDark = computed(() => colorMode.value === 'dark')
+const moodColors = computed(() =>
+  moodColorsForScheme(isDark.value ? 'dark' : 'light'),
+)
+const fillAlpha = computed(() => (isDark.value ? 0.55 : 0.72))
 const axisColor = computed(() =>
-  colorMode.value === 'dark' ? '#9aa7c2' : '#5b6678',
+  isDark.value ? '#9aa7c2' : '#5b6678',
 )
 const gridColor = computed(() =>
   colorMode.value === 'dark' ? 'rgba(120,150,200,0.15)' : 'rgba(3,45,103,0.08)',
@@ -61,12 +66,13 @@ const labels = computed(() =>
 
 const chartData = computed(() => ({
   labels: labels.value,
-  datasets: MOOD_POLL_CHOICES.map((choice) => ({
+  datasets: MOOD_POLL_CHOICES.map((choice, index) => ({
     label: MOOD_LABELS[choice],
     data: props.trend.map((p) => p[choice]),
-    borderColor: MOOD_COLORS[choice],
-    backgroundColor: hexToRgba(MOOD_COLORS[choice], 0.35),
-    fill: true,
+    borderColor: moodColors.value[choice],
+    backgroundColor: hexToRgba(moodColors.value[choice], fillAlpha.value),
+    fill: index === 0 ? 'origin' : '-1',
+    stack: 'mood',
     tension: 0.3,
     pointRadius: 0,
   })),

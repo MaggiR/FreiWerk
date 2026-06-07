@@ -10,17 +10,25 @@ export default defineEventHandler(async (event) => {
 
   const conditions: SQL[] = []
 
-  // Visibility: drafts are only listed for their own author.
-  const viewingOwn =
-    query.authorId !== undefined && query.authorId === currentUserId
-  if (!viewingOwn) {
+  if (query.authorId) {
+    conditions.push(eq(motions.authorId, query.authorId))
+    if (query.authorId !== currentUserId) {
+      conditions.push(ne(motions.status, 'draft'))
+    }
+  } else if (currentUserId) {
+    // Default list: all published motions plus the current user's drafts.
+    const visibility = or(
+      ne(motions.status, 'draft'),
+      eq(motions.authorId, currentUserId),
+    )
+    if (visibility) conditions.push(visibility)
+  } else {
     conditions.push(ne(motions.status, 'draft'))
   }
 
   if (query.status) conditions.push(eq(motions.status, query.status))
   if (query.topic) conditions.push(eq(motions.topic, query.topic))
   if (query.divisionId) conditions.push(eq(motions.divisionId, query.divisionId))
-  if (query.authorId) conditions.push(eq(motions.authorId, query.authorId))
   if (query.q) {
     const pattern = `%${query.q}%`
     const titleOrSummary = or(
@@ -38,6 +46,11 @@ export default defineEventHandler(async (event) => {
     select count(*)::int from ${moodVotes}
     where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'approve'
   )`.as('approval_count')
+
+  const rejectCount = sql<number>`(
+    select count(*)::int from ${moodVotes}
+    where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'reject'
+  )`.as('reject_count')
 
   const voteCount = sql<number>`(
     select count(*)::int from ${moodVotes} where ${moodVotes.motionId} = ${motions.id}
@@ -63,6 +76,7 @@ export default defineEventHandler(async (event) => {
       divisionName: divisions.name,
       postCount,
       approvalCount,
+      rejectCount,
       voteCount,
     })
     .from(motions)

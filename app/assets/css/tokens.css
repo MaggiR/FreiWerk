@@ -57,7 +57,9 @@
 
   /* Layout */
   --layout-max-width: 1080px;
+  --header-offset-top: var(--space-3);
   --header-height: 64px;
+  --header-total-height: calc(var(--header-offset-top) + var(--header-height));
 
   /* Light theme surfaces */
   --color-bg: #f6f8fc;
@@ -71,10 +73,10 @@
   --color-danger: #c0392b;
   --color-success: #1e8e5a;
 
-  /* Mood poll (cold-toned, harmonizes with brand cyan/navy) */
-  --mood-approve: #2a9d7a;
-  --mood-reject: #b84a5c;
-  --mood-abstain: #9aa3b2;
+  /* Mood poll — saturated for legible charts on light surfaces */
+  --mood-approve: #0a9f5e;
+  --mood-reject: #d91e36;
+  --mood-abstain: #b8c5d6;
 
   /* Glass morphism */
   --glass-bg: rgba(255, 255, 255, 0.65);

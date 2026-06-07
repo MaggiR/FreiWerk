@@ -44,13 +44,14 @@ async function onSave(values: MotionFormValues) {
   }
 }
 
-async function onPublish() {
-  error.value = ''
+async function onPublish(values: MotionFormValues) {
   if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
     return
   }
+  error.value = ''
   pending.value = true
   try {
+    await $fetch(`/api/motions/${id}`, { method: 'PATCH', body: values })
     await $fetch(`/api/motions/${id}/publish`, {
       method: 'POST',
       body: { debateDays: debateDays.value },
@@ -92,8 +93,10 @@ async function onDelete() {
           bodyHtml: motion.bodyHtml,
         }"
         submit-label="Entwurf speichern"
+        show-publish
         :pending="pending"
         @submit="onSave"
+        @publish="onPublish"
       >
         <template #actions>
           <FwButton variant="ghost" type="button" :disabled="pending" @click="onDelete">
@@ -108,15 +111,12 @@ async function onDelete() {
       <h2>Veröffentlichen</h2>
       <p class="form-hint">
         Mit der Veröffentlichung startet die Debattenphase. Der Antrag ist
-        danach schreibgeschützt.
+        danach schreibgeschützt. Nutze den Veröffentlichen-Button im Formular oben.
       </p>
       <label class="field publish-card__field">
         <span>Dauer der Debatte (Tage)</span>
         <input v-model.number="debateDays" type="number" min="1" max="90" >
       </label>
-      <FwButton variant="secondary" :disabled="pending" @click="onPublish">
-        <FontAwesomeIcon icon="paper-plane" /> Jetzt veröffentlichen
-      </FwButton>
     </FwCard>
   </div>
 </template>

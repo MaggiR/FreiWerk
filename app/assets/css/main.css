@@ -91,6 +91,15 @@ select:focus {
   font-weight: 400;
 }
 
+.app-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  opacity: 0.75;
+}
+
 /* Rendered rich text (sanitized HTML) */
 .rich-text {
   line-height: 1.7;
@@ -99,6 +108,71 @@ select:focus {
 .rich-text h2,
 .rich-text h3 {
   margin-top: var(--space-5);
+}
+
+.rich-text--collapsible .rich-text__section {
+  margin: var(--space-3) 0 0;
+}
+
+.rich-text--collapsible .rich-text__section .rich-text__section {
+  margin: var(--space-2) 0 0;
+}
+
+.rich-text--collapsible .rich-text__section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.rich-text--collapsible .rich-text__section-title:hover {
+  color: var(--color-accent);
+}
+
+.rich-text--collapsible .rich-text__section-title::-webkit-details-marker {
+  display: none;
+}
+
+.rich-text--collapsible .rich-text__section-title::before {
+  content: '';
+  flex-shrink: 0;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+  margin-top: 0.1rem;
+}
+
+.rich-text--collapsible .rich-text__section:not([open]) .rich-text__section-title::before {
+  transform: rotate(-45deg);
+  margin-top: -0.15rem;
+}
+
+.rich-text--collapsible .rich-text__section-title--h1 {
+  font-size: 1.5rem;
+}
+
+.rich-text--collapsible .rich-text__section-title--h2 {
+  font-size: 1.25rem;
+}
+
+.rich-text--collapsible .rich-text__section-title--h3 {
+  font-size: 1.05rem;
+}
+
+.rich-text--collapsible .rich-text__section-body {
+  padding: 0;
+}
+
+.rich-text--collapsible .rich-text__section-body > :first-child {
+  margin-top: 0;
 }
 .rich-text p {
   margin: var(--space-3) 0;
@@ -122,6 +196,98 @@ select:focus {
 .rich-text code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;
+}
+.rich-text img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  margin: var(--space-3) 0;
+}
+
+/* Attachment chips (editor + rendered motion text) */
+.attachment-chip-wrapper {
+  display: block;
+  margin: var(--space-3) 0;
+}
+
+.attachment-chip,
+.rich-text a.attachment-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.attachment-chip__link {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.attachment-chip__link:hover {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.attachment-chip__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 0.1em;
+  color: var(--color-accent);
+}
+
+.attachment-chip__label {
+  word-break: break-word;
+  white-space: normal;
+}
+
+.attachment-chip__rename {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 0.05em;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.attachment-chip__rename:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.rich-text a.attachment-chip .attachment-chip__icon:empty::before {
+  content: '\1F4CE';
+}
+
+/* Inline text button styled like a link */
+.inline-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* Utility */

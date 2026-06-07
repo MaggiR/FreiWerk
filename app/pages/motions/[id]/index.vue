@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
+
 const route = useRoute()
 const id = route.params.id as string
 const { user } = useAuthUser()
@@ -20,6 +22,28 @@ const debateOpen = computed(() => {
 })
 
 useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
+
+const publishPending = ref(false)
+const publishError = ref('')
+
+async function onPublish() {
+  if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
+    return
+  }
+  publishError.value = ''
+  publishPending.value = true
+  try {
+    await $fetch(`/api/motions/${id}/publish`, {
+      method: 'POST',
+      body: { debateDays: DEFAULT_DEBATE_DAYS },
+    })
+    await refreshNuxtData()
+  } catch (err: unknown) {
+    publishError.value = extractError(err, 'Veröffentlichen fehlgeschlagen.')
+  } finally {
+    publishPending.value = false
+  }
+}
 </script>
 
 <template>
@@ -28,10 +52,8 @@ useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
 
     <header class="motion__header">
       <div class="motion__badges">
+        <MotionStatusBadge :status="motion.status" />
         <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
-        <FwBadge :tone="motion.status === 'debate' ? 'secondary' : 'neutral'">
-          {{ statusLabel(motion.status) }}
-        </FwBadge>
         <FwBadge v-if="motion.division?.name" tone="neutral">
           {{ motion.division.name }}
         </FwBadge>
@@ -58,11 +80,21 @@ useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
             <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
           </FwButton>
         </NuxtLink>
+        <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
+          <FontAwesomeIcon icon="paper-plane" />
+          {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
+        </FwButton>
       </div>
+      <p v-if="publishError" class="form-error">{{ publishError }}</p>
     </header>
 
     <FwCard class="motion__body">
-      <RichText :html="motion.bodyHtml" />
+      <ClientOnly>
+        <RichText :html="motion.bodyHtml" collapsible-headings />
+        <template #fallback>
+          <RichText :html="motion.bodyHtml" />
+        </template>
+      </ClientOnly>
     </FwCard>
 
     <section v-if="!isDraft" class="motion__section">
@@ -75,12 +107,10 @@ useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
       <MotionDebate :motion-id="motion.id" :debate-open="debateOpen" />
     </section>
 
-    <FwCard v-else class="motion__draft-note">
-      <p>
-        Dieser Antrag ist noch ein Entwurf. Stimmungsbild und Debatte werden mit
-        der Veröffentlichung aktiviert.
-      </p>
-    </FwCard>
+    <p v-else class="app-hint motion__hint">
+      Dieser Antrag ist noch ein Entwurf. Stimmungsbild und Debatte werden mit der
+      Veröffentlichung aktiviert.
+    </p>
   </article>
 </template>
 
@@ -123,6 +153,9 @@ useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
   gap: var(--space-2);
 }
 .motion__author-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
 .motion__body {
@@ -136,5 +169,8 @@ useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+.motion__hint {
+  margin-top: var(--space-2);
 }
 </style>

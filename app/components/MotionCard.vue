@@ -1,21 +1,15 @@
 <script setup lang="ts">
 import type { MotionListItem } from '../../shared/types'
 
-const props = defineProps<{ motion: MotionListItem }>()
-
-const ratio = computed(() =>
-  approvalRatio(props.motion.approvalCount, props.motion.voteCount),
-)
+defineProps<{ motion: MotionListItem }>()
 </script>
 
 <template>
   <NuxtLink :to="`/motions/${motion.id}`" class="motion-card-link">
     <FwCard class="motion-card">
       <div class="motion-card__head">
+        <MotionStatusBadge :status="motion.status" />
         <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
-        <FwBadge :tone="motion.status === 'debate' ? 'secondary' : 'neutral'">
-          {{ statusLabel(motion.status) }}
-        </FwBadge>
       </div>
 
       <h3 class="motion-card__title">{{ motion.title }}</h3>
@@ -24,9 +18,12 @@ const ratio = computed(() =>
       <div class="motion-card__meta">
         <span><FontAwesomeIcon icon="user" /> {{ motion.authorName }}</span>
         <span><FontAwesomeIcon icon="comments" /> {{ motion.postCount }}</span>
-        <span v-if="motion.voteCount > 0">
-          <FontAwesomeIcon icon="thumbs-up" /> {{ ratio }}%
-        </span>
+        <MoodBar
+          v-if="motion.voteCount > 0"
+          :approve="motion.approvalCount"
+          :reject="motion.rejectCount"
+          :total="motion.voteCount"
+        />
         <span v-if="motion.status === 'debate' && motion.debateEndsAt">
           <FontAwesomeIcon icon="clock" /> {{ timeRemaining(motion.debateEndsAt) }}
         </span>

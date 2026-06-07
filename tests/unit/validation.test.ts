@@ -34,22 +34,36 @@ describe('loginSchema', () => {
   })
 })
 
+const validSummary =
+  'Nachhaltige Finanzierung digitaler Infrastruktur und Fortbildung an Schulen absichern.'
+
 describe('motionCreateSchema', () => {
   it('accepts a valid motion', () => {
     const parsed = motionCreateSchema.parse({
       title: 'Ein sinnvoller Titel',
-      summary: 'Eine ausreichend lange Zusammenfassung.',
+      summary: validSummary,
       bodyHtml: '<p>Inhalt</p>',
       topic: 'wirtschaft',
     })
     expect(parsed.topic).toBe('wirtschaft')
   })
 
+  it('rejects summaries shorter than 50 characters', () => {
+    expect(() =>
+      motionCreateSchema.parse({
+        title: 'Ein sinnvoller Titel',
+        summary: 'Zu kurz.',
+        bodyHtml: '<p>Inhalt</p>',
+        topic: 'wirtschaft',
+      }),
+    ).toThrow()
+  })
+
   it('rejects unknown topics', () => {
     expect(() =>
       motionCreateSchema.parse({
         title: 'Titel hier',
-        summary: 'Lange Zusammenfassung.',
+        summary: validSummary,
         bodyHtml: '<p>x</p>',
         topic: 'nonsense',
       }),

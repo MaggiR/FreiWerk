@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { approvalRatio, topicLabel, statusLabel } from '../../app/utils/format'
+import {
+  approvalRatio,
+  topicLabel,
+  statusLabel,
+  statusIcon,
+} from '../../app/utils/format'
 
 describe('approvalRatio', () => {
   it('computes a rounded percentage', () => {
@@ -22,5 +27,12 @@ describe('labels', () => {
   it('falls back to the raw value for unknown keys', () => {
     expect(topicLabel('unknown')).toBe('unknown')
     expect(statusLabel('weird')).toBe('weird')
+  })
+
+  it('maps known statuses to icons', () => {
+    expect(statusIcon('draft')).toBe('pen')
+    expect(statusIcon('debate')).toBe('comments')
+    expect(statusIcon('ballot')).toBe('chart-column')
+    expect(statusIcon('decided')).toBeNull()
   })
 })

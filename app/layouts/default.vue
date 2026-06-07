@@ -1,6 +1,26 @@
+<script setup lang="ts">
+const route = useRoute()
+const router = useRouter()
+const { open: openAuthModal } = useAuthModal()
+
+function syncAuthQuery() {
+  const auth = route.query.auth
+  if (auth !== 'login' && auth !== 'register') return
+
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
+  openAuthModal(auth, redirect)
+
+  const { auth: _auth, redirect: _redirect, ...rest } = route.query
+  router.replace({ path: route.path, query: rest })
+}
+
+watch(() => route.query.auth, syncAuthQuery, { immediate: true })
+</script>
+
 <template>
   <div class="app-shell">
     <AppHeader />
+    <AuthModal />
     <main class="app-main">
       <slot />
     </main>
@@ -22,7 +42,7 @@
   width: 100%;
   max-width: var(--layout-max-width);
   margin: 0 auto;
-  padding: calc(var(--header-height) + var(--space-6)) var(--space-4) var(--space-8);
+  padding: calc(var(--header-total-height) + var(--space-6)) var(--space-4) var(--space-8);
 }
 
 .app-footer {

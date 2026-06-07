@@ -17,6 +17,10 @@ npm-debug.log*
 .env.*
 !.env.example
 
+# User uploads (keep directory via .gitkeep)
+public/uploads/*
+!public/uploads/.gitkeep
+
 # Misc
 .DS_Store
 .fleet

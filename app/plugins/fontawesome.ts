@@ -9,10 +9,13 @@ import {
   faUser,
   faComments,
   faChartPie,
+  faChartBar,
   faChartArea,
   faFire,
   faClock,
+  faPen,
   faPenToSquare,
+  faChartColumn,
   faTrash,
   faPaperPlane,
   faCheck,
@@ -37,6 +40,9 @@ import {
   faRotateRight,
   faScaleBalanced,
   faSeedling,
+  faXmark,
+  faFloppyDisk,
+  faPaperclip,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -51,10 +57,13 @@ library.add(
   faUser,
   faComments,
   faChartPie,
+  faChartBar,
   faChartArea,
   faFire,
   faClock,
+  faPen,
   faPenToSquare,
+  faChartColumn,
   faTrash,
   faPaperPlane,
   faCheck,
@@ -79,6 +88,9 @@ library.add(
   faRotateRight,
   faScaleBalanced,
   faSeedling,
+  faXmark,
+  faFloppyDisk,
+  faPaperclip,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

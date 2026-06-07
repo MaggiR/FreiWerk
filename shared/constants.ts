@@ -46,11 +46,25 @@ export const MOOD_LABELS: Record<MoodPollChoice, string> = {
   abstain: 'Enthaltung',
 }
 
-// Cold-toned greens/reds that harmonize with the FDP cyan/navy palette.
-export const MOOD_COLORS: Record<MoodPollChoice, string> = {
-  approve: '#2A9D7A',
-  reject: '#B84A5C',
-  abstain: '#9aa3b2',
+export const MOOD_COLORS_LIGHT: Record<MoodPollChoice, string> = {
+  approve: '#0A9F5E',
+  reject: '#D91E36',
+  abstain: '#B8C5D6',
+}
+
+export const MOOD_COLORS_DARK: Record<MoodPollChoice, string> = {
+  approve: '#3CB892',
+  reject: '#D45F72',
+  abstain: '#9AA3B2',
+}
+
+/** @deprecated Use moodColorsForScheme() in theme-aware UI. */
+export const MOOD_COLORS = MOOD_COLORS_LIGHT
+
+export function moodColorsForScheme(
+  scheme: 'light' | 'dark',
+): Record<MoodPollChoice, string> {
+  return scheme === 'dark' ? MOOD_COLORS_DARK : MOOD_COLORS_LIGHT
 }
 
 export const MOTION_STATUS_LABELS: Record<string, string> = {

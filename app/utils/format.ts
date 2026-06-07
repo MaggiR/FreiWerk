@@ -12,6 +12,15 @@ export function statusLabel(status: string): string {
   return MOTION_STATUS_LABELS[status] ?? status
 }
 
+export function statusIcon(status: string): string | null {
+  const icons: Record<string, string> = {
+    draft: 'pen',
+    debate: 'comments',
+    ballot: 'chart-column',
+  }
+  return icons[status] ?? null
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return ''
   const date = typeof value === 'string' ? new Date(value) : value
