@@ -2,13 +2,16 @@ import { z } from 'zod'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { db } from '../../../database/client'
 import { moodVotes, moodVoteEvents } from '../../../database/schema'
+import {
+  appendTerminalTrendPoint,
+  buildMoodTrend,
+  type MoodCounts,
+} from '../../../utils/moodTrend'
 import { MOOD_POLL_CHOICES, type MoodChoiceValue } from '../../../../shared/constants'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
-type Counts = Record<MoodChoiceValue, number>
-
-function emptyCounts(): Counts {
+function emptyCounts(): MoodCounts {
   return { approve: 0, reject: 0, abstain: 0, undecided: 0 }
 }
 
@@ -40,14 +43,20 @@ export default defineEventHandler(async (event) => {
     .where(eq(moodVoteEvents.motionId, id))
     .orderBy(asc(moodVoteEvents.createdAt))
 
-  const latestByUser = new Map<string, MoodChoiceValue>()
-  const trend: Array<{ t: string } & Counts> = []
-  for (const e of events) {
-    latestByUser.set(e.userId, e.choice as MoodChoiceValue)
-    const snapshot = emptyCounts()
-    for (const choice of latestByUser.values()) snapshot[choice]++
-    trend.push({ t: new Date(e.createdAt).toISOString(), ...snapshot })
-  }
+  const trend = appendTerminalTrendPoint(
+    buildMoodTrend(
+      events.map((event) => ({
+        userId: event.userId,
+        choice: event.choice as MoodChoiceValue,
+        createdAt: new Date(event.createdAt),
+      })),
+    ),
+    {
+      approve: totals.approve,
+      reject: totals.reject,
+      abstain: totals.abstain,
+    },
+  )
 
   // Current user's own vote (if authenticated).
   let userChoice: MoodChoiceValue | null = null

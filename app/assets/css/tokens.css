@@ -77,6 +77,7 @@
   --mood-approve: #0a9f5e;
   --mood-reject: #d91e36;
   --mood-abstain: #b8c5d6;
+  --mood-undecided: #7b8fa8;
 
   /* Glass morphism */
   --glass-bg: rgba(255, 255, 255, 0.65);
@@ -106,6 +107,7 @@
   --mood-approve: #3cb892;
   --mood-reject: #d45f72;
   --mood-abstain: #9aa3b2;
+  --mood-undecided: #8e9db5;
 
   --glass-bg: rgba(17, 27, 52, 0.6);
   --glass-border: rgba(120, 150, 200, 0.18);

@@ -10,6 +10,10 @@ const { data: hot } = await useFetch('/api/motions', {
   query: { sort: 'active', status: 'debate' },
   key: 'home-hot',
 })
+const { data: controversial } = await useFetch('/api/motions', {
+  query: { sort: 'controversial', status: 'debate' },
+  key: 'home-controversial',
+})
 const { data: recent } = await useFetch('/api/motions', {
   query: { sort: 'recent' },
   key: 'home-recent',
@@ -21,10 +25,19 @@ const { data: mine } = await useFetch('/api/motions', {
   immediate: false,
 })
 
+const { data: watchedData } = await useFetch('/api/motions', {
+  query: { watched: 'true' },
+  key: 'home-watched',
+  immediate: false,
+})
+
 watch(
   loggedIn,
   (val) => {
-    if (val) refreshNuxtData('home-mine')
+    if (val) {
+      refreshNuxtData('home-mine')
+      refreshNuxtData('home-watched')
+    }
   },
   { immediate: true },
 )
@@ -32,17 +45,27 @@ watch(
 const hotMotions = computed<MotionListItem[]>(
   () => (hot.value?.motions ?? []).slice(0, 3) as MotionListItem[],
 )
+const controversialMotions = computed<MotionListItem[]>(
+  () => (controversial.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+)
 const recentMotions = computed<MotionListItem[]>(
   () => (recent.value?.motions ?? []).slice(0, 6) as MotionListItem[],
 )
 const myMotions = computed<MotionListItem[]>(
   () => (mine.value?.motions ?? []).slice(0, 3) as MotionListItem[],
 )
+const watchedMotions = computed<MotionListItem[]>(
+  () => (watchedData.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+)
 
 const myMotionsTo = computed(() => ({
   path: '/motions',
   query: user.value?.id ? { authorId: user.value.id } : {},
 }))
+
+function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }) {
+  if (!watched) refreshNuxtData('home-watched')
+}
 </script>
 
 <template>
@@ -55,21 +78,27 @@ const myMotionsTo = computed(() => ({
           Bring politische Anträge ein, debattiere strukturiert und mach
           Unterstützung sichtbar — offen, transparent und verbindlich.
         </p>
-        <div class="hero__actions">
-          <NuxtLink v-if="loggedIn" to="/motions/new">
-            <FwButton variant="primary">
-              <FontAwesomeIcon icon="plus" />
-              Antrag stellen
-            </FwButton>
-          </NuxtLink>
-          <FwButton v-else variant="primary" @click="openAuthModal('register')">
+      </div>
+      <div class="hero__actions">
+        <NuxtLink v-if="loggedIn" to="/motions/new" class="hero__action">
+          <FwButton variant="primary" block>
             <FontAwesomeIcon icon="plus" />
-            Jetzt mitmachen
+            Antrag stellen
           </FwButton>
-          <NuxtLink to="/motions">
-            <FwButton variant="ghost">Anträge entdecken</FwButton>
-          </NuxtLink>
-        </div>
+        </NuxtLink>
+        <FwButton
+          v-else
+          variant="primary"
+          block
+          class="hero__action"
+          @click="openAuthModal('register')"
+        >
+          <FontAwesomeIcon icon="plus" />
+          Jetzt mitmachen
+        </FwButton>
+        <NuxtLink to="/motions" class="hero__action">
+          <FwButton variant="ghost" block>Anträge entdecken</FwButton>
+        </NuxtLink>
       </div>
     </section>
 
@@ -83,6 +112,21 @@ const myMotionsTo = computed(() => ({
       </div>
     </section>
 
+    <section v-if="loggedIn && watchedMotions.length > 0" class="section">
+      <div class="section__head">
+        <h2><FontAwesomeIcon icon="star" /> Beobachtete Anträge</h2>
+        <NuxtLink to="/motions?watched=true">Alle anzeigen</NuxtLink>
+      </div>
+      <div class="grid">
+        <MotionCard
+          v-for="m in watchedMotions"
+          :key="m.id"
+          :motion="m"
+          @watch-changed="onWatchedCardChange"
+        />
+      </div>
+    </section>
+
     <section class="section">
       <div class="section__head">
         <h2><FontAwesomeIcon icon="fire" /> Heiß debattiert</h2>
@@ -92,6 +136,17 @@ const myMotionsTo = computed(() => ({
         <MotionCard v-for="m in hotMotions" :key="m.id" :motion="m" />
       </div>
       <FwCard v-else><p>Aktuell keine laufenden Debatten.</p></FwCard>
+    </section>
+
+    <section class="section">
+      <div class="section__head">
+        <h2><FontAwesomeIcon icon="scale-balanced" /> Besonders umstritten</h2>
+        <NuxtLink to="/motions?sort=controversial&status=debate">Mehr</NuxtLink>
+      </div>
+      <div v-if="controversialMotions.length > 0" class="grid">
+        <MotionCard v-for="m in controversialMotions" :key="m.id" :motion="m" />
+      </div>
+      <FwCard v-else><p>Aktuell keine kontroversen Debatten mit ausgewogener Zustimmung und Ablehnung.</p></FwCard>
     </section>
 
     <section class="section">
@@ -114,10 +169,16 @@ const myMotionsTo = computed(() => ({
   gap: var(--space-7);
 }
 .hero {
+  position: relative;
+  overflow: hidden;
   background: var(--gradient-hero);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-7) var(--space-6);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: center;
 }
 .hero__content {
   max-width: 640px;
@@ -129,12 +190,37 @@ const myMotionsTo = computed(() => ({
 .hero__lead {
   font-size: 1.2rem;
   color: var(--color-text-muted);
-  margin-bottom: var(--space-5);
+  margin: 0;
 }
 .hero__actions {
   display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  flex-wrap: wrap;
+}
+.hero__action {
+  display: block;
+}
+
+@media (min-width: 880px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.6fr) minmax(15rem, 1fr);
+    gap: var(--space-8);
+    padding: var(--space-7) var(--space-8);
+  }
+  .hero__actions {
+    position: relative;
+    padding: var(--space-5);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-md);
+  }
+  .hero__actions :deep(.fw-btn) {
+    font-size: 1.05rem;
+    padding: var(--space-4) var(--space-5);
+  }
 }
 .section__head {
   display: flex;

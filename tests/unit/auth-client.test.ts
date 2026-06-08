@@ -1,0 +1,14 @@
+import { describe, it, expect } from 'vitest'
+import { isAuthMutationUrl } from '../../app/utils/auth'
+
+describe('isAuthMutationUrl', () => {
+  it('matches login and register endpoints', () => {
+    expect(isAuthMutationUrl('/api/auth/login')).toBe(true)
+    expect(isAuthMutationUrl('/api/auth/register')).toBe(true)
+  })
+
+  it('does not match other API routes', () => {
+    expect(isAuthMutationUrl('/api/motions/abc/posts')).toBe(false)
+    expect(isAuthMutationUrl('/api/_auth/session')).toBe(false)
+  })
+})

@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
       email: user.email,
       displayName: user.displayName,
       role: user.role,
+      avatarUrl: user.avatarUrl,
     },
     loggedInAt: new Date().toISOString(),
   })
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
       email: user.email,
       displayName: user.displayName,
       role: user.role,
+      avatarUrl: user.avatarUrl,
     },
   }
 })

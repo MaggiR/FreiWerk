@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { wrapHeadingSections } from '../../app/utils/richTextSections'
 
@@ -36,8 +37,8 @@ describe('wrapHeadingSections', () => {
     `
     wrapHeadingSections(container)
 
-    const sections = Array.from(
-      container.querySelectorAll(':scope > details.rich-text__section'),
+    const sections = Array.from(container.children).filter((el) =>
+      el.matches('details.rich-text__section'),
     )
     expect(sections.length).toBe(2)
     expect(sections[0]?.querySelector('.rich-text__section-body')?.textContent).toBe(

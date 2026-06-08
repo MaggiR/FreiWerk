@@ -3,7 +3,7 @@ import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
 
 const route = useRoute()
 const id = route.params.id as string
-const { user } = useAuthUser()
+const { user, isModerator } = useAuthUser()
 
 const { data, error } = await useFetch(`/api/motions/${id}`)
 
@@ -12,9 +12,36 @@ if (error.value) {
 }
 
 const motion = computed(() => data.value?.motion)
+const watchCount = computed(() => data.value?.watchCount ?? 0)
+const isWatched = computed(() => data.value?.isWatched ?? false)
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
 const isDraft = computed(() => motion.value?.status === 'draft')
+const isArchived = computed(() => Boolean(motion.value?.archivedAt))
+const canArchive = computed(() => isAuthor.value || isModerator.value)
+
+const archivePending = ref(false)
+const archiveError = ref('')
+
+async function onArchiveToggle() {
+  const archive = !isArchived.value
+  if (archive && !confirm('Antrag archivieren? Er erscheint dann nur noch im Archiv.')) {
+    return
+  }
+  archiveError.value = ''
+  archivePending.value = true
+  try {
+    await $fetch(`/api/motions/${id}/archive`, {
+      method: 'POST',
+      body: { archived: archive },
+    })
+    await refreshNuxtData()
+  } catch (err: unknown) {
+    archiveError.value = extractError(err, 'Aktion fehlgeschlagen.')
+  } finally {
+    archivePending.value = false
+  }
+}
 const debateOpen = computed(() => {
   const m = motion.value
   if (!m || m.status !== 'debate') return false
@@ -57,13 +84,25 @@ async function onPublish() {
         <FwBadge v-if="motion.division?.name" tone="neutral">
           {{ motion.division.name }}
         </FwBadge>
+        <FwBadge v-if="isArchived" tone="neutral">
+          <FontAwesomeIcon icon="box-archive" /> Archiviert
+        </FwBadge>
       </div>
 
       <h1 class="motion__title">{{ motion.title }}</h1>
       <p class="motion__summary">{{ motion.summary }}</p>
 
       <div class="motion__meta">
-        <span><FontAwesomeIcon icon="user" /> {{ motion.author?.displayName }}</span>
+        <NuxtLink
+          v-if="motion.authorId && !motion.isAnonymous"
+          :to="`/users/${motion.authorId}`"
+          class="motion__author-link"
+        >
+          <FontAwesomeIcon icon="user" /> {{ motion.author?.displayName }}
+        </NuxtLink>
+        <span v-else>
+          <FontAwesomeIcon icon="user" /> Anonym
+        </span>
         <span v-if="motion.publishedAt">
           <FontAwesomeIcon icon="clock" /> Veröffentlicht am
           {{ formatDate(motion.publishedAt) }}
@@ -74,18 +113,36 @@ async function onPublish() {
         </span>
       </div>
 
-      <div v-if="isAuthor && isDraft" class="motion__author-actions">
-        <NuxtLink :to="`/motions/${motion.id}/edit`">
-          <FwButton variant="secondary">
-            <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
+      <div class="motion__actions">
+        <WatchButton
+          v-if="!isDraft"
+          :motion-id="motion.id"
+          :watched="isWatched"
+          :watch-count="watchCount"
+        />
+        <template v-if="isAuthor && isDraft">
+          <NuxtLink :to="`/motions/${motion.id}/edit`">
+            <FwButton variant="secondary">
+              <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
+            </FwButton>
+          </NuxtLink>
+          <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
+            <FontAwesomeIcon icon="paper-plane" />
+            {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
           </FwButton>
-        </NuxtLink>
-        <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
-          <FontAwesomeIcon icon="paper-plane" />
-          {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
+        </template>
+        <FwButton
+          v-if="canArchive && !isDraft"
+          variant="ghost"
+          :disabled="archivePending"
+          @click="onArchiveToggle"
+        >
+          <FontAwesomeIcon icon="box-archive" />
+          {{ isArchived ? 'Aus Archiv holen' : 'Archivieren' }}
         </FwButton>
       </div>
       <p v-if="publishError" class="form-error">{{ publishError }}</p>
+      <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
     </header>
 
     <FwCard class="motion__body">
@@ -147,12 +204,20 @@ async function onPublish() {
   color: var(--color-text-muted);
   margin-bottom: var(--space-4);
 }
-.motion__meta span {
+.motion__meta span,
+.motion__author-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
-.motion__author-actions {
+.motion__author-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.motion__author-link:hover {
+  color: var(--color-accent);
+}
+.motion__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);

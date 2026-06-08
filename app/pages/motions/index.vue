@@ -7,7 +7,24 @@ import {
   type Topic,
 } from '../../../shared/constants'
 
-type ActiveFilterKey = 'status' | 'topic' | 'divisionId' | 'sort' | 'authorId'
+type ActiveFilterKey =
+  | 'status'
+  | 'topic'
+  | 'divisionId'
+  | 'authorId'
+  | 'publishedFrom'
+  | 'publishedTo'
+  | 'minSupport'
+  | 'watched'
+  | 'archived'
+
+type SortValue = 'recent' | 'active' | 'controversial'
+
+const SORT_OPTIONS: { value: SortValue; label: string }[] = [
+  { value: 'recent', label: 'Neueste' },
+  { value: 'active', label: 'Aktivste' },
+  { value: 'controversial', label: 'Umstritten' },
+]
 
 type ActiveFilterChip = {
   key: ActiveFilterKey
@@ -36,6 +53,17 @@ function queryRecordFromRoute(
   if (typeof query.sort === 'string' && query.sort && query.sort !== 'recent') {
     result.sort = query.sort
   }
+  if (typeof query.publishedFrom === 'string' && query.publishedFrom) {
+    result.publishedFrom = query.publishedFrom
+  }
+  if (typeof query.publishedTo === 'string' && query.publishedTo) {
+    result.publishedTo = query.publishedTo
+  }
+  if (typeof query.minSupport === 'string' && query.minSupport) {
+    result.minSupport = query.minSupport
+  }
+  if (query.watched === 'true') result.watched = 'true'
+  if (query.archived === 'true') result.archived = 'true'
   return result
 }
 
@@ -47,6 +75,11 @@ function queryRecordFromFilters(): Record<string, string> {
   if (filters.divisionId) result.divisionId = filters.divisionId
   if (filters.authorId) result.authorId = filters.authorId
   if (filters.sort && filters.sort !== 'recent') result.sort = filters.sort
+  if (filters.publishedFrom) result.publishedFrom = filters.publishedFrom
+  if (filters.publishedTo) result.publishedTo = filters.publishedTo
+  if (filters.minSupport) result.minSupport = filters.minSupport
+  if (filters.watched) result.watched = 'true'
+  if (filters.archived) result.archived = 'true'
   return result
 }
 
@@ -66,6 +99,14 @@ function applyRouteQuery(query: typeof route.query) {
   filters.authorId = typeof query.authorId === 'string' ? query.authorId : ''
   filters.sort =
     typeof query.sort === 'string' && query.sort ? query.sort : 'recent'
+  filters.publishedFrom =
+    typeof query.publishedFrom === 'string' ? query.publishedFrom : ''
+  filters.publishedTo =
+    typeof query.publishedTo === 'string' ? query.publishedTo : ''
+  filters.minSupport =
+    typeof query.minSupport === 'string' ? query.minSupport : ''
+  filters.watched = query.watched === 'true'
+  filters.archived = query.archived === 'true'
 }
 
 const filters = reactive({
@@ -75,6 +116,11 @@ const filters = reactive({
   divisionId: (route.query.divisionId as string) ?? '',
   authorId: (route.query.authorId as string) ?? '',
   sort: (route.query.sort as string) ?? 'recent',
+  publishedFrom: (route.query.publishedFrom as string) ?? '',
+  publishedTo: (route.query.publishedTo as string) ?? '',
+  minSupport: (route.query.minSupport as string) ?? '',
+  watched: route.query.watched === 'true',
+  archived: route.query.archived === 'true',
 })
 
 watch(
@@ -97,6 +143,11 @@ watch(
     filters.divisionId,
     filters.authorId,
     filters.sort,
+    filters.publishedFrom,
+    filters.publishedTo,
+    filters.minSupport,
+    filters.watched,
+    filters.archived,
   ] as const,
   () => {
     const nextQuery = queryRecordFromFilters()
@@ -110,7 +161,25 @@ watch(
 )
 
 const filtersOpen = ref(
-  Boolean(filters.status || filters.topic || filters.divisionId || filters.sort === 'active'),
+  Boolean(
+    filters.status
+    || filters.topic
+    || filters.divisionId
+    || filters.publishedFrom
+    || filters.publishedTo
+    || filters.minSupport
+    || filters.watched
+    || filters.archived,
+  ),
+)
+
+const sortOpen = ref(false)
+const sortMenuRef = ref<HTMLElement | null>(null)
+
+const sortActive = computed(() => filters.sort !== 'recent')
+
+const sortChipLabel = computed(() =>
+  SORT_OPTIONS.find((option) => option.value === filters.sort)?.label ?? null,
 )
 
 const { data: divisionData } = await useFetch('/api/divisions')
@@ -143,11 +212,29 @@ const activeFilterChips = computed<ActiveFilterChip[]>(() => {
     })
   }
 
-  if (filters.sort === 'active') {
+  if (filters.publishedFrom) {
     chips.push({
-      key: 'sort',
-      label: 'Aktivste',
+      key: 'publishedFrom',
+      label: `Ab ${formatDateLabel(filters.publishedFrom)}`,
     })
+  }
+  if (filters.publishedTo) {
+    chips.push({
+      key: 'publishedTo',
+      label: `Bis ${formatDateLabel(filters.publishedTo)}`,
+    })
+  }
+  if (filters.minSupport) {
+    chips.push({
+      key: 'minSupport',
+      label: `Mind. ${filters.minSupport}% Zustimmung`,
+    })
+  }
+  if (filters.watched) {
+    chips.push({ key: 'watched', label: 'Beobachtet' })
+  }
+  if (filters.archived) {
+    chips.push({ key: 'archived', label: 'Archiv' })
   }
 
   if (filters.authorId) {
@@ -173,8 +260,19 @@ const apiQuery = computed(() => {
   if (filters.divisionId) q.divisionId = filters.divisionId
   if (filters.authorId) q.authorId = filters.authorId
   if (filters.sort) q.sort = filters.sort
+  if (filters.publishedFrom) q.publishedFrom = filters.publishedFrom
+  if (filters.publishedTo) q.publishedTo = filters.publishedTo
+  if (filters.minSupport) q.minSupport = filters.minSupport
+  if (filters.watched) q.watched = 'true'
+  if (filters.archived) q.archived = 'true'
   return q
 })
+
+function formatDateLabel(value: string): string {
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+  return `${day}.${month}.${year}`
+}
 
 const { data, pending } = await useFetch('/api/motions', {
   query: apiQuery,
@@ -185,21 +283,52 @@ const motions = computed<MotionListItem[]>(
   () => (data.value?.motions ?? []) as MotionListItem[],
 )
 
+function clearSort() {
+  filters.sort = 'recent'
+}
+
+function selectSort(value: SortValue) {
+  filters.sort = value
+  sortOpen.value = false
+}
+
+function toggleFilters() {
+  filtersOpen.value = !filtersOpen.value
+  if (filtersOpen.value) sortOpen.value = false
+}
+
+function toggleSort() {
+  sortOpen.value = !sortOpen.value
+  if (sortOpen.value) filtersOpen.value = false
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (!sortOpen.value || !sortMenuRef.value) return
+  if (!sortMenuRef.value.contains(event.target as Node)) {
+    sortOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onUnmounted(() => document.removeEventListener('click', onDocumentClick))
+
 function clearFilter(key: ActiveFilterKey) {
-  if (key === 'sort') {
-    filters.sort = 'recent'
+  if (key === 'watched' || key === 'archived') {
+    filters[key] = false
     return
   }
   filters[key] = ''
 }
 
 function resetFilters() {
-  filters.q = ''
   filters.status = ''
   filters.topic = ''
   filters.divisionId = ''
-  filters.authorId = ''
-  filters.sort = 'recent'
+  filters.publishedFrom = ''
+  filters.publishedTo = ''
+  filters.minSupport = ''
+  filters.watched = false
+  filters.archived = false
 }
 </script>
 
@@ -226,20 +355,67 @@ function resetFilters() {
           >
         </div>
 
+        <div ref="sortMenuRef" class="sort-menu">
+          <button
+            class="filters__toggle sort-menu__trigger"
+            type="button"
+            aria-label="Sortierung"
+            :aria-expanded="sortOpen"
+            aria-controls="motion-sort-panel"
+            @click.stop="toggleSort"
+          >
+            <FontAwesomeIcon icon="arrow-down-wide-short" class="filters__toggle-icon" />
+            <span v-if="sortActive" class="filters__badge">1</span>
+          </button>
+          <div
+            v-show="sortOpen"
+            id="motion-sort-panel"
+            class="sort-menu__panel"
+            role="menu"
+          >
+            <button
+              v-for="option in SORT_OPTIONS"
+              :key="option.value"
+              type="button"
+              class="sort-menu__item"
+              :class="{ 'sort-menu__item--active': filters.sort === option.value }"
+              role="menuitemradio"
+              :aria-checked="filters.sort === option.value"
+              @click="selectSort(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+
         <button
           class="filters__toggle"
           type="button"
           aria-label="Filter"
           :aria-expanded="filtersOpen"
           aria-controls="motion-filters-panel"
-          @click="filtersOpen = !filtersOpen"
+          @click="toggleFilters"
         >
           <FontAwesomeIcon icon="filter" class="filters__toggle-icon" />
           <span v-if="activeFilterCount > 0" class="filters__badge">{{ activeFilterCount }}</span>
         </button>
       </div>
 
-      <div v-if="activeFilterChips.length > 0" class="filters__active">
+      <div
+        v-if="sortActive || activeFilterChips.length > 0"
+        class="filters__active"
+      >
+        <span v-if="sortActive && sortChipLabel" class="filters__chip filters__chip--sort">
+          <span class="filters__chip-label">{{ sortChipLabel }}</span>
+          <button
+            type="button"
+            class="filters__chip-remove"
+            :aria-label="`Sortierung „${sortChipLabel}“ entfernen`"
+            @click="clearSort"
+          >
+            <FontAwesomeIcon icon="xmark" />
+          </button>
+        </span>
         <span
           v-for="chip in activeFilterChips"
           :key="chip.key"
@@ -291,16 +467,39 @@ function resetFilters() {
           </label>
 
           <label class="field">
-            <span>Sortierung</span>
-            <select v-model="filters.sort">
-              <option value="recent">Neueste</option>
-              <option value="active">Aktivste</option>
+            <span>Veröffentlicht ab</span>
+            <input v-model="filters.publishedFrom" type="date">
+          </label>
+
+          <label class="field">
+            <span>Veröffentlicht bis</span>
+            <input v-model="filters.publishedTo" type="date">
+          </label>
+
+          <label class="field">
+            <span>Min. Zustimmung</span>
+            <select v-model="filters.minSupport">
+              <option value="">Alle</option>
+              <option value="25">Mind. 25%</option>
+              <option value="50">Mind. 50%</option>
+              <option value="75">Mind. 75%</option>
             </select>
           </label>
 
           <FwButton variant="ghost" class="filters__reset" @click="resetFilters">
             Zurücksetzen
           </FwButton>
+        </div>
+
+        <div class="filters__toggles">
+          <label class="filters__check">
+            <input v-model="filters.watched" type="checkbox">
+            <span><FontAwesomeIcon icon="star" /> Nur beobachtete</span>
+          </label>
+          <label class="filters__check">
+            <input v-model="filters.archived" type="checkbox">
+            <span><FontAwesomeIcon icon="box-archive" /> Archiv anzeigen</span>
+          </label>
         </div>
       </div>
     </FwCard>
@@ -356,6 +555,58 @@ function resetFilters() {
 .filters__toggle:hover {
   transform: translateY(-1px);
   background: var(--color-bg);
+}
+
+.sort-menu {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-self: stretch;
+}
+
+.sort-menu__trigger {
+  height: 100%;
+}
+
+.sort-menu__panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 20;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+.sort-menu__item {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sort-menu__item:hover {
+  background: var(--color-bg);
+  color: var(--color-accent);
+}
+
+.sort-menu__item--active {
+  background: var(--color-bg);
+  color: var(--color-accent);
 }
 
 .filters__badge {
@@ -455,6 +706,28 @@ function resetFilters() {
 }
 .filters__reset {
   height: fit-content;
+}
+.filters__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.filters__check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+.filters__check input {
+  width: auto;
+  margin: 0;
+}
+.filters__check span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .grid {
   display: grid;

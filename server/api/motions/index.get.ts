@@ -1,7 +1,28 @@
-import { and, desc, eq, ne, or, ilike, sql, type SQL } from 'drizzle-orm'
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  isNull,
+  isNotNull,
+  lte,
+  ne,
+  or,
+  ilike,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { db } from '../../database/client'
-import { motions, users, divisions, posts, moodVotes } from '../../database/schema'
+import {
+  motions,
+  users,
+  divisions,
+  posts,
+  moodVotes,
+  motionWatches,
+} from '../../database/schema'
 import { motionListQuerySchema } from '../../utils/validation'
+import { redactMotionAuthor } from '../../utils/motionAnonymity'
 
 export default defineEventHandler(async (event) => {
   const query = await getValidatedQuery(event, motionListQuerySchema.parse)
@@ -14,6 +35,8 @@ export default defineEventHandler(async (event) => {
     conditions.push(eq(motions.authorId, query.authorId))
     if (query.authorId !== currentUserId) {
       conditions.push(ne(motions.status, 'draft'))
+      // Anonymous motions must not appear on another user's profile/list filter.
+      conditions.push(eq(motions.isAnonymous, false))
     }
   } else if (currentUserId) {
     // Default list: all published motions plus the current user's drafts.
@@ -26,6 +49,25 @@ export default defineEventHandler(async (event) => {
     conditions.push(ne(motions.status, 'draft'))
   }
 
+  // Hide archived motions by default; show only archived when requested.
+  conditions.push(
+    query.archived ? isNotNull(motions.archivedAt) : isNull(motions.archivedAt),
+  )
+
+  // Only the current user's watched motions.
+  if (query.watched && currentUserId) {
+    conditions.push(
+      sql`exists (
+        select 1 from ${motionWatches}
+        where ${motionWatches.motionId} = ${motions.id}
+          and ${motionWatches.userId} = ${currentUserId}
+      )`,
+    )
+  } else if (query.watched && !currentUserId) {
+    // Unauthenticated users have no watches.
+    conditions.push(sql`false`)
+  }
+
   if (query.status) conditions.push(eq(motions.status, query.status))
   if (query.topic) conditions.push(eq(motions.topic, query.topic))
   if (query.divisionId) conditions.push(eq(motions.divisionId, query.divisionId))
@@ -36,6 +78,24 @@ export default defineEventHandler(async (event) => {
       ilike(motions.summary, pattern),
     )
     if (titleOrSummary) conditions.push(titleOrSummary)
+  }
+
+  if (query.publishedFrom) {
+    conditions.push(gte(motions.publishedAt, new Date(`${query.publishedFrom}T00:00:00.000Z`)))
+  }
+  if (query.publishedTo) {
+    conditions.push(lte(motions.publishedAt, new Date(`${query.publishedTo}T23:59:59.999Z`)))
+  }
+  if (query.minSupport != null) {
+    conditions.push(sql`(
+      select count(*)::int from ${moodVotes} where ${moodVotes.motionId} = ${motions.id}
+    ) > 0`)
+    conditions.push(sql`(
+      select count(*)::int from ${moodVotes}
+      where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'approve'
+    ) * 100 / (
+      select count(*)::int from ${moodVotes} where ${moodVotes.motionId} = ${motions.id}
+    ) >= ${query.minSupport}`)
   }
 
   const postCount = sql<number>`(
@@ -56,10 +116,28 @@ export default defineEventHandler(async (event) => {
     select count(*)::int from ${moodVotes} where ${moodVotes.motionId} = ${motions.id}
   )`.as('vote_count')
 
+  // Inlined in ORDER BY (no alias) so it does not need to appear in SELECT.
+  const controversyOrder = sql`least(
+    (select count(*)::int from ${moodVotes}
+      where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'approve'),
+    (select count(*)::int from ${moodVotes}
+      where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'reject')
+  )`
+
   const orderBy =
     query.sort === 'active'
       ? [desc(postCount), desc(motions.updatedAt)]
-      : [desc(motions.publishedAt), desc(motions.createdAt)]
+      : query.sort === 'controversial'
+        ? [desc(controversyOrder), desc(voteCount), desc(motions.updatedAt)]
+        : [desc(motions.publishedAt), desc(motions.createdAt)]
+
+  const isWatched = currentUserId
+    ? sql<boolean>`exists(
+        select 1 from ${motionWatches}
+        where ${motionWatches.motionId} = ${motions.id}
+        and ${motionWatches.userId} = ${currentUserId}
+      )`
+    : sql<boolean>`false`
 
   const rows = await db
     .select({
@@ -71,13 +149,16 @@ export default defineEventHandler(async (event) => {
       createdAt: motions.createdAt,
       publishedAt: motions.publishedAt,
       debateEndsAt: motions.debateEndsAt,
+      archivedAt: motions.archivedAt,
       authorId: motions.authorId,
       authorName: users.displayName,
+      isAnonymous: motions.isAnonymous,
       divisionName: divisions.name,
       postCount,
       approvalCount,
       rejectCount,
       voteCount,
+      isWatched,
     })
     .from(motions)
     .leftJoin(users, eq(users.id, motions.authorId))
@@ -86,5 +167,7 @@ export default defineEventHandler(async (event) => {
     .orderBy(...orderBy)
     .limit(60)
 
-  return { motions: rows }
+  return {
+    motions: rows.map((row) => redactMotionAuthor(row, currentUserId)),
+  }
 })

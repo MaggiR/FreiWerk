@@ -197,6 +197,15 @@ select:focus {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;
 }
+.rich-text video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-4) 0;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
 .rich-text img {
   max-width: 100%;
   height: auto;

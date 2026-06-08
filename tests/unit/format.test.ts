@@ -4,6 +4,7 @@ import {
   topicLabel,
   statusLabel,
   statusIcon,
+  truncateText,
 } from '../../app/utils/format'
 
 describe('approvalRatio', () => {
@@ -15,6 +16,17 @@ describe('approvalRatio', () => {
 
   it('returns 0 when there are no votes', () => {
     expect(approvalRatio(0, 0)).toBe(0)
+  })
+})
+
+describe('truncateText', () => {
+  it('leaves short text unchanged', () => {
+    expect(truncateText('Kurz', 100)).toBe('Kurz')
+  })
+
+  it('truncates at the character limit with an ellipsis', () => {
+    const text = 'a'.repeat(120)
+    expect(truncateText(text, 100)).toBe(`${'a'.repeat(100)}…`)
   })
 })
 

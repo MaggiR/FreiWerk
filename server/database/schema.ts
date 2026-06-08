@@ -4,6 +4,7 @@ import {
   uuid,
   text,
   timestamp,
+  boolean,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
@@ -46,6 +47,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   displayName: text('display_name').notNull(),
+  // Public profile image stored under /uploads/.
+  avatarUrl: text('avatar_url'),
   role: userRoleEnum('role').notNull().default('member'),
   // Optional self-described function (e.g. "Mitglied LFA Wirtschaft").
   fn: text('fn'),
@@ -75,6 +78,10 @@ export const motions = pgTable(
     }),
     debateEndsAt: timestamp('debate_ends_at', { withTimezone: true }),
     publishedAt: timestamp('published_at', { withTimezone: true }),
+    // Set when the motion is archived (withdrawn/closed); null while active.
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    // When true the author is hidden from public views (authorId remains for auth).
+    isAnonymous: boolean('is_anonymous').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -86,6 +93,30 @@ export const motions = pgTable(
     index('motions_status_idx').on(table.status),
     index('motions_author_idx').on(table.authorId),
     index('motions_topic_idx').on(table.topic),
+  ],
+)
+
+// Motions a user watches/favorites to follow their progress.
+export const motionWatches = pgTable(
+  'motion_watches',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('motion_watches_motion_user_idx').on(
+      table.motionId,
+      table.userId,
+    ),
+    index('motion_watches_user_idx').on(table.userId),
   ],
 )
 
@@ -167,6 +198,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   motions: many(motions),
   posts: many(posts),
+  watches: many(motionWatches),
 }))
 
 export const motionsRelations = relations(motions, ({ one, many }) => ({
@@ -180,6 +212,18 @@ export const motionsRelations = relations(motions, ({ one, many }) => ({
   }),
   posts: many(posts),
   moodVotes: many(moodVotes),
+  watches: many(motionWatches),
+}))
+
+export const motionWatchesRelations = relations(motionWatches, ({ one }) => ({
+  motion: one(motions, {
+    fields: [motionWatches.motionId],
+    references: [motions.id],
+  }),
+  user: one(users, {
+    fields: [motionWatches.userId],
+    references: [users.id],
+  }),
 }))
 
 export const postsRelations = relations(posts, ({ one }) => ({
@@ -202,6 +246,7 @@ export type Motion = typeof motions.$inferSelect
 export type NewMotion = typeof motions.$inferInsert
 export type Post = typeof posts.$inferSelect
 export type MoodVote = typeof moodVotes.$inferSelect
+export type MotionWatch = typeof motionWatches.$inferSelect
 export type MoodChoice = (typeof moodChoiceEnum.enumValues)[number]
 export type MotionStatus = (typeof motionStatusEnum.enumValues)[number]
 export type UserRole = (typeof userRoleEnum.enumValues)[number]

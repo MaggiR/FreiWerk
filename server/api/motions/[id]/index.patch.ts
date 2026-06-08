@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
   if (body.summary !== undefined) updates.summary = body.summary
   if (body.topic !== undefined) updates.topic = body.topic
   if (body.divisionId !== undefined) updates.divisionId = body.divisionId
+  if (body.isAnonymous !== undefined) updates.isAnonymous = body.isAnonymous
   if (body.bodyHtml !== undefined) {
     const clean = sanitizeRichText(body.bodyHtml)
     if (clean.trim().length === 0) {

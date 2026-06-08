@@ -6,6 +6,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Attachment, normalizeAttachmentLabel } from '~/editor/attachmentExtension'
+import { Video } from '~/editor/videoExtension'
 
 const model = defineModel<string>({ default: '' })
 
@@ -28,6 +29,7 @@ const editor = useEditor({
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
     Image,
+    Video,
     Attachment,
     Placeholder.configure({ placeholder: props.placeholder }),
   ],
@@ -87,6 +89,8 @@ async function onFileSelected(event: Event) {
 
     if (res.mimeType.startsWith('image/')) {
       editor.value?.chain().focus().setImage({ src: res.url, alt: res.name }).run()
+    } else if (res.mimeType.startsWith('video/')) {
+      editor.value?.chain().focus().setVideo({ src: res.url }).run()
     } else {
       editor.value
         ?.chain()
@@ -212,7 +216,7 @@ const historyTools = computed<ToolItem[]>(() => {
       ref="fileInput"
       type="file"
       class="visually-hidden"
-      accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+      accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,video/mp4,video/webm,video/quicktime"
       @change="onFileSelected"
     >
 
@@ -357,6 +361,14 @@ const historyTools = computed<ToolItem[]>(() => {
   outline: none;
   min-height: 220px;
   font-weight: 400;
+}
+
+:deep(.editor-surface video) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-3) 0;
+  border-radius: var(--radius-sm);
 }
 
 :deep(.editor-surface p.is-editor-empty:first-child::before) {

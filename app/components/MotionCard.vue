@@ -1,23 +1,45 @@
 <script setup lang="ts">
 import type { MotionListItem } from '../../shared/types'
 
-defineProps<{ motion: MotionListItem }>()
+const props = defineProps<{ motion: MotionListItem }>()
+
+const SUMMARY_PREVIEW_MAX = 100
+const summaryPreview = computed(() =>
+  truncateText(props.motion.summary, SUMMARY_PREVIEW_MAX),
+)
+
+const emit = defineEmits<{
+  'watch-changed': [payload: { motionId: string; watched: boolean }]
+}>()
 </script>
 
 <template>
   <NuxtLink :to="`/motions/${motion.id}`" class="motion-card-link">
     <FwCard class="motion-card">
-      <div class="motion-card__head">
-        <MotionStatusBadge :status="motion.status" />
-        <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
+      <div class="motion-card__top">
+        <div class="motion-card__head">
+          <MotionStatusBadge :status="motion.status" />
+          <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
+          <FwBadge v-if="motion.archivedAt" tone="neutral">
+            <FontAwesomeIcon icon="box-archive" /> Archiviert
+          </FwBadge>
+        </div>
+        <MotionWatchStar
+          :motion-id="motion.id"
+          :watched="motion.isWatched ?? false"
+          @changed="emit('watch-changed', { motionId: motion.id, watched: $event })"
+        />
       </div>
 
       <h3 class="motion-card__title">{{ motion.title }}</h3>
-      <p class="motion-card__summary">{{ motion.summary }}</p>
+      <p class="motion-card__summary">{{ summaryPreview }}</p>
 
       <div class="motion-card__meta">
         <span><FontAwesomeIcon icon="user" /> {{ motion.authorName }}</span>
         <span><FontAwesomeIcon icon="comments" /> {{ motion.postCount }}</span>
+        <span :title="`${motion.voteCount} Stimmen`">
+          <FontAwesomeIcon icon="chart-column" /> {{ motion.voteCount }}
+        </span>
         <MoodBar
           v-if="motion.voteCount > 0"
           :approve="motion.approvalCount"
@@ -46,11 +68,27 @@ defineProps<{ motion: MotionListItem }>()
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
 }
-.motion-card__head {
+.motion-card__top {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
+.motion-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+.motion-card__title,
+.motion-card__summary {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+
 .motion-card__title {
   margin: 0 0 var(--space-2);
   font-size: 1.15rem;
@@ -58,11 +96,6 @@ defineProps<{ motion: MotionListItem }>()
 .motion-card__summary {
   margin: 0 0 var(--space-4);
   color: var(--color-text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .motion-card__meta {
   display: flex;

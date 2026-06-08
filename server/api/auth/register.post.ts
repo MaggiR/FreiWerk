@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
       email: created.email,
       displayName: created.displayName,
       role: created.role,
+      avatarUrl: created.avatarUrl,
     },
     loggedInAt: new Date().toISOString(),
   })
@@ -56,6 +57,7 @@ export default defineEventHandler(async (event) => {
       email: created.email,
       displayName: created.displayName,
       role: created.role,
+      avatarUrl: created.avatarUrl,
     },
   }
 })

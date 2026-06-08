@@ -35,15 +35,17 @@ const rows = computed(() =>
   <div class="breakdown">
     <div v-for="row in rows" :key="row.choice" class="breakdown__row">
       <span class="breakdown__label">{{ row.label }}</span>
-      <span class="breakdown__meta">
-        <span class="breakdown__count">{{ row.count }}</span>
-        <span class="breakdown__percent">{{ row.percent }}%</span>
-      </span>
-      <div class="breakdown__track" aria-hidden="true">
-        <span
-          class="breakdown__fill"
-          :style="{ width: `${row.percent}%`, backgroundColor: row.color }"
-        />
+      <div class="breakdown__detail">
+        <span class="breakdown__meta">
+          <span class="breakdown__count">{{ row.count }}</span>
+          <span class="breakdown__percent">{{ row.percent }}%</span>
+        </span>
+        <div class="breakdown__track" aria-hidden="true">
+          <span
+            class="breakdown__fill"
+            :style="{ width: `${row.percent}%`, backgroundColor: row.color }"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -53,21 +55,27 @@ const rows = computed(() =>
 .breakdown {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-height: 260px;
   justify-content: center;
 }
 
 .breakdown__row {
-  display: grid;
-  grid-template-columns: 6.5rem 4.5rem 1fr;
-  align-items: center;
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .breakdown__label {
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.breakdown__detail {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .breakdown__meta {
@@ -88,7 +96,7 @@ const rows = computed(() =>
 }
 
 .breakdown__track {
-  height: 0.65rem;
+  height: 0.75rem;
   background: var(--color-border);
   border-radius: var(--radius-pill);
   overflow: hidden;

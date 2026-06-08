@@ -3,9 +3,14 @@ const props = defineProps<{ motionId: string; debateOpen: boolean }>()
 const { loggedIn } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 
+const postSort = ref<'recent' | 'oldest'>('recent')
+
 const { data, refresh, pending } = await useFetch(
   () => `/api/motions/${props.motionId}/posts`,
-  { key: `posts-${props.motionId}` },
+  {
+    key: computed(() => `posts-${props.motionId}-${postSort.value}`),
+    query: computed(() => ({ sort: postSort.value })),
+  },
 )
 
 const posts = computed(() => data.value?.posts ?? [])
@@ -37,23 +42,38 @@ function onFirstPostClick() {
     <p v-if="pending" class="debate__loading">Beiträge werden geladen ...</p>
 
     <template v-else-if="isEmpty && debateOpen">
-      <div v-if="!showPostForm" class="debate__cta-wrap">
-        <FwButton variant="primary" class="debate__cta" @click="onFirstPostClick">
-          <FontAwesomeIcon icon="paper-plane" class="debate__cta-icon" />
-          <span>Ersten Beitrag posten</span>
-        </FwButton>
-      </div>
+      <button
+        v-if="!showPostForm"
+        type="button"
+        class="debate__cta"
+        @click="onFirstPostClick"
+      >
+        <span class="debate__cta-icon">
+          <FontAwesomeIcon icon="paper-plane" />
+        </span>
+        <span class="debate__cta-text">Ersten Beitrag posten</span>
+      </button>
       <PostForm
         v-else-if="loggedIn"
         :motion-id="motionId"
+        default-open
         @created="refresh"
       />
     </template>
 
     <template v-else>
-      <p v-if="posts.length > 0" class="debate__count">
-        {{ posts.length }} Beitrag{{ posts.length === 1 ? '' : 'e' }}
-      </p>
+      <div v-if="posts.length > 0" class="debate__toolbar">
+        <p class="debate__count">
+          {{ posts.length }} Beitrag{{ posts.length === 1 ? '' : 'e' }}
+        </p>
+        <label class="debate__sort">
+          <span class="visually-hidden">Sortierung</span>
+          <select v-model="postSort">
+            <option value="recent">Neueste zuerst</option>
+            <option value="oldest">Älteste zuerst</option>
+          </select>
+        </label>
+      </div>
 
       <PostList v-if="posts.length > 0" :posts="posts" />
 
@@ -75,26 +95,61 @@ function onFirstPostClick() {
 </template>
 
 <style scoped>
-.debate__cta-wrap {
+.debate__cta {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: var(--space-2) 0;
-}
-
-.debate__cta-wrap :deep(.debate__cta) {
-  flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-6) var(--space-8);
-  font-size: 1rem;
-  line-height: 1.3;
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-.debate__cta-wrap :deep(.debate__cta-icon) {
-  font-size: 1.75rem;
+.debate__cta:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
 }
+
+.debate__cta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 0.95rem;
+}
+.debate__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
 .debate__count {
   color: var(--color-text-muted);
-  margin-bottom: var(--space-4);
+  margin: 0;
+}
+
+.debate__sort select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
 }
 .debate__login,
 .debate__closed {

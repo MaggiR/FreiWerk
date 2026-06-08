@@ -29,21 +29,24 @@ export const TOPIC_LABELS: Record<Topic, string> = {
   sonstiges: 'Sonstiges',
 }
 
-// Choices offered in the mood poll UI and charts (MVP).
+// Choices counted in charts and aggregate statistics.
 export const MOOD_POLL_CHOICES = ['approve', 'reject', 'abstain'] as const
 
 export type MoodPollChoice = (typeof MOOD_POLL_CHOICES)[number]
 
-/** All values stored in the DB enum (includes legacy `undecided`). */
-export type MoodChoiceValue = MoodPollChoice | 'undecided'
+/** All selectable poll options (undecided is stored but excluded from statistics). */
+export const MOOD_CHOICE_VALUES = [...MOOD_POLL_CHOICES, 'undecided'] as const
 
-/** Alias used by Zod validation — only poll choices are accepted. */
-export const MOOD_CHOICES = MOOD_POLL_CHOICES
+export type MoodChoiceValue = (typeof MOOD_CHOICE_VALUES)[number]
 
-export const MOOD_LABELS: Record<MoodPollChoice, string> = {
+/** Alias used by Zod validation — accepts all stored enum values. */
+export const MOOD_CHOICES = MOOD_CHOICE_VALUES
+
+export const MOOD_LABELS: Record<MoodChoiceValue, string> = {
   approve: 'Zustimmung',
   reject: 'Ablehnung',
   abstain: 'Enthaltung',
+  undecided: 'Unentschieden',
 }
 
 export const MOOD_COLORS_LIGHT: Record<MoodPollChoice, string> = {
@@ -72,6 +75,12 @@ export const MOTION_STATUS_LABELS: Record<string, string> = {
   debate: 'Debatte',
   ballot: 'Abstimmung',
   decided: 'Entschieden',
+}
+
+export const ROLE_LABELS: Record<string, string> = {
+  member: 'Mitglied',
+  moderator: 'Moderator:in',
+  admin: 'Administrator:in',
 }
 
 export const DEFAULT_DEBATE_DAYS = 14

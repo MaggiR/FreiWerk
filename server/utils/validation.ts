@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { TOPICS, MOOD_CHOICES } from '../../shared/constants'
+import { isValidUploadUrl } from './uploads'
 
 export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
@@ -19,6 +20,7 @@ export const motionCreateSchema = z.object({
   bodyHtml: z.string().min(1).max(100_000),
   topic: z.enum(TOPICS),
   divisionId: z.string().uuid().nullable().optional(),
+  isAnonymous: z.boolean().optional().default(false),
 })
 
 export const motionUpdateSchema = motionCreateSchema.partial()
@@ -36,11 +38,68 @@ export const moodVoteSchema = z.object({
   choice: z.enum(MOOD_CHOICES),
 })
 
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+  .optional()
+
+// Query string boolean flag: only the literal 'true' enables the flag.
+const booleanFlagSchema = z
+  .enum(['true', 'false'])
+  .optional()
+  .transform((value) => value === 'true')
+
 export const motionListQuerySchema = z.object({
   status: z.enum(['draft', 'debate', 'ballot', 'decided']).optional(),
   topic: z.enum(TOPICS).optional(),
   divisionId: z.string().uuid().optional(),
   q: z.string().trim().max(200).optional(),
   authorId: z.string().uuid().optional(),
-  sort: z.enum(['recent', 'active']).optional(),
+  sort: z.enum(['recent', 'active', 'controversial']).optional(),
+  publishedFrom: isoDateSchema,
+  publishedTo: isoDateSchema,
+  minSupport: z.coerce.number().int().min(0).max(100).optional(),
+  // Restrict results to motions the current user watches.
+  watched: booleanFlagSchema,
+  // Show archived instead of active motions.
+  archived: booleanFlagSchema,
 })
+
+export const postListQuerySchema = z.object({
+  sort: z.enum(['recent', 'oldest']).optional(),
+})
+
+export const archiveSchema = z.object({
+  archived: z.boolean(),
+})
+
+export const profileUpdateSchema = z
+  .object({
+    displayName: z.string().trim().min(2).max(120).optional(),
+    fn: z
+      .string()
+      .trim()
+      .max(120)
+      .transform((value) => (value.length === 0 ? null : value))
+      .nullable()
+      .optional(),
+    divisionId: z.string().uuid().nullable().optional(),
+    avatarUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .optional()
+      .refine(
+        (value) => value == null || isValidUploadUrl(value),
+        'Ungültige Profilbild-URL.',
+      ),
+  })
+  .refine(
+    (value) =>
+      value.displayName !== undefined ||
+      value.fn !== undefined ||
+      value.divisionId !== undefined ||
+      value.avatarUrl !== undefined,
+    'Mindestens ein Feld muss gesetzt sein.',
+  )

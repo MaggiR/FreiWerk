@@ -1,30 +1,40 @@
 <script setup lang="ts">
-import { MOOD_POLL_CHOICES, MOOD_LABELS, type MoodPollChoice } from '../../shared/constants'
+import {
+  MOOD_CHOICE_VALUES,
+  MOOD_LABELS,
+  type MoodChoiceValue,
+} from '../../shared/constants'
 
-defineProps<{
-  current: MoodPollChoice | null
+const props = defineProps<{
+  current: MoodChoiceValue | null
   disabled?: boolean
 }>()
 
-const emit = defineEmits<{ vote: [choice: MoodPollChoice] }>()
+const emit = defineEmits<{ vote: [choice: MoodChoiceValue] }>()
 
-const ICONS: Record<MoodPollChoice, string> = {
+function onSelect(choice: MoodChoiceValue) {
+  if (props.current === choice) return
+  emit('vote', choice)
+}
+
+const ICONS: Record<MoodChoiceValue, string> = {
   approve: 'thumbs-up',
   reject: 'thumbs-down',
   abstain: 'circle-half-stroke',
+  undecided: 'circle-question',
 }
 </script>
 
 <template>
   <div class="poll">
     <button
-      v-for="choice in MOOD_POLL_CHOICES"
+      v-for="choice in MOOD_CHOICE_VALUES"
       :key="choice"
       type="button"
       class="poll__btn"
       :class="[`poll__btn--${choice}`, { 'is-active': current === choice }]"
       :disabled="disabled"
-      @click="emit('vote', choice)"
+      @click="onSelect(choice)"
     >
       <FontAwesomeIcon :icon="ICONS[choice]" />
       <span>{{ MOOD_LABELS[choice] }}</span>
@@ -35,7 +45,7 @@ const ICONS: Record<MoodPollChoice, string> = {
 <style scoped>
 .poll {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-3);
 }
 .poll__btn {
@@ -78,5 +88,9 @@ const ICONS: Record<MoodPollChoice, string> = {
 .poll__btn--abstain.is-active {
   background: var(--mood-abstain);
   border-color: var(--mood-abstain);
+}
+.poll__btn--undecided.is-active {
+  background: var(--mood-undecided);
+  border-color: var(--mood-undecided);
 }
 </style>

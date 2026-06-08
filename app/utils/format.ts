@@ -51,3 +51,9 @@ export function approvalRatio(approve: number, total: number): number {
   if (total <= 0) return 0
   return Math.round((approve / total) * 100)
 }
+
+/** Truncate preview text at a character limit, appending an ellipsis when shortened. */
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength).trimEnd()}…`
+}

@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
       bodyHtml,
       topic: body.topic,
       divisionId: body.divisionId ?? null,
+      isAnonymous: body.isAnonymous ?? false,
       status: 'draft',
     })
     .returning()

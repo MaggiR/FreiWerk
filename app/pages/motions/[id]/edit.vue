@@ -91,6 +91,7 @@ async function onDelete() {
           topic: motion.topic,
           divisionId: motion.divisionId,
           bodyHtml: motion.bodyHtml,
+          isAnonymous: motion.isAnonymous,
         }"
         submit-label="Entwurf speichern"
         show-publish

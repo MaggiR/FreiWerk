@@ -1,4 +1,7 @@
 import { computed } from 'vue'
+import { isUnauthorized } from '~/utils/error'
+
+export const SESSION_EXPIRED_MESSAGE = 'Sitzung abgelaufen. Bitte erneut anmelden.'
 
 interface Credentials {
   email: string
@@ -36,6 +39,13 @@ export function useAuthUser() {
     await navigateTo('/')
   }
 
+  /** Clear stale client session after a 401 from a protected endpoint. */
+  async function handleAuthError(err: unknown): Promise<boolean> {
+    if (!isUnauthorized(err) || !loggedIn.value) return false
+    await clear()
+    return true
+  }
+
   return {
     loggedIn,
     user,
@@ -45,5 +55,7 @@ export function useAuthUser() {
     register,
     logout,
     refreshSession,
+    handleAuthError,
+    SESSION_EXPIRED_MESSAGE,
   }
 }

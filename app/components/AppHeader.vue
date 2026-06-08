@@ -57,19 +57,21 @@ watch(
           <ThemeToggle />
 
           <div v-if="loggedIn" class="user-menu">
-            <button
-              class="user-menu__trigger"
-              type="button"
-              aria-haspopup="true"
-              :aria-label="`Konto von ${user?.displayName}`"
+            <NuxtLink
+              v-if="user?.id"
+              :to="`/users/${user.id}`"
+              class="user-menu__avatar"
+              :aria-label="`Profil von ${user.displayName}`"
             >
-              <FontAwesomeIcon icon="user" />
-            </button>
+              <img
+                v-if="user.avatarUrl"
+                :src="user.avatarUrl"
+                alt=""
+                class="user-menu__avatar-image"
+              >
+              <FontAwesomeIcon v-else icon="user" />
+            </NuxtLink>
             <div class="user-menu__panel" role="menu">
-              <span class="user-menu__name" role="presentation">
-                <FontAwesomeIcon icon="user" />
-                {{ user?.displayName }}
-              </span>
               <button class="user-menu__logout" type="button" role="menuitem" @click="logout">
                 <FontAwesomeIcon icon="right-from-bracket" />
                 Abmelden
@@ -181,7 +183,7 @@ watch(
   position: absolute;
   top: 100%;
   left: 0;
-  min-width: 200px;
+  width: max-content;
   padding: var(--space-2);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -217,6 +219,7 @@ watch(
   color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
@@ -233,24 +236,32 @@ watch(
   align-items: center;
 }
 
-.user-menu__trigger {
+.user-menu__avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.12s ease;
+  border: 2px solid var(--brand-yellow);
+  background: var(--brand-yellow);
+  color: var(--brand-blue);
+  font-size: 1rem;
+  text-decoration: none;
+  overflow: hidden;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
 }
 
-.user-menu__trigger:hover,
-.user-menu:focus-within .user-menu__trigger {
+.user-menu__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-menu__avatar:hover,
+.user-menu:focus-within .user-menu__avatar {
   transform: translateY(-1px);
-  background: var(--color-bg);
+  box-shadow: var(--shadow-sm);
 }
 
 .user-menu__panel {
@@ -284,19 +295,6 @@ watch(
 .user-menu:focus-within .user-menu__panel {
   opacity: 1;
   pointer-events: auto;
-}
-
-.user-menu__name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  color: var(--color-text-muted);
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .user-menu__logout {
@@ -405,10 +403,6 @@ watch(
     padding: 0;
   }
 
-  .user-menu__trigger {
-    display: none;
-  }
-
   .user-menu__panel {
     position: static;
     min-width: 0;
@@ -423,8 +417,5 @@ watch(
     -webkit-backdrop-filter: none;
   }
 
-  .user-menu__name {
-    padding: 0;
-  }
 }
 </style>

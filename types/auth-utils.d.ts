@@ -7,6 +7,7 @@ declare module '#auth-utils' {
     email: string
     displayName: string
     role: UserRole
+    avatarUrl: string | null
   }
 
   interface UserSession {

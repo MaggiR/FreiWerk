@@ -27,23 +27,15 @@ const abstainPercent = computed(() => {
         :style="{ width: `${approvePercent}%` }"
       />
       <span
-        v-if="rejectPercent > 0"
-        class="mood-bar__segment mood-bar__segment--reject"
-        :style="{ width: `${rejectPercent}%` }"
-      />
-      <span
         v-if="abstainPercent > 0"
         class="mood-bar__segment mood-bar__segment--abstain"
         :style="{ width: `${abstainPercent}%` }"
       />
-    </span>
-    <span class="mood-bar__values" aria-hidden="true">
-      <span v-if="approvePercent > 0" class="mood-bar__value mood-bar__value--approve">
-        {{ approvePercent }}%
-      </span>
-      <span v-if="rejectPercent > 0" class="mood-bar__value mood-bar__value--reject">
-        {{ rejectPercent }}%
-      </span>
+      <span
+        v-if="rejectPercent > 0"
+        class="mood-bar__segment mood-bar__segment--reject"
+        :style="{ width: `${rejectPercent}%` }"
+      />
     </span>
   </span>
 </template>
@@ -80,24 +72,5 @@ const abstainPercent = computed(() => {
 
 .mood-bar__segment--abstain {
   background: var(--mood-abstain);
-}
-
-.mood-bar__values {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-variant-numeric: tabular-nums;
-}
-
-.mood-bar__value {
-  font-weight: 700;
-}
-
-.mood-bar__value--approve {
-  color: var(--mood-approve);
-}
-
-.mood-bar__value--reject {
-  color: var(--mood-reject);
 }
 </style>

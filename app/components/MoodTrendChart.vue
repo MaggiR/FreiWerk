@@ -55,25 +55,44 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-const labels = computed(() =>
-  props.trend.map((p) =>
-    new Date(p.t).toLocaleDateString('de-DE', {
+const labels = computed(() => {
+  const dayCounts = new Map<string, number>()
+  return props.trend.map((p) => {
+    const date = new Date(p.t)
+    const dayKey = date.toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
-    }),
-  ),
-)
+    })
+    const index = dayCounts.get(dayKey) ?? 0
+    dayCounts.set(dayKey, index + 1)
+    if (index === 0) return dayKey
+    return date.toLocaleTimeString('de-DE', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  })
+})
+
+function pollTotal(point: TrendPoint): number {
+  return MOOD_POLL_CHOICES.reduce((sum, choice) => sum + point[choice], 0)
+}
+
+function toPercent(point: TrendPoint, choice: MoodPollChoice): number {
+  const total = pollTotal(point)
+  if (total === 0) return 0
+  return (point[choice] / total) * 100
+}
 
 const chartData = computed(() => ({
   labels: labels.value,
   datasets: MOOD_POLL_CHOICES.map((choice, index) => ({
     label: MOOD_LABELS[choice],
-    data: props.trend.map((p) => p[choice]),
+    data: props.trend.map((p) => toPercent(p, choice)),
     borderColor: moodColors.value[choice],
     backgroundColor: hexToRgba(moodColors.value[choice], fillAlpha.value),
     fill: index === 0 ? 'origin' : '-1',
     stack: 'mood',
-    tension: 0.3,
+    tension: 0,
     pointRadius: 0,
   })),
 }))
@@ -91,12 +110,25 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
     y: {
       stacked: true,
       beginAtZero: true,
-      ticks: { color: axisColor.value, precision: 0 },
+      max: 100,
+      ticks: {
+        color: axisColor.value,
+        precision: 0,
+        callback: (value) => `${value}%`,
+      },
       grid: { color: gridColor.value },
     },
   },
   plugins: {
     legend: { position: 'bottom', labels: { color: axisColor.value, padding: 14 } },
+    tooltip: {
+      callbacks: {
+        label: (context) => {
+          const value = context.parsed.y ?? 0
+          return `${context.dataset.label}: ${value.toFixed(1)} %`
+        },
+      },
+    },
   },
 }))
 </script>

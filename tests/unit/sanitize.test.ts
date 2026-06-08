@@ -37,6 +37,14 @@ describe('sanitizeRichText', () => {
     expect(clean).toContain('src="/uploads/abc.png"')
     expect(clean).toContain('alt="Grafik"')
   })
+
+  it('keeps embedded videos with controls', () => {
+    const clean = sanitizeRichText(
+      '<video src="/uploads/clip.mp4" controls preload="metadata"></video>',
+    )
+    expect(clean).toContain('src="/uploads/clip.mp4"')
+    expect(clean).toContain('controls')
+  })
 })
 
 describe('htmlToText', () => {

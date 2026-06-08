@@ -11,6 +11,7 @@ export interface MotionFormValues {
   topic: string
   divisionId: string | null
   bodyHtml: string
+  isAnonymous: boolean
 }
 
 const props = withDefaults(
@@ -41,6 +42,7 @@ const form = reactive<MotionFormValues>({
   topic: props.initial?.topic ?? '',
   divisionId: props.initial?.divisionId ?? null,
   bodyHtml: props.initial?.bodyHtml ?? '',
+  isAnonymous: props.initial?.isAnonymous ?? false,
 })
 
 const SUMMARY_MIN = 50
@@ -156,6 +158,14 @@ function onPublish() {
       </ClientOnly>
     </div>
 
+    <label class="motion-form__check">
+      <input v-model="form.isAnonymous" type="checkbox">
+      <span>Anonym einreichen</span>
+    </label>
+    <p class="form-hint motion-form__anon-hint">
+      Dein Name wird öffentlich nicht angezeigt. Die Zuordnung bleibt intern für die Verwaltung des Antrags erhalten.
+    </p>
+
     <p v-if="error" class="form-error">{{ error }}</p>
 
     <div class="motion-form__actions">
@@ -226,6 +236,23 @@ function onPublish() {
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
+}
+
+.motion-form__check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.motion-form__check input {
+  width: auto;
+  margin: 0;
+}
+
+.motion-form__anon-hint {
+  margin: calc(-1 * var(--space-3)) 0 0;
 }
 @media (max-width: 640px) {
   .motion-form__row {

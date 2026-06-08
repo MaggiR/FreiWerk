@@ -1,38 +1,44 @@
 <script setup lang="ts">
-const props = defineProps<{ motionId: string }>()
+const props = withDefaults(
+  defineProps<{ motionId: string; defaultOpen?: boolean }>(),
+  { defaultOpen: false },
+)
 const emit = defineEmits<{ created: [] }>()
 
-const text = ref('')
+const { SESSION_EXPIRED_MESSAGE } = useAuthUser()
+
+const open = ref(props.defaultOpen)
+const bodyHtml = ref('')
 const pending = ref(false)
 const error = ref('')
 
-function toHtml(raw: string): string {
-  return raw
-    .trim()
-    .split(/\n{2,}/)
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, '<br>')}</p>`)
-    .join('')
-}
+const isEmpty = computed(
+  () => bodyHtml.value.replace(/<[^>]*>/g, '').trim().length === 0,
+)
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+function cancel() {
+  bodyHtml.value = ''
+  error.value = ''
+  open.value = false
 }
 
 async function onSubmit() {
   error.value = ''
-  if (text.value.trim().length === 0) return
+  if (isEmpty.value) return
   pending.value = true
   try {
     await $fetch(`/api/motions/${props.motionId}/posts`, {
       method: 'POST',
-      body: { bodyHtml: toHtml(text.value) },
+      body: { bodyHtml: bodyHtml.value },
     })
-    text.value = ''
+    bodyHtml.value = ''
+    open.value = false
     emit('created')
   } catch (err: unknown) {
+    if (isUnauthorized(err)) {
+      error.value = SESSION_EXPIRED_MESSAGE
+      return
+    }
     error.value = extractError(err, 'Beitrag konnte nicht gesendet werden.')
   } finally {
     pending.value = false
@@ -41,20 +47,38 @@ async function onSubmit() {
 </script>
 
 <template>
-  <FwCard class="post-form">
+  <button
+    v-if="!open"
+    type="button"
+    class="post-form__trigger"
+    @click="open = true"
+  >
+    <span class="post-form__trigger-icon">
+      <FontAwesomeIcon icon="pen-to-square" />
+    </span>
+    <span>Beitrag verfassen</span>
+  </button>
+
+  <FwCard v-else class="post-form">
     <form @submit.prevent="onSubmit">
-      <label class="field">
+      <div class="field">
         <span>Dein Diskussionsbeitrag</span>
-        <textarea
-          v-model="text"
-          rows="4"
-          maxlength="10000"
-          placeholder="Bleib sachlich und respektvoll."
-        />
-      </label>
+        <ClientOnly>
+          <MotionEditor
+            v-model="bodyHtml"
+            placeholder="Bleib sachlich und respektvoll. Bring deine Argumente ein."
+          />
+          <template #fallback>
+            <div class="editor-loading">Editor wird geladen ...</div>
+          </template>
+        </ClientOnly>
+      </div>
       <p v-if="error" class="form-error">{{ error }}</p>
       <div class="post-form__actions">
-        <FwButton type="submit" :disabled="pending || text.trim().length === 0">
+        <FwButton type="button" variant="ghost" :disabled="pending" @click="cancel">
+          Abbrechen
+        </FwButton>
+        <FwButton type="submit" :disabled="pending || isEmpty">
           <FontAwesomeIcon icon="paper-plane" />
           {{ pending ? 'Senden ...' : 'Beitrag senden' }}
         </FwButton>
@@ -70,6 +94,46 @@ async function onSubmit() {
 .post-form__actions {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-3);
   margin-top: var(--space-3);
+}
+.editor-loading {
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+.post-form__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.post-form__trigger:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+.post-form__trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 0.95rem;
 }
 </style>

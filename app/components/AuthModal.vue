@@ -7,6 +7,7 @@ const password = ref('')
 const displayName = ref('')
 const error = ref('')
 const pending = ref(false)
+const backdropPressed = ref(false)
 
 watch(isOpen, (open) => {
   if (!open) {
@@ -22,10 +23,15 @@ watch(mode, () => {
   error.value = ''
 })
 
+function onBackdropMouseDown(event: MouseEvent) {
+  backdropPressed.value = event.target === event.currentTarget
+}
+
 function onBackdropClick(event: MouseEvent) {
-  if (event.target === event.currentTarget) {
+  if (backdropPressed.value && event.target === event.currentTarget) {
     close()
   }
+  backdropPressed.value = false
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -80,6 +86,7 @@ async function onRegisterSubmit() {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="mode === 'login' ? 'auth-modal-login-title' : 'auth-modal-register-title'"
+      @mousedown="onBackdropMouseDown"
       @click="onBackdropClick"
     >
       <FwCard class="auth-modal__card" glass pad>

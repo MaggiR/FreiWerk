@@ -5,6 +5,8 @@ import {
   motionCreateSchema,
   moodVoteSchema,
   motionListQuerySchema,
+  archiveSchema,
+  profileUpdateSchema,
 } from '../../server/utils/validation'
 
 describe('registerSchema', () => {
@@ -46,6 +48,18 @@ describe('motionCreateSchema', () => {
       topic: 'wirtschaft',
     })
     expect(parsed.topic).toBe('wirtschaft')
+    expect(parsed.isAnonymous).toBe(false)
+  })
+
+  it('accepts anonymous submissions', () => {
+    const parsed = motionCreateSchema.parse({
+      title: 'Ein sinnvoller Titel',
+      summary: validSummary,
+      bodyHtml: '<p>Inhalt</p>',
+      topic: 'wirtschaft',
+      isAnonymous: true,
+    })
+    expect(parsed.isAnonymous).toBe(true)
   })
 
   it('rejects summaries shorter than 50 characters', () => {
@@ -74,8 +88,8 @@ describe('motionCreateSchema', () => {
 describe('moodVoteSchema', () => {
   it('only allows poll choices', () => {
     expect(moodVoteSchema.parse({ choice: 'approve' }).choice).toBe('approve')
+    expect(moodVoteSchema.parse({ choice: 'undecided' }).choice).toBe('undecided')
     expect(() => moodVoteSchema.parse({ choice: 'maybe' })).toThrow()
-    expect(() => moodVoteSchema.parse({ choice: 'undecided' })).toThrow()
   })
 })
 
@@ -84,5 +98,52 @@ describe('motionListQuerySchema', () => {
     const parsed = motionListQuerySchema.parse({ status: 'debate', sort: 'active' })
     expect(parsed.status).toBe('debate')
     expect(parsed.sort).toBe('active')
+  })
+
+  it('accepts controversial sort and date/support filters', () => {
+    const parsed = motionListQuerySchema.parse({
+      sort: 'controversial',
+      publishedFrom: '2026-01-01',
+      publishedTo: '2026-06-30',
+      minSupport: '50',
+    })
+    expect(parsed.sort).toBe('controversial')
+    expect(parsed.publishedFrom).toBe('2026-01-01')
+    expect(parsed.publishedTo).toBe('2026-06-30')
+    expect(parsed.minSupport).toBe(50)
+  })
+
+  it('parses watched/archived flags only when literally "true"', () => {
+    expect(motionListQuerySchema.parse({ watched: 'true' }).watched).toBe(true)
+    expect(motionListQuerySchema.parse({ archived: 'false' }).archived).toBe(false)
+    expect(motionListQuerySchema.parse({}).watched).toBe(false)
+  })
+})
+
+describe('archiveSchema', () => {
+  it('requires a boolean archived flag', () => {
+    expect(archiveSchema.parse({ archived: true }).archived).toBe(true)
+    expect(() => archiveSchema.parse({ archived: 'yes' })).toThrow()
+  })
+})
+
+describe('profileUpdateSchema', () => {
+  it('accepts valid profile fields', () => {
+    const parsed = profileUpdateSchema.parse({
+      displayName: ' Demo ',
+      fn: '',
+      divisionId: null,
+      avatarUrl: '/uploads/550e8400-e29b-41d4-a716-446655440000.png',
+    })
+    expect(parsed.displayName).toBe('Demo')
+    expect(parsed.fn).toBeNull()
+    expect(parsed.avatarUrl).toBe('/uploads/550e8400-e29b-41d4-a716-446655440000.png')
+  })
+
+  it('rejects empty updates and invalid avatar URLs', () => {
+    expect(() => profileUpdateSchema.parse({})).toThrow()
+    expect(() =>
+      profileUpdateSchema.parse({ avatarUrl: 'https://evil.example/a.png' }),
+    ).toThrow()
   })
 })

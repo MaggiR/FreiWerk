@@ -24,11 +24,13 @@ const OPTIONS: sanitizeHtml.IOptions = {
     'pre',
     'hr',
     'img',
+    'video',
     'span',
   ],
   allowedAttributes: {
     a: ['href', 'target', 'rel', 'class', 'data-attachment', 'data-label', 'data-mime'],
     img: ['src', 'alt', 'title'],
+    video: ['src', 'controls', 'preload'],
     span: ['class', 'aria-hidden'],
   },
   allowedClasses: {

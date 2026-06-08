@@ -9,11 +9,15 @@ export interface MotionListItem {
   createdAt: string
   publishedAt: string | null
   debateEndsAt: string | null
-  authorId: string
+  archivedAt: string | null
+  authorId: string | null
   authorName: string | null
+  isAnonymous: boolean
   divisionName: string | null
   postCount: number
   approvalCount: number
   rejectCount: number
   voteCount: number
+  /** Present when the viewer is authenticated. */
+  isWatched?: boolean
 }

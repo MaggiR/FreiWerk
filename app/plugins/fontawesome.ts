@@ -26,6 +26,7 @@ import {
   faBars,
   faMagnifyingGlass,
   faFilter,
+  faArrowDownWideShort,
   faUpRightFromSquare,
   faBold,
   faItalic,
@@ -43,6 +44,12 @@ import {
   faXmark,
   faFloppyDisk,
   faPaperclip,
+  faStar,
+  faStarHalfStroke,
+  faBoxArchive,
+  faLayerGroup,
+  faCalendar,
+  faIdCard,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -74,6 +81,7 @@ library.add(
   faBars,
   faMagnifyingGlass,
   faFilter,
+  faArrowDownWideShort,
   faUpRightFromSquare,
   faBold,
   faItalic,
@@ -91,6 +99,12 @@ library.add(
   faXmark,
   faFloppyDisk,
   faPaperclip,
+  faStar,
+  faStarHalfStroke,
+  faBoxArchive,
+  faLayerGroup,
+  faCalendar,
+  faIdCard,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

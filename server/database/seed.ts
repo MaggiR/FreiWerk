@@ -3,6 +3,17 @@ import postgres from 'postgres'
 import { sql as drizzleSql } from 'drizzle-orm'
 import * as schema from './schema'
 import { hashUserPassword } from '../utils/password'
+import { seedAvatarHue, writeSeedAvatarFile } from '../utils/seedAvatar'
+import {
+  SEED_USERS,
+  SEED_MOTIONS,
+  MOOD_TIMELINES_BY_TITLE,
+  buildMotionBody,
+  buildMoodRows,
+  assertMotionBodyLength,
+  daysAgo,
+  daysFromNow,
+} from './seed-data'
 
 // Idempotent-ish seed: clears domain tables, then inserts demo data.
 async function main() {
@@ -11,11 +22,12 @@ async function main() {
 
   const client = postgres(url, { max: 1 })
   const db = drizzle(client, { schema })
+  const now = new Date()
 
   console.log('[seed] Resetting tables...')
   await db.execute(
     drizzleSql`TRUNCATE TABLE
-      "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
+      "motion_watches", "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
       RESTART IDENTITY CASCADE`,
   )
 
@@ -30,113 +42,132 @@ async function main() {
     .values({ name: 'Landesverband NRW', slug: 'lv-nrw', parentId: bund!.id })
     .returning()
 
-  await db
+  const [bayern] = await db
     .insert(schema.divisions)
     .values({ name: 'Landesverband Bayern', slug: 'lv-bayern', parentId: bund!.id })
+    .returning()
+
+  const divisionIdBySlug = {
+    bund: bund!.id,
+    'lv-nrw': nrw!.id,
+    'lv-bayern': bayern!.id,
+  }
 
   console.log('[seed] Inserting users...')
   const password = await hashUserPassword('password123')
-
-  const [demo] = await db
+  const insertedUsers = await db
     .insert(schema.users)
-    .values({
-      email: 'demo@freiwerk.local',
-      passwordHash: password,
-      displayName: 'Demo Mitglied',
-      role: 'member',
-      fn: 'Mitglied',
-      divisionId: nrw!.id,
-    })
+    .values(
+      SEED_USERS.map((user, index) => ({
+        email: user.email,
+        passwordHash: password,
+        displayName: user.displayName,
+        role: user.role,
+        fn: user.fn,
+        divisionId: divisionIdBySlug[user.divisionSlug],
+        avatarUrl: writeSeedAvatarFile(user.email, seedAvatarHue(index)),
+      })),
+    )
     .returning()
 
-  const [admin] = await db
-    .insert(schema.users)
-    .values({
-      email: 'admin@freiwerk.local',
-      passwordHash: password,
-      displayName: 'Admin',
-      role: 'admin',
-      fn: 'Administrator:in',
-      divisionId: bund!.id,
-    })
-    .returning()
+  const userIdByEmail = Object.fromEntries(
+    insertedUsers.map((user) => [user.email, user.id]),
+  ) as Record<string, string>
 
   console.log('[seed] Inserting motions...')
-  const now = new Date()
-  const debateEnds = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+  const insertedMotions = []
+  for (const motion of SEED_MOTIONS) {
+    const bodyHtml = buildMotionBody(motion.bodyTheme, motion.bodyDemand)
+    assertMotionBodyLength(bodyHtml, motion.title)
 
-  const [m1] = await db
-    .insert(schema.motions)
-    .values({
-      authorId: demo!.id,
-      title: 'Bürokratieabbau für Gründerinnen und Gründer',
-      summary:
-        'Schnellere Unternehmensgründung durch ein digitales One-Stop-Verfahren.',
-      bodyHtml:
-        '<h2>Motivation</h2><p>Gründungen dauern in Deutschland zu lange.</p><h2>Forderung</h2><p>Ein vollständig digitales Gründungsverfahren innerhalb von 24 Stunden.</p><h2>Begründung</h2><p>Andere EU-Länder zeigen, dass es schneller geht.</p>',
-      status: 'debate',
-      topic: 'wirtschaft',
-      divisionId: bund!.id,
-      publishedAt: now,
-      debateEndsAt: debateEnds,
-    })
-    .returning()
+    const publishedAt =
+      motion.status === 'debate' && motion.publishedDaysAgo != null
+        ? daysAgo(now, motion.publishedDaysAgo)
+        : null
+    const debateEndsAt =
+      motion.status === 'debate' && motion.debateDays != null && publishedAt
+        ? daysFromNow(publishedAt, motion.debateDays)
+        : null
 
-  const [m2] = await db
-    .insert(schema.motions)
-    .values({
-      authorId: admin!.id,
-      title: 'Digitalpakt für Schulen weiterentwickeln',
-      summary:
-        'Nachhaltige Finanzierung digitaler Infrastruktur und Fortbildung an Schulen.',
-      bodyHtml:
-        '<h2>Motivation</h2><p>Digitale Bildung darf nicht an der Technik scheitern.</p><h2>Forderung</h2><p>Verstetigung der Mittel und Fokus auf Fortbildung.</p>',
-      status: 'debate',
-      topic: 'bildung',
-      divisionId: nrw!.id,
-      publishedAt: now,
-      debateEndsAt: debateEnds,
-    })
-    .returning()
+    const [row] = await db
+      .insert(schema.motions)
+      .values({
+        authorId: userIdByEmail[motion.authorEmail]!,
+        title: motion.title,
+        summary: motion.summary,
+        bodyHtml,
+        status: motion.status,
+        topic: motion.topic,
+        divisionId: divisionIdBySlug[motion.divisionSlug],
+        publishedAt,
+        debateEndsAt,
+        createdAt: publishedAt ?? now,
+        updatedAt: now,
+      })
+      .returning()
 
-  await db.insert(schema.motions).values({
-    authorId: demo!.id,
-    title: 'Entwurf: Open-Data-Strategie der Kommunen',
-    summary: 'Offene Verwaltungsdaten als Standard.',
-    bodyHtml: '<p>Erster Entwurf, noch in Arbeit.</p>',
-    status: 'draft',
-    topic: 'digitales',
-    divisionId: nrw!.id,
-  })
+    insertedMotions.push(row!)
+  }
 
   console.log('[seed] Inserting debate posts...')
-  await db.insert(schema.posts).values([
-    {
-      motionId: m1!.id,
-      authorId: admin!.id,
-      bodyHtml:
-        '<p>Starke Idee. Wie verhindern wir Missbrauch bei der Schnellgründung?</p>',
-    },
-    {
-      motionId: m1!.id,
-      authorId: demo!.id,
-      bodyHtml: '<p>Durch nachgelagerte Prüfungen und klare Haftung.</p>',
-    },
-  ])
+  const debateMotions = insertedMotions.filter((m) => m.status === 'debate')
+  const postBodies = [
+    '<p>Starke Idee. Wie verhindern wir Missbrauch und sichern gleichzeitig schnelle Verfahren?</p>',
+    '<p>Durch nachgelagerte Prüfungen, klare Haftung und transparente Dokumentation aller Schritte.</p>',
+    '<p>Ich sehe noch Lücken bei der Finanzierung. Gibt es belastbare Zahlen für die ersten fünf Jahre?</p>',
+    '<p>Die Umsetzung sollte modular erfolgen, damit Kommunen schrittweise starten können.</p>',
+    '<p>Aus meiner Sicht brauchen wir mehr Bürgerbeteiligung, bevor wir verbindliche Regeln beschließen.</p>',
+    '<p>Grundsätzlich überzeugt mich der Ansatz, aber die Datenschutzfragen müssen vorab geklärt werden.</p>',
+  ]
+
+  const posts: (typeof schema.posts.$inferInsert)[] = []
+  for (const motion of debateMotions) {
+    const authorPool = insertedUsers.filter((u) => u.id !== motion.authorId)
+    for (let i = 0; i < 3; i++) {
+      const author = authorPool[i % authorPool.length]!
+      posts.push({
+        motionId: motion.id,
+        authorId: author.id,
+        bodyHtml: postBodies[(i + debateMotions.indexOf(motion)) % postBodies.length]!,
+        createdAt: daysAgo(now, Math.max(0, 3 - i)),
+      })
+    }
+  }
+  await db.insert(schema.posts).values(posts)
 
   console.log('[seed] Inserting mood votes...')
-  await db.insert(schema.moodVotes).values([
-    { motionId: m1!.id, userId: demo!.id, choice: 'approve' },
-    { motionId: m1!.id, userId: admin!.id, choice: 'abstain' },
-    { motionId: m2!.id, userId: demo!.id, choice: 'approve' },
-  ])
-  await db.insert(schema.moodVoteEvents).values([
-    { motionId: m1!.id, userId: demo!.id, choice: 'approve' },
-    { motionId: m1!.id, userId: admin!.id, choice: 'abstain' },
-    { motionId: m2!.id, userId: demo!.id, choice: 'approve' },
-  ])
+  const moodVotes: (typeof schema.moodVotes.$inferInsert)[] = []
+  const moodEvents: (typeof schema.moodVoteEvents.$inferInsert)[] = []
 
-  console.log('[seed] Done.')
+  for (const motion of debateMotions) {
+    const timelines = MOOD_TIMELINES_BY_TITLE[motion.title]
+    if (!timelines?.length) continue
+    const { votes, events } = buildMoodRows(motion.id, timelines, userIdByEmail, now)
+    moodVotes.push(...votes)
+    moodEvents.push(...events)
+  }
+
+  if (moodVotes.length) await db.insert(schema.moodVotes).values(moodVotes)
+  if (moodEvents.length) await db.insert(schema.moodVoteEvents).values(moodEvents)
+
+  console.log('[seed] Inserting motion watches...')
+  const watches: (typeof schema.motionWatches.$inferInsert)[] = []
+  for (let i = 0; i < debateMotions.length; i++) {
+    const motion = debateMotions[i]!
+    const watcher = insertedUsers[(i + 2) % insertedUsers.length]!
+    if (watcher.id !== motion.authorId) {
+      watches.push({ motionId: motion.id, userId: watcher.id })
+    }
+    const secondWatcher = insertedUsers[(i + 5) % insertedUsers.length]!
+    if (secondWatcher.id !== motion.authorId && secondWatcher.id !== watcher.id) {
+      watches.push({ motionId: motion.id, userId: secondWatcher.id })
+    }
+  }
+  await db.insert(schema.motionWatches).values(watches)
+
+  console.log(
+    `[seed] Done. ${insertedUsers.length} users, ${insertedMotions.length} motions, ${posts.length} posts, ${moodVotes.length} mood votes, ${moodEvents.length} mood events.`,
+  )
   await client.end()
 }
 
