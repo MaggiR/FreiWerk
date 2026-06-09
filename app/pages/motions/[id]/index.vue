@@ -50,6 +50,53 @@ const debateOpen = computed(() => {
 
 useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
 
+const COLLAPSED_BODY_HEIGHT = '11rem'
+const bodyExpanded = ref(false)
+const bodyClip = ref<HTMLElement | null>(null)
+const bodyMaxHeight = ref<string>(COLLAPSED_BODY_HEIGHT)
+let bodyResetTimer: ReturnType<typeof setTimeout> | null = null
+
+function setBodyExpanded(expanded: boolean) {
+  if (bodyResetTimer) {
+    clearTimeout(bodyResetTimer)
+    bodyResetTimer = null
+  }
+
+  const el = bodyClip.value
+  if (!el) {
+    bodyExpanded.value = expanded
+    bodyMaxHeight.value = expanded ? 'none' : COLLAPSED_BODY_HEIGHT
+    return
+  }
+
+  const fullHeight = `${el.scrollHeight}px`
+
+  if (expanded) {
+    bodyMaxHeight.value = fullHeight
+    bodyExpanded.value = true
+    bodyResetTimer = setTimeout(() => {
+      bodyMaxHeight.value = 'none'
+      bodyResetTimer = null
+    }, 350)
+  } else {
+    bodyMaxHeight.value = fullHeight
+    bodyExpanded.value = false
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bodyMaxHeight.value = COLLAPSED_BODY_HEIGHT
+      })
+    })
+  }
+}
+
+watch(
+  () => id,
+  () => {
+    bodyExpanded.value = false
+    bodyMaxHeight.value = COLLAPSED_BODY_HEIGHT
+  },
+)
+
 const publishPending = ref(false)
 const publishError = ref('')
 
@@ -77,81 +124,110 @@ async function onPublish() {
   <article v-if="motion" class="motion">
     <NuxtLink to="/motions" class="back-link">← Zur Antragsübersicht</NuxtLink>
 
-    <header class="motion__header">
-      <div class="motion__badges">
-        <MotionStatusBadge :status="motion.status" />
-        <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
-        <FwBadge v-if="motion.division?.name" tone="neutral">
-          {{ motion.division.name }}
-        </FwBadge>
-        <FwBadge v-if="isArchived" tone="neutral">
-          <FontAwesomeIcon icon="box-archive" /> Archiviert
-        </FwBadge>
-      </div>
+    <FwCard class="motion__box">
+      <header class="motion__header">
+        <div class="motion__topbar">
+          <div class="motion__badges">
+            <MotionStatusBadge :status="motion.status" />
+            <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
+            <FwBadge v-if="motion.division?.name" tone="neutral">
+              {{ motion.division.name }}
+            </FwBadge>
+            <FwBadge v-if="isArchived" tone="neutral">
+              <FontAwesomeIcon icon="box-archive" /> Archiviert
+            </FwBadge>
+          </div>
 
-      <h1 class="motion__title">{{ motion.title }}</h1>
-      <p class="motion__summary">{{ motion.summary }}</p>
+          <WatchButton
+            v-if="!isDraft"
+            :motion-id="motion.id"
+            :watched="isWatched"
+            :watch-count="watchCount"
+          />
+        </div>
 
-      <div class="motion__meta">
-        <NuxtLink
-          v-if="motion.authorId && !motion.isAnonymous"
-          :to="`/users/${motion.authorId}`"
-          class="motion__author-link"
-        >
-          <FontAwesomeIcon icon="user" /> {{ motion.author?.displayName }}
-        </NuxtLink>
-        <span v-else>
-          <FontAwesomeIcon icon="user" /> Anonym
-        </span>
-        <span v-if="motion.publishedAt">
-          <FontAwesomeIcon icon="clock" /> Veröffentlicht am
-          {{ formatDate(motion.publishedAt) }}
-        </span>
-        <span v-if="motion.status === 'debate' && motion.debateEndsAt">
-          <FontAwesomeIcon icon="comments" />
-          Debatte {{ timeRemaining(motion.debateEndsAt) }}
-        </span>
-      </div>
+        <h1 class="motion__title">{{ motion.title }}</h1>
+        <p class="motion__summary">{{ motion.summary }}</p>
 
-      <div class="motion__actions">
-        <WatchButton
-          v-if="!isDraft"
-          :motion-id="motion.id"
-          :watched="isWatched"
-          :watch-count="watchCount"
-        />
-        <template v-if="isAuthor && isDraft">
-          <NuxtLink :to="`/motions/${motion.id}/edit`">
-            <FwButton variant="secondary">
-              <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
-            </FwButton>
+        <div class="motion__meta">
+          <NuxtLink
+            v-if="motion.authorId && !motion.isAnonymous"
+            :to="`/users/${motion.authorId}`"
+            class="motion__author-link"
+          >
+            <FontAwesomeIcon icon="user" /> {{ motion.author?.displayName }}
           </NuxtLink>
-          <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
-            <FontAwesomeIcon icon="paper-plane" />
-            {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
-          </FwButton>
-        </template>
-        <FwButton
-          v-if="canArchive && !isDraft"
-          variant="ghost"
-          :disabled="archivePending"
-          @click="onArchiveToggle"
-        >
-          <FontAwesomeIcon icon="box-archive" />
-          {{ isArchived ? 'Aus Archiv holen' : 'Archivieren' }}
-        </FwButton>
-      </div>
-      <p v-if="publishError" class="form-error">{{ publishError }}</p>
-      <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
-    </header>
+          <span v-else>
+            <FontAwesomeIcon icon="user" /> Anonym
+          </span>
+          <span v-if="motion.publishedAt">
+            <FontAwesomeIcon icon="clock" /> Veröffentlicht am
+            {{ formatDate(motion.publishedAt) }}
+          </span>
+          <span v-if="motion.status === 'debate' && motion.debateEndsAt">
+            <FontAwesomeIcon icon="comments" />
+            Debatte {{ timeRemaining(motion.debateEndsAt) }}
+          </span>
+        </div>
 
-    <FwCard class="motion__body">
-      <ClientOnly>
-        <RichText :html="motion.bodyHtml" collapsible-headings />
-        <template #fallback>
-          <RichText :html="motion.bodyHtml" />
-        </template>
-      </ClientOnly>
+        <div v-if="(isAuthor && isDraft) || (canArchive && !isDraft)" class="motion__actions">
+          <template v-if="isAuthor && isDraft">
+            <NuxtLink :to="`/motions/${motion.id}/edit`">
+              <FwButton variant="secondary">
+                <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
+              </FwButton>
+            </NuxtLink>
+            <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
+              <FontAwesomeIcon icon="paper-plane" />
+              {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
+            </FwButton>
+          </template>
+          <FwButton
+            v-if="canArchive && !isDraft"
+            variant="ghost"
+            :disabled="archivePending"
+            @click="onArchiveToggle"
+          >
+            <FontAwesomeIcon icon="box-archive" />
+            {{ isArchived ? 'Aus Archiv holen' : 'Archivieren' }}
+          </FwButton>
+        </div>
+        <p v-if="publishError" class="form-error">{{ publishError }}</p>
+        <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
+      </header>
+
+      <div class="motion__body-area" :class="{ 'is-expanded': bodyExpanded }">
+        <div
+          ref="bodyClip"
+          class="motion__body-clip"
+          :style="{ maxHeight: bodyMaxHeight }"
+          :role="bodyExpanded ? undefined : 'button'"
+          :tabindex="bodyExpanded ? undefined : 0"
+          :aria-expanded="bodyExpanded"
+          @click="!bodyExpanded && setBodyExpanded(true)"
+          @keydown.enter.prevent="!bodyExpanded && setBodyExpanded(true)"
+          @keydown.space.prevent="!bodyExpanded && setBodyExpanded(true)"
+        >
+          <div class="motion__body-content">
+            <RichText :html="motion.bodyHtml" />
+          </div>
+          <span v-show="!bodyExpanded" class="motion__body-fade" aria-hidden="true" />
+        </div>
+
+        <button
+          type="button"
+          class="motion__body-toggle"
+          :aria-expanded="bodyExpanded"
+          @click="setBodyExpanded(!bodyExpanded)"
+        >
+          <FontAwesomeIcon
+            :icon="bodyExpanded ? 'chevron-up' : 'chevron-down'"
+            class="motion__body-chevron"
+            aria-hidden="true"
+          />
+          {{ bodyExpanded ? 'Antragstext einklappen' : 'Antragstext lesen' }}
+        </button>
+      </div>
     </FwCard>
 
     <section v-if="!isDraft" class="motion__section">
@@ -181,11 +257,20 @@ async function onPublish() {
   margin-bottom: var(--space-4);
   color: var(--color-text-muted);
 }
+.motion__topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
 .motion__badges {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
+}
+.motion__topbar > :last-child {
+  flex-shrink: 0;
 }
 .motion__title {
   margin: 0 0 var(--space-3);
@@ -221,10 +306,79 @@ async function onPublish() {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
 }
-.motion__body {
+.motion__box {
   margin-bottom: var(--space-6);
+}
+.motion__header {
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.motion__actions:last-child,
+.motion__header > *:last-child {
+  margin-bottom: 0;
+}
+
+.motion__body-clip {
+  position: relative;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+}
+
+.motion__body-area:not(.is-expanded) .motion__body-clip {
+  cursor: pointer;
+}
+
+.motion__body-content {
+  outline: none;
+}
+
+.motion__body-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4.5rem;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-surface) 92%
+  );
+  pointer-events: none;
+}
+
+.motion__body-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-4);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.motion__body-toggle:hover {
+  text-decoration: underline;
+}
+
+.motion__body-chevron {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  transition: transform 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion__body-clip {
+    transition: none;
+  }
 }
 .motion__section {
   margin-bottom: var(--space-7);

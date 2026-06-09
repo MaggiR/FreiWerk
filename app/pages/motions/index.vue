@@ -18,12 +18,21 @@ type ActiveFilterKey =
   | 'watched'
   | 'archived'
 
-type SortValue = 'recent' | 'active' | 'controversial'
+type SortValue =
+  | 'recent'
+  | 'active'
+  | 'controversial'
+  | 'popular'
+  | 'unpopular'
+  | 'mostWatched'
 
-const SORT_OPTIONS: { value: SortValue; label: string }[] = [
-  { value: 'recent', label: 'Neueste' },
-  { value: 'active', label: 'Aktivste' },
-  { value: 'controversial', label: 'Umstritten' },
+const SORT_OPTIONS: { value: SortValue; label: string; icon: string }[] = [
+  { value: 'recent', label: 'Neueste', icon: 'clock' },
+  { value: 'active', label: 'Aktivste', icon: 'fire' },
+  { value: 'popular', label: 'Populärste', icon: 'thumbs-up' },
+  { value: 'unpopular', label: 'Unpopulärste', icon: 'thumbs-down' },
+  { value: 'mostWatched', label: 'Meist gemerkt', icon: 'star' },
+  { value: 'controversial', label: 'Kontroverseste', icon: 'down-left-and-up-right-to-center' },
 ]
 
 type ActiveFilterChip = {
@@ -176,10 +185,8 @@ const filtersOpen = ref(
 const sortOpen = ref(false)
 const sortMenuRef = ref<HTMLElement | null>(null)
 
-const sortActive = computed(() => filters.sort !== 'recent')
-
-const sortChipLabel = computed(() =>
-  SORT_OPTIONS.find((option) => option.value === filters.sort)?.label ?? null,
+const currentSortOption = computed(
+  () => SORT_OPTIONS.find((option) => option.value === filters.sort) ?? SORT_OPTIONS[0]!,
 )
 
 const { data: divisionData } = await useFetch('/api/divisions')
@@ -283,10 +290,6 @@ const motions = computed<MotionListItem[]>(
   () => (data.value?.motions ?? []) as MotionListItem[],
 )
 
-function clearSort() {
-  filters.sort = 'recent'
-}
-
 function selectSort(value: SortValue) {
   filters.sort = value
   sortOpen.value = false
@@ -359,13 +362,14 @@ function resetFilters() {
           <button
             class="filters__toggle sort-menu__trigger"
             type="button"
-            aria-label="Sortierung"
+            :aria-label="`Sortierung: ${currentSortOption.label}`"
             :aria-expanded="sortOpen"
             aria-controls="motion-sort-panel"
             @click.stop="toggleSort"
           >
-            <FontAwesomeIcon icon="arrow-down-wide-short" class="filters__toggle-icon" />
-            <span v-if="sortActive" class="filters__badge">1</span>
+            <FontAwesomeIcon :icon="currentSortOption.icon" class="sort-menu__option-icon" />
+            <span class="sort-menu__trigger-label">{{ currentSortOption.label }}</span>
+            <FontAwesomeIcon icon="chevron-down" class="sort-menu__chevron" aria-hidden="true" />
           </button>
           <div
             v-show="sortOpen"
@@ -383,7 +387,8 @@ function resetFilters() {
               :aria-checked="filters.sort === option.value"
               @click="selectSort(option.value)"
             >
-              {{ option.label }}
+              <FontAwesomeIcon :icon="option.icon" class="sort-menu__option-icon" />
+              <span>{{ option.label }}</span>
             </button>
           </div>
         </div>
@@ -401,21 +406,7 @@ function resetFilters() {
         </button>
       </div>
 
-      <div
-        v-if="sortActive || activeFilterChips.length > 0"
-        class="filters__active"
-      >
-        <span v-if="sortActive && sortChipLabel" class="filters__chip filters__chip--sort">
-          <span class="filters__chip-label">{{ sortChipLabel }}</span>
-          <button
-            type="button"
-            class="filters__chip-remove"
-            :aria-label="`Sortierung „${sortChipLabel}“ entfernen`"
-            @click="clearSort"
-          >
-            <FontAwesomeIcon icon="xmark" />
-          </button>
-        </span>
+      <div v-if="activeFilterChips.length > 0" class="filters__active">
         <span
           v-for="chip in activeFilterChips"
           :key="chip.key"
@@ -565,7 +556,34 @@ function resetFilters() {
 }
 
 .sort-menu__trigger {
+  width: auto;
   height: 100%;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sort-menu__trigger-label {
+  font-size: 0.9rem;
+}
+
+.sort-menu__chevron {
+  margin-left: var(--space-1);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.sort-menu__trigger .sort-menu__option-icon {
+  width: 1.1rem;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.sort-menu__trigger .sort-menu__option-icon :deep(svg) {
+  width: 1em;
+  height: 1em;
 }
 
 .sort-menu__panel {
@@ -573,7 +591,7 @@ function resetFilters() {
   top: calc(100% + var(--space-2));
   right: 0;
   z-index: 20;
-  min-width: 11rem;
+  min-width: 13rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -585,7 +603,9 @@ function resetFilters() {
 }
 
 .sort-menu__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border: none;
@@ -607,6 +627,18 @@ function resetFilters() {
 .sort-menu__item--active {
   background: var(--color-bg);
   color: var(--color-accent);
+}
+
+.sort-menu__item .sort-menu__option-icon {
+  width: 1.5rem;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.sort-menu__item .sort-menu__option-icon :deep(svg) {
+  width: 1.15em;
+  height: 1.15em;
 }
 
 .filters__badge {
@@ -693,6 +725,10 @@ function resetFilters() {
   flex: 1;
   padding: var(--space-2) 0;
   background: transparent;
+  color: var(--color-text);
+}
+.filters__search input::placeholder {
+  color: color-mix(in srgb, var(--color-text) 42%, transparent);
 }
 .filters__search input:focus {
   outline: none;

@@ -55,7 +55,9 @@ export const motionListQuerySchema = z.object({
   divisionId: z.string().uuid().optional(),
   q: z.string().trim().max(200).optional(),
   authorId: z.string().uuid().optional(),
-  sort: z.enum(['recent', 'active', 'controversial']).optional(),
+  sort: z
+    .enum(['recent', 'active', 'controversial', 'popular', 'unpopular', 'mostWatched'])
+    .optional(),
   publishedFrom: isoDateSchema,
   publishedTo: isoDateSchema,
   minSupport: z.coerce.number().int().min(0).max(100).optional(),

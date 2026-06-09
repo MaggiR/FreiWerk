@@ -100,7 +100,11 @@ describe('motionListQuerySchema', () => {
     expect(parsed.sort).toBe('active')
   })
 
-  it('accepts controversial sort and date/support filters', () => {
+  it('accepts popular and controversial sort and date/support filters', () => {
+    expect(motionListQuerySchema.parse({ sort: 'popular' }).sort).toBe('popular')
+    expect(motionListQuerySchema.parse({ sort: 'unpopular' }).sort).toBe('unpopular')
+    expect(motionListQuerySchema.parse({ sort: 'mostWatched' }).sort).toBe('mostWatched')
+
     const parsed = motionListQuerySchema.parse({
       sort: 'controversial',
       publishedFrom: '2026-01-01',

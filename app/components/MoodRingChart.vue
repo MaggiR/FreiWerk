@@ -58,7 +58,7 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
     <Doughnut :data="chartData" :options="chartOptions" />
     <div class="ring__center" aria-hidden="true">
       <span class="ring__center-value">{{ totalVotes }}</span>
-      <span class="ring__center-label">Beteiligungen</span>
+      <span class="ring__center-label">Stimmen</span>
     </div>
   </div>
 </template>
@@ -71,7 +71,7 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
 
 .ring__center {
   position: absolute;
-  top: 42%;
+  top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;

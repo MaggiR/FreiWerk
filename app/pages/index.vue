@@ -42,20 +42,22 @@ watch(
   { immediate: true },
 )
 
+const TOP_COUNT = 6
+
 const hotMotions = computed<MotionListItem[]>(
-  () => (hot.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+  () => (hot.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 const controversialMotions = computed<MotionListItem[]>(
-  () => (controversial.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+  () => (controversial.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 const recentMotions = computed<MotionListItem[]>(
-  () => (recent.value?.motions ?? []).slice(0, 6) as MotionListItem[],
+  () => (recent.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 const myMotions = computed<MotionListItem[]>(
-  () => (mine.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+  () => (mine.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 const watchedMotions = computed<MotionListItem[]>(
-  () => (watchedData.value?.motions ?? []).slice(0, 3) as MotionListItem[],
+  () => (watchedData.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 
 const myMotionsTo = computed(() => ({
@@ -107,9 +109,7 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
         <h2><FontAwesomeIcon icon="seedling" /> Deine Anträge</h2>
         <NuxtLink :to="myMotionsTo">Alle anzeigen</NuxtLink>
       </div>
-      <div class="grid">
-        <MotionCard v-for="m in myMotions" :key="m.id" :motion="m" />
-      </div>
+      <MotionCarousel :motions="myMotions" />
     </section>
 
     <section v-if="loggedIn && watchedMotions.length > 0" class="section">
@@ -117,14 +117,7 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
         <h2><FontAwesomeIcon icon="star" /> Beobachtete Anträge</h2>
         <NuxtLink to="/motions?watched=true">Alle anzeigen</NuxtLink>
       </div>
-      <div class="grid">
-        <MotionCard
-          v-for="m in watchedMotions"
-          :key="m.id"
-          :motion="m"
-          @watch-changed="onWatchedCardChange"
-        />
-      </div>
+      <MotionCarousel :motions="watchedMotions" @watch-changed="onWatchedCardChange" />
     </section>
 
     <section class="section">
@@ -132,20 +125,21 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
         <h2><FontAwesomeIcon icon="fire" /> Heiß debattiert</h2>
         <NuxtLink to="/motions?sort=active&status=debate">Mehr</NuxtLink>
       </div>
-      <div v-if="hotMotions.length > 0" class="grid">
-        <MotionCard v-for="m in hotMotions" :key="m.id" :motion="m" />
-      </div>
+      <MotionCarousel v-if="hotMotions.length > 0" :motions="hotMotions" />
       <FwCard v-else><p>Aktuell keine laufenden Debatten.</p></FwCard>
     </section>
 
     <section class="section">
       <div class="section__head">
-        <h2><FontAwesomeIcon icon="scale-balanced" /> Besonders umstritten</h2>
+        <h2>
+          <FontAwesomeIcon icon="down-left-and-up-right-to-center" /> Kontroverseste
+        </h2>
         <NuxtLink to="/motions?sort=controversial&status=debate">Mehr</NuxtLink>
       </div>
-      <div v-if="controversialMotions.length > 0" class="grid">
-        <MotionCard v-for="m in controversialMotions" :key="m.id" :motion="m" />
-      </div>
+      <MotionCarousel
+        v-if="controversialMotions.length > 0"
+        :motions="controversialMotions"
+      />
       <FwCard v-else><p>Aktuell keine kontroversen Debatten mit ausgewogener Zustimmung und Ablehnung.</p></FwCard>
     </section>
 
@@ -154,9 +148,7 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
         <h2><FontAwesomeIcon icon="clock" /> Neueste Anträge</h2>
         <NuxtLink to="/motions">Alle Anträge</NuxtLink>
       </div>
-      <div v-if="recentMotions.length > 0" class="grid">
-        <MotionCard v-for="m in recentMotions" :key="m.id" :motion="m" />
-      </div>
+      <MotionCarousel v-if="recentMotions.length > 0" :motions="recentMotions" />
       <FwCard v-else><p>Noch keine veröffentlichten Anträge.</p></FwCard>
     </section>
   </div>
@@ -233,10 +225,5 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
   align-items: center;
   gap: var(--space-3);
   margin: 0;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-4);
 }
 </style>

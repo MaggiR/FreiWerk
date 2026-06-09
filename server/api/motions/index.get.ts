@@ -124,12 +124,45 @@ export default defineEventHandler(async (event) => {
       where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'reject')
   )`
 
+  const pollVoteCount = sql`(
+    select count(*)::int from ${moodVotes}
+    where ${moodVotes.motionId} = ${motions.id}
+      and ${moodVotes.choice} in ('approve', 'reject', 'abstain')
+  )`
+
+  const approvalRatioOrder = sql`case
+    when ${pollVoteCount} = 0 then 0
+    else (
+      select count(*)::int from ${moodVotes}
+      where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'approve'
+    )::float / ${pollVoteCount}
+  end`
+
+  const rejectionRatioOrder = sql`case
+    when ${pollVoteCount} = 0 then 0
+    else (
+      select count(*)::int from ${moodVotes}
+      where ${moodVotes.motionId} = ${motions.id} and ${moodVotes.choice} = 'reject'
+    )::float / ${pollVoteCount}
+  end`
+
+  const watchCountOrder = sql`(
+    select count(*)::int from ${motionWatches}
+    where ${motionWatches.motionId} = ${motions.id}
+  )`
+
   const orderBy =
     query.sort === 'active'
       ? [desc(postCount), desc(motions.updatedAt)]
       : query.sort === 'controversial'
         ? [desc(controversyOrder), desc(voteCount), desc(motions.updatedAt)]
-        : [desc(motions.publishedAt), desc(motions.createdAt)]
+        : query.sort === 'popular'
+          ? [desc(approvalRatioOrder), desc(pollVoteCount), desc(motions.updatedAt)]
+          : query.sort === 'unpopular'
+            ? [desc(rejectionRatioOrder), desc(pollVoteCount), desc(motions.updatedAt)]
+            : query.sort === 'mostWatched'
+            ? [desc(watchCountOrder), desc(motions.updatedAt)]
+            : [desc(motions.publishedAt), desc(motions.createdAt)]
 
   const isWatched = currentUserId
     ? sql<boolean>`exists(
