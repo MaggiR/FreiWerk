@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { motionWatches } from '../../../database/schema'
+import { motionVersions, motionWatches, motionWorkingDocs } from '../../../database/schema'
 import { redactMotionAuthor } from '../../../utils/motionAnonymity'
+import { countOpenSuggestions } from '../../../utils/suggestions'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
@@ -60,6 +61,24 @@ export default defineEventHandler(async (event) => {
     currentUserId,
   )
 
+  let openSuggestionCount = 0
+  let olderVersionCount = 0
+  if (motion.status !== 'draft') {
+    const [workingDoc] = await db
+      .select({ docJson: motionWorkingDocs.docJson })
+      .from(motionWorkingDocs)
+      .where(eq(motionWorkingDocs.motionId, id))
+      .limit(1)
+    openSuggestionCount = workingDoc ? countOpenSuggestions(workingDoc.docJson) : 0
+
+    const [versionRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(motionVersions)
+      .where(eq(motionVersions.motionId, id))
+    // Current version is excluded; only prior snapshots count as "older".
+    olderVersionCount = Math.max(0, (versionRow?.count ?? 0) - 1)
+  }
+
   return {
     motion: {
       ...motion,
@@ -68,5 +87,7 @@ export default defineEventHandler(async (event) => {
     },
     watchCount,
     isWatched,
+    openSuggestionCount,
+    olderVersionCount,
   }
 })

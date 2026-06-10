@@ -213,6 +213,26 @@ select:focus {
   margin: var(--space-3) 0;
 }
 
+/* Suggestion-mode marks (Google-Docs-style change tracking) */
+.rich-text ins[data-id] {
+  text-decoration: none;
+  background: color-mix(in srgb, #0a9f5e 16%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, #0a9f5e 55%, transparent);
+}
+.rich-text del[data-id] {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, #d91e36 75%, transparent);
+  background: color-mix(in srgb, #d91e36 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 80%, #d91e36);
+  border-radius: 2px;
+}
+.rich-text [data-type='modification'] {
+  background: color-mix(in srgb, #00a7e7 14%, transparent);
+  border-radius: 2px;
+}
+
 /* Attachment chips (editor + rendered motion text) */
 .attachment-chip-wrapper {
   display: block;

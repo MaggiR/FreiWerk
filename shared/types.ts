@@ -21,3 +21,35 @@ export interface MotionListItem {
   /** Present when the viewer is authenticated. */
   isWatched?: boolean
 }
+
+export interface MotionVersionItem {
+  id: string
+  versionNumber: number
+  title: string
+  summary: string
+  bodyHtml: string
+  createdAt: string
+  createdById: string | null
+  createdByName: string | null
+}
+
+/** A single open change suggestion, derived from the working document's marks. */
+export interface SuggestionItem {
+  id: number
+  type: 'insertion' | 'deletion' | 'modification'
+  authorId: string | null
+  authorName: string | null
+  /** Short plain-text preview of the affected content. */
+  snippet: string
+}
+
+export interface MotionSuggestionsResponse {
+  /** ProseMirror working-document JSON with suggestion marks, or null if none. */
+  docJson: unknown | null
+  /** Motion version number the working document is based on. */
+  baseVersion: number
+  /** Optimistic concurrency token. */
+  revision: number
+  suggestions: SuggestionItem[]
+  openCount: number
+}

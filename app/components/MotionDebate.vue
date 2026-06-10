@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{ motionId: string; debateOpen: boolean }>()
+const postCount = defineModel<number>('postCount', { default: 0 })
 const { loggedIn } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 
@@ -21,6 +22,7 @@ const isEmpty = computed(() => !pending.value && posts.value.length === 0)
 watch(
   posts,
   (list) => {
+    postCount.value = list.length
     if (list.length > 0) {
       showPostForm.value = true
     }
@@ -63,9 +65,6 @@ function onFirstPostClick() {
 
     <template v-else>
       <div v-if="posts.length > 0" class="debate__toolbar">
-        <p class="debate__count">
-          {{ posts.length }} Beitrag{{ posts.length === 1 ? '' : 'e' }}
-        </p>
         <label class="debate__sort">
           <span class="visually-hidden">Sortierung</span>
           <select v-model="postSort">
@@ -132,14 +131,9 @@ function onFirstPostClick() {
 .debate__toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
-}
-
-.debate__count {
-  color: var(--color-text-muted);
-  margin: 0;
 }
 
 .debate__sort select {

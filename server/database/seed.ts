@@ -27,7 +27,8 @@ async function main() {
   console.log('[seed] Resetting tables...')
   await db.execute(
     drizzleSql`TRUNCATE TABLE
-      "motion_watches", "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
+      "motion_working_docs", "motion_versions", "motion_watches", "mood_vote_events",
+      "mood_votes", "posts", "motions", "users", "divisions"
       RESTART IDENTITY CASCADE`,
   )
 
@@ -89,6 +90,9 @@ async function main() {
         ? daysFromNow(publishedAt, motion.debateDays)
         : null
 
+    // Published motions carry their v1 content snapshot; drafts stay at version 0.
+    const isPublished = motion.status === 'debate'
+
     const [row] = await db
       .insert(schema.motions)
       .values({
@@ -101,10 +105,23 @@ async function main() {
         divisionId: divisionIdBySlug[motion.divisionSlug],
         publishedAt,
         debateEndsAt,
+        currentVersion: isPublished ? 1 : 0,
         createdAt: publishedAt ?? now,
         updatedAt: now,
       })
       .returning()
+
+    if (isPublished) {
+      await db.insert(schema.motionVersions).values({
+        motionId: row!.id,
+        versionNumber: 1,
+        title: row!.title,
+        summary: row!.summary,
+        bodyHtml: row!.bodyHtml,
+        createdById: row!.authorId,
+        createdAt: publishedAt ?? now,
+      })
+    }
 
     insertedMotions.push(row!)
   }

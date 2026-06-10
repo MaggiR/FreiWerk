@@ -3,7 +3,7 @@
 
 **FreiWerk** ist eine digitale Beteiligungsplattform zum Einbringen, Debattieren, Weiterentwickeln und Beschließen von politischen Initiativen. Es soll eine neue, basisorientierte Debattenkultur ermöglichen und den programmatischen Prozess innerhalb der liberalen Community dauerhaft öffnen und stärken.
 
-Jeder User kann politische Anträge einbringen, innerhalb der Partei diskutieren und gemeinsam mit anderen Mitgliedern weiterentwickeln. Statt unübersichtlicher Kommentarspalten strukturiert FreiWerk die Debatte entlang von Argumenten, Gegenargumenten, offenen Fragen und Änderungsanträgen. KI-gestützte Zusammenfassungen helfen dabei, auch umfangreiche Diskussionen schnell zu erfassen, ohne die ursprünglichen Beiträge zu ersetzen.
+Jeder User kann politische Anträge einbringen, innerhalb der Partei diskutieren und gemeinsam mit anderen Mitgliedern weiterentwickeln. Statt unübersichtlicher Kommentarspalten strukturiert FreiWerk die Debatte entlang von Argumenten, Gegenargumenten, offenen Fragen und Änderungsvorschlägen. KI-gestützte Zusammenfassungen helfen dabei, auch umfangreiche Diskussionen schnell zu erfassen, ohne die ursprünglichen Beiträge zu ersetzen.
 
 Parallel zur Debatte zeigt ein laufendes, unverbindliches Stimmungsbild, wie sich die Unterstützung für einen Antrag entwickelt. Erreicht ein Antrag die erforderlichen Quoren, kann eine formale Abstimmung initiiert werden. Erfolgreiche Anträge sollen — abhängig von der jeweiligen Satzungsgrundlage — verbindlich an die zuständigen Gremien weitergegeben oder als formeller Mitgliederentscheid verabschiedet werden.
 
@@ -62,14 +62,15 @@ FreiWerk strukturiert Debatten entlang von Argumenten statt entlang chronologisc
 	- Themengebiet (Wirtschaft, Bildung, ...)
 - Speicherung als Entwurf vor der Veröffentlichung
 - Versionierung des Antragstextes mit transparenter Änderungshistorie
-- Möglichkeit zur gemeinsamen Weiterentwicklung eines Antrags durch Einreichung von Änderungsanträgen durch jedes Mitglied
-- Antragsteller kann Änderungsanträge annehmen
+- Gemeinsame Weiterentwicklung über einen **Vorschlagsmodus** (Google-Docs-Stil): Mitglieder bearbeiten den Antragstext inline, jede zusammenhängende Änderung wird als Änderungsvorschlag markiert (Einfügung/Löschung/Formatierung) und in einem gemeinsamen Arbeitsdokument gesammelt. Andere können Vorschläge ein-/ausblenden.
+- Der Antragsteller nimmt einzelne Vorschläge an oder verwirft sie; beim Speichern entsteht eine neue Version. Vorschläge betreffen Text und Formatierung (keine Medienänderungen).
+- **Künftige verbindliche Anforderung:** Echtzeit-Kollaboration (z. B. via Yjs/CRDT), da das gleichzeitige Bearbeiten von Vorschlägen häufiger wird. Aktueller Stand ist ein optimistischer Versions-Check (Konflikt → neu laden).
 - Automatische Verknüpfung ähnlicher oder konkurrierender Anträge, ob laufend, Beschlusslage oder Archiv
 - Archivierung zurückgezogener oder erledigter Anträge
 - Antragsstufe (entsprechend visualisiert):
   1. **Entwurf**: Antragsteller bereitet Antrag vor
   2. **Debatte**: offene Diskussion um den Antrag mit Echtzeit-Stimmungsbild
-  3. **Abstimmung**: fest definierte, geheime Abstimmungsphase (sofern Mitgliederentscheid)
+  3. **Abstimmung**: fest definierte, geheime Abstimmungsphase
   4. **Entschieden**: entweder verabschiedet (und damit Weiterleitung oder Umsetzung) oder abgelehnt oder Quorum verfehlt
 ### 3. Strukturierte Debatten
 - Forumsartige Diskussion unter jedem Antrag, wahlweise linear oder als Themenbaum darstellbar
@@ -162,7 +163,8 @@ User
 Division (für FDP-Verbandsgliederung)
 Role
 Motion
-Amendment
+MotionVersion
+Suggestion (Änderungsvorschlag im gemeinsamen Arbeitsdokument)
 Post
 Argument
 Vote

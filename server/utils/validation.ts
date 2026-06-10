@@ -34,6 +34,28 @@ export const postCreateSchema = z.object({
   bodyHtml: z.string().min(1).max(50_000),
 })
 
+// A ProseMirror document node (top-level). Structural allow-list validation of
+// nodes/marks happens in server/utils/suggestions.ts (validateWorkingDoc).
+const proseMirrorDocSchema = z
+  .object({ type: z.literal('doc') })
+  .passthrough()
+
+// PUT /suggestions: a member stores the shared working document (ProseMirror JSON
+// with suggestion marks). baseRevision drives the optimistic concurrency check.
+export const suggestionSubmitSchema = z.object({
+  docJson: proseMirrorDocSchema,
+  baseRevision: z.number().int().min(0),
+})
+
+// POST /suggestions/save (author): bake accepted suggestions into a new version.
+// cleanHtml is the resolved motion text (sanitized server-side); workingDocJson is
+// the rebased working document, or null when no open suggestions remain.
+export const suggestionSaveSchema = z.object({
+  cleanHtml: z.string().min(1).max(100_000),
+  workingDocJson: proseMirrorDocSchema.nullable(),
+  baseRevision: z.number().int().min(0),
+})
+
 export const moodVoteSchema = z.object({
   choice: z.enum(MOOD_CHOICES),
 })

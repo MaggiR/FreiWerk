@@ -14,6 +14,7 @@ if (error.value) {
 const motion = computed(() => data.value?.motion)
 const watchCount = computed(() => data.value?.watchCount ?? 0)
 const isWatched = computed(() => data.value?.isWatched ?? false)
+const olderVersionCount = computed(() => data.value?.olderVersionCount ?? 0)
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
 const isDraft = computed(() => motion.value?.status === 'draft')
@@ -99,6 +100,7 @@ watch(
 
 const publishPending = ref(false)
 const publishError = ref('')
+const debatePostCount = ref(0)
 
 async function onPublish() {
   if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
@@ -228,6 +230,23 @@ async function onPublish() {
           {{ bodyExpanded ? 'Antragstext einklappen' : 'Antragstext lesen' }}
         </button>
       </div>
+
+      <MotionSuggestions
+        v-if="!isDraft"
+        :motion-id="motion.id"
+        :motion-body-html="motion.bodyHtml"
+        :is-author="isAuthor"
+        :debate-open="debateOpen"
+        @saved="refreshNuxtData()"
+      />
+
+      <nav v-if="!isDraft" class="motion__history-nav" aria-label="Antragshistorie">
+        <NuxtLink :to="`/motions/${motion.id}/versions`" class="motion__history-link">
+          <FontAwesomeIcon icon="clock-rotate-left" aria-hidden="true" />
+          <span>Versionen</span>
+          <span class="motion__history-count">{{ olderVersionCount }}</span>
+        </NuxtLink>
+      </nav>
     </FwCard>
 
     <section v-if="!isDraft" class="motion__section">
@@ -236,8 +255,15 @@ async function onPublish() {
     </section>
 
     <section v-if="!isDraft" class="motion__section">
-      <h2><FontAwesomeIcon icon="comments" /> Debatte</h2>
-      <MotionDebate :motion-id="motion.id" :debate-open="debateOpen" />
+      <h2>
+        <FontAwesomeIcon icon="comments" /> Debatte
+        <span class="motion__history-count">{{ debatePostCount }}</span>
+      </h2>
+      <MotionDebate
+        v-model:post-count="debatePostCount"
+        :motion-id="motion.id"
+        :debate-open="debateOpen"
+      />
     </section>
 
     <p v-else class="app-hint motion__hint">
@@ -380,6 +406,49 @@ async function onPublish() {
     transition: none;
   }
 }
+
+.motion__history-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.motion__history-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.motion__history-link:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.motion__history-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .motion__section {
   margin-bottom: var(--space-7);
 }

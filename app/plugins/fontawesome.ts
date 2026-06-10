@@ -55,6 +55,13 @@ import {
   faLayerGroup,
   faCalendar,
   faIdCard,
+  faCodeBranch,
+  faClockRotateLeft,
+  faTriangleExclamation,
+  faQuoteLeft,
+  faEye,
+  faEyeSlash,
+  faCommentDots,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -115,6 +122,13 @@ library.add(
   faLayerGroup,
   faCalendar,
   faIdCard,
+  faCodeBranch,
+  faClockRotateLeft,
+  faTriangleExclamation,
+  faQuoteLeft,
+  faEye,
+  faEyeSlash,
+  faCommentDots,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

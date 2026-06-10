@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useEditor, EditorContent } from '@tiptap/vue-3'
+import { useEditor, EditorContent, type Editor } from '@tiptap/vue-3'
+import type { JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
@@ -7,20 +8,51 @@ import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Attachment, normalizeAttachmentLabel } from '~/editor/attachmentExtension'
 import { Video } from '~/editor/videoExtension'
+import {
+  suggestionExtensions,
+  setSuggesting,
+  acceptSuggestion as acceptSuggestionCmd,
+  rejectSuggestion as rejectSuggestionCmd,
+  stampSuggestionAuthors,
+  resolveCleanHtml,
+} from '~/editor/suggestions'
+
+/** Configures the Google-Docs-style suggestion layer; null = plain HTML editor. */
+interface SuggestionConfig {
+  mode: 'propose' | 'review' | 'view'
+  userId: string
+  userName: string
+}
 
 const model = defineModel<string>({ default: '' })
 
 const props = withDefaults(
-  defineProps<{ placeholder?: string }>(),
-  { placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.' },
+  defineProps<{
+    placeholder?: string
+    suggestion?: SuggestionConfig | null
+    docJson?: JSONContent | null
+  }>(),
+  {
+    placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.',
+    suggestion: null,
+    docJson: null,
+  },
 )
+
+const emit = defineEmits<{ 'update:doc': [JSONContent] }>()
+
+const isSuggesting = computed(() => props.suggestion != null)
+const isReadOnly = computed(() => props.suggestion?.mode === 'view')
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploadError = ref('')
 const uploading = ref(false)
 
 const editor = useEditor({
-  content: model.value,
+  // In suggestion mode, prefer the shared working document (JSON); fall back to
+  // the motion body HTML for the very first proposal.
+  content: isSuggesting.value ? (props.docJson ?? model.value) : model.value,
+  editable: !isReadOnly.value,
   immediatelyRender: false,
   extensions: [
     StarterKit.configure({
@@ -32,16 +64,27 @@ const editor = useEditor({
     Video,
     Attachment,
     Placeholder.configure({ placeholder: props.placeholder }),
+    ...(isSuggesting.value ? suggestionExtensions() : []),
   ],
   editorProps: {
     attributes: { class: 'rich-text editor-surface' },
   },
+  onCreate: ({ editor: ed }) => {
+    if (props.suggestion?.mode === 'propose') {
+      setSuggesting(ed as Editor, true)
+    }
+  },
   onUpdate: ({ editor: ed }) => {
-    model.value = ed.getHTML()
+    if (isSuggesting.value) {
+      emit('update:doc', ed.getJSON())
+    } else {
+      model.value = ed.getHTML()
+    }
   },
 })
 
 watch(model, (value) => {
+  if (isSuggesting.value) return
   if (editor.value && value !== editor.value.getHTML()) {
     editor.value.commands.setContent(value, false)
   }
@@ -49,6 +92,27 @@ watch(model, (value) => {
 
 onBeforeUnmount(() => {
   editor.value?.destroy()
+})
+
+defineExpose({
+  getEditor: () => editor.value ?? null,
+  getJSON: () => editor.value?.getJSON() ?? null,
+  getCleanHtml: () => (editor.value ? resolveCleanHtml(editor.value) : ''),
+  acceptSuggestion: (id: number) => {
+    if (editor.value) acceptSuggestionCmd(editor.value, id)
+  },
+  rejectSuggestion: (id: number) => {
+    if (editor.value) rejectSuggestionCmd(editor.value, id)
+  },
+  stampAuthors: () => {
+    if (editor.value && props.suggestion) {
+      stampSuggestionAuthors(
+        editor.value,
+        props.suggestion.userId,
+        props.suggestion.userName,
+      )
+    }
+  },
 })
 
 function addLink() {
@@ -182,12 +246,17 @@ const tools = computed<ToolItem[]>(() => {
       active: () => !!e?.isActive('blockquote'),
     },
     { id: 'link', icon: 'link', title: 'Link', action: addLink, active: () => !!e?.isActive('link') },
-    {
-      id: 'paperclip',
-      icon: 'paperclip',
-      title: 'Anhang hochladen',
-      action: openAttachmentPicker,
-    },
+    // Media uploads are disabled while suggesting (text + formatting only).
+    ...(isSuggesting.value
+      ? []
+      : [
+          {
+            id: 'paperclip',
+            icon: 'paperclip',
+            title: 'Anhang hochladen',
+            action: openAttachmentPicker,
+          },
+        ]),
   ]
 })
 
@@ -220,7 +289,7 @@ const historyTools = computed<ToolItem[]>(() => {
       @change="onFileSelected"
     >
 
-    <div class="editor__toolbar">
+    <div v-if="!isReadOnly" class="editor__toolbar">
       <div class="editor__group">
         <button
           v-for="tool in headingTools"

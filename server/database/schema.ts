@@ -5,6 +5,8 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
+  jsonb,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
@@ -82,6 +84,9 @@ export const motions = pgTable(
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     // When true the author is hidden from public views (authorId remains for auth).
     isAnonymous: boolean('is_anonymous').notNull().default(false),
+    // 0 while draft; 1 once published (v1 snapshot); incremented when the author
+    // saves accepted suggestions as a new version.
+    currentVersion: integer('current_version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -179,6 +184,57 @@ export const moodVoteEvents = pgTable(
   (table) => [index('mood_vote_events_motion_idx').on(table.motionId)],
 )
 
+// Immutable snapshot of a motion's content at a point in time.
+// v1 is captured on publish; each saved set of accepted suggestions appends one.
+export const motionVersions = pgTable(
+  'motion_versions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    versionNumber: integer('version_number').notNull(),
+    title: text('title').notNull(),
+    summary: text('summary').notNull(),
+    // Sanitized TipTap HTML output captured at snapshot time.
+    bodyHtml: text('body_html').notNull(),
+    // User who triggered the snapshot (author on publish/save).
+    createdById: uuid('created_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('motion_versions_motion_number_idx').on(
+      table.motionId,
+      table.versionNumber,
+    ),
+    index('motion_versions_motion_idx').on(table.motionId),
+  ],
+)
+
+// One shared working document per motion (Google-Docs-style suggestion mode).
+// Holds ProseMirror JSON whose insertion/deletion/modification marks are the
+// open change suggestions. The author accepts/rejects them into a new version.
+export const motionWorkingDocs = pgTable('motion_working_docs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  motionId: uuid('motion_id')
+    .notNull()
+    .unique()
+    .references(() => motions.id, { onDelete: 'cascade' }),
+  // Motion version number this working document is based on.
+  baseVersion: integer('base_version').notNull(),
+  // ProseMirror document JSON including suggestion marks.
+  docJson: jsonb('doc_json').notNull(),
+  // Optimistic concurrency token; bumped on every successful write.
+  revision: integer('revision').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 // ---------- Relations ----------
 
 export const divisionsRelations = relations(divisions, ({ one, many }) => ({
@@ -213,6 +269,8 @@ export const motionsRelations = relations(motions, ({ one, many }) => ({
   posts: many(posts),
   moodVotes: many(moodVotes),
   watches: many(motionWatches),
+  versions: many(motionVersions),
+  workingDoc: one(motionWorkingDocs),
 }))
 
 export const motionWatchesRelations = relations(motionWatches, ({ one }) => ({
@@ -237,6 +295,27 @@ export const postsRelations = relations(posts, ({ one }) => ({
   }),
 }))
 
+export const motionVersionsRelations = relations(motionVersions, ({ one }) => ({
+  motion: one(motions, {
+    fields: [motionVersions.motionId],
+    references: [motions.id],
+  }),
+  createdBy: one(users, {
+    fields: [motionVersions.createdById],
+    references: [users.id],
+  }),
+}))
+
+export const motionWorkingDocsRelations = relations(
+  motionWorkingDocs,
+  ({ one }) => ({
+    motion: one(motions, {
+      fields: [motionWorkingDocs.motionId],
+      references: [motions.id],
+    }),
+  }),
+)
+
 // ---------- Inferred types ----------
 
 export type User = typeof users.$inferSelect
@@ -247,6 +326,10 @@ export type NewMotion = typeof motions.$inferInsert
 export type Post = typeof posts.$inferSelect
 export type MoodVote = typeof moodVotes.$inferSelect
 export type MotionWatch = typeof motionWatches.$inferSelect
+export type MotionVersion = typeof motionVersions.$inferSelect
+export type NewMotionVersion = typeof motionVersions.$inferInsert
+export type MotionWorkingDoc = typeof motionWorkingDocs.$inferSelect
+export type NewMotionWorkingDoc = typeof motionWorkingDocs.$inferInsert
 export type MoodChoice = (typeof moodChoiceEnum.enumValues)[number]
 export type MotionStatus = (typeof motionStatusEnum.enumValues)[number]
 export type UserRole = (typeof userRoleEnum.enumValues)[number]

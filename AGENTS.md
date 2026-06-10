@@ -32,7 +32,7 @@ On first start the app container runs `npm install`, migrations, seed, and `nuxt
 ## Coding conventions
 
 - TypeScript `strict` mode; avoid `any`.
-- Domain terms in English in code: `Motion`, `Post`, `Division`, `MoodVote`, `Amendment`, `Ballot`.
+- Domain terms in English in code: `Motion`, `Post`, `Division`, `MoodVote`, `Suggestion`, `Ballot`.
 - Use design tokens for colors and typography — no hardcoded FDP brand values in components.
 - Brand colors (tokens): `#FFE000` (primary), `#032D67` (secondary), `#00A7E7` (tertiary); font: DejaVu Sans.
 - Validate every API input with Zod; add tests for new endpoints.
@@ -49,35 +49,153 @@ On first start the app container runs `npm install`, migrations, seed, and `nuxt
 - Never log PII; keep ballot votes separate from user profiles (required for formal voting in later phases).
 - Never couple user IDs to secret ballot records.
 
-## MVP scope boundaries
+## Database handling
+No database migration needed as for now. You may assume that the DB is recreated on each new docker build.
 
-**In scope (core MVP):**
+## Feature status and roadmap
 
-- Local auth (register/login/session) — SSO comes later
-- Roles: member, moderator, admin
-- Motion CRUD: draft → publish → debate, featuring a TipTap editor with all basic formatting options
-- Linear debate posts under a motion
-- Non-binding mood poll (approve / reject / abstain / undecided) with charts
-- Landing page, sleek and modern look (glass morphism header menu), and dark/light mode
+Cross-checked [README.md](README.md) (feature catalog 1–10) with the actual code state (DB schema, `server/api/`, `app/pages`, `app/components`). When in doubt, check the phase plan below before implementing README features.
 
-**Out of scope until explicitly requested:**
+Legend: `[x]` done · `[~]` partial · `[ ]` open
 
-- AI features (summaries, argument extraction, semantic search)
-- Formal secret ballots, quorums, and voting phases
-- Motion versioning and amendments
-- Email notifications, moderation tools, PDF export
-- FDP member portal SSO
+### 1. Member access and roles
 
-When in doubt, check MVP boundaries before implementing README features.
+- [x] Local auth: register/login/logout/session (scrypt, `nuxt-auth-utils`)
+- [x] Role model `member`/`moderator`/`admin` in DB + `requireRole` helper
+- [x] Assignment to division level (Division, hierarchical)
+- [~] Personal profile: only `displayName` in header, `fn` field in DB — no profile page, no motion history
+- [ ] Role/committee rights visibly used (LFA, BFA, LaVo, …) — `requireRole` not active in any endpoint, no role display in UI
+- [ ] FDP member portal SSO (post-MVP)
+- [ ] Email notifications (post-MVP)
 
-## Motion lifecycle (MVP)
+### 2. Motion submission
+
+- [x] Create motion, save draft, publish (`draft → debate`)
+- [x] Fields title, summary, body (TipTap), topic, division level
+- [x] Images + PDF/file attachments (upload, MIME whitelist, 5 MB, attachment chips)
+- [x] Edit/delete only for author in `draft` status
+- [~] Motion stages visualized: `draft` + `debate` present, `ballot`/`decided` unused
+- [ ] Video attachments
+- [x] Versioning + change history (`motion_versions`; v1 on publish, new version when the author saves accepted suggestions)
+- [x] Suggestion mode (Google-Docs-style): inline edits tracked as `insertion`/`deletion`/`modification` marks in one shared working document per motion (`motion_working_docs`); author accepts/rejects → new version. Powered by `@handlewithcare/prosemirror-suggest-changes` on top of TipTap. Text + formatting only (no media changes).
+- [ ] Automatic linking of similar motions (AI)
+- [ ] Archiving of withdrawn/completed motions
+
+### 3. Structured debates
+
+- [x] Linear debate posts under a motion, only when `status=debate` before `debate_ends_at`
+- [~] Post input: plain textarea instead of TipTap
+- [ ] Topic tree view
+- [ ] Post ratings
+- [ ] Sort posts by approval/recency
+- [ ] AI extraction pro/contra/questions + juxtaposition (AI)
+
+### 4. Further AI support
+
+- [ ] Changelog between versions, semantic similarity, wording help, report function (all post-MVP/AI)
+
+### 5. Mood polls
+
+- [x] Ongoing mood poll, position changeable anytime (upsert + event log)
+- [x] Ring chart (current) + trend/area chart (history) + participation
+- [~] Choices: approve/reject/abstain in UI — `undecided` missing as button (DB enum only)
+
+### 6. Quorums and decision procedures
+
+- [~] Debate deadline configurable (`debate_ends_at`); voting deadline missing
+- [ ] Configurable quorums, secret ballot, lock during voting (post-MVP)
+
+### 7. Transparency and tracking
+
+- [ ] Permanent decision documentation, follow-up decisions, PDF/Markdown export (post-MVP)
+
+### 8. Moderation and debate culture
+
+- [ ] Code of conduct, report function, moderation tools, escalation/bans (post-MVP)
+
+### 9. Search and navigation
+
+- [x] Text search + filters status/topic/division/author + sorting, URL sync
+- [ ] Filters date range + support level
+- [ ] Watch individual motions
+- [ ] Personal feed, thematic overview pages, voting/deadline overview, archive
+- [ ] Semantic full-text search (AI)
+
+### 10. Other
+
+- [x] Dark/light toggle, glassmorphism header
+- [~] Landing page: hot debates + recent + own motions present; "controversial" and "watched" missing
+
+### Recommended development order
+
+Phases build on each other: MVP gaps and user engagement first, then versioning/collaboration (prerequisite for formal voting), then formal decisions, then governance, finally AI and SSO.
+
+```mermaid
+flowchart TD
+    P1["Phase 1: MVP polish"] --> P2["Phase 2: User engagement and profile"]
+    P2 --> P3["Phase 3: Versioning and suggestion mode"]
+    P3 --> P4["Phase 4: Formal decisions (ballot, quorums)"]
+    P4 --> P5["Phase 5: Transparency and moderation"]
+    P5 --> P6["Phase 6: AI support"]
+    P6 --> P7["Phase 7: SSO and notifications"]
+```
+
+**Phase 1 — MVP polish (small, quick gaps)**
+
+- Add `undecided` as fourth mood option in UI (DB enum exists)
+- Landing page "controversial" block (new sort/query mode in `GET /api/motions`)
+- Date range + support level filters on `/motions`
+- Sort debate posts (recency); optionally TipTap instead of textarea in `PostForm`
+- Video attachments (MIME whitelist in `server/utils/uploads.ts` + extend editor input)
+
+**Phase 2 — User engagement and profile**
+
+- Profile page (`/profil` or `/users/[id]`): role, state association, motion history, supported motions
+- Role display in UI; activate `requireRole` in relevant endpoints
+- Watch/favorite motions (new `watches` table)
+- Personal feed + watched motions on landing page
+- Archive view + archive status for motions
+
+**Phase 3 — Versioning and suggestion mode** (done)
+
+- [x] Motion versioning + change history (`motion_versions` table)
+- [x] Suggestion mode instead of structured amendments: one shared working document per motion (`motion_working_docs`, ProseMirror JSON with suggestion marks). Endpoints `GET/PUT /api/motions/[id]/suggestions` and `POST /api/motions/[id]/suggestions/save`. Concurrency is guarded by an optimistic `revision` check (409 → reload).
+- [ ] **Future requirement (binding): real-time collaboration** (e.g. Yjs/CRDT) to replace the optimistic version check, since simultaneous editing of suggestions will become common.
+
+**Phase 4 — Formal decisions**
+
+- Activate `ballot`/`decided` lifecycle (`debate → ballot → decided`)
+- Configurable quorums per division level
+- Secret ballot with vote/profile separation (`ballots` table), voting deadline, lock during voting
+- Audit trail for decisions
+
+**Phase 5 — Transparency and moderation**
+
+- Decision documentation, follow-up decisions, implementation steps
+- PDF/Markdown export
+- Code of conduct, report function, moderation tools with mandatory reasoning, escalation/bans
+- Audit logs for administrative/moderative actions
+
+**Phase 6 — AI support**
+
+- Semantic full-text search + similar motion hints (vector search)
+- AI extraction pro/contra/questions + structured juxtaposition + rating
+- Summaries, changelog between versions, wording help, report/feedback for AI
+
+**Phase 7 — Integration and notifications**
+
+- FDP member portal SSO (replace local auth)
+- Email notifications for debates, deadlines, votes
+- Committee roles (LFA, BFA, LaVo, BuVo) and their special rights
+
+### Motion lifecycle (current vs. planned)
 
 ```text
-draft → debate → (ballot → decided)   # ballot/decided are post-MVP
+draft → debate → (ballot → decided)   # ballot/decided in Phase 4
 ```
 
 - Only the author may edit or delete a motion in `draft` status.
-- Published motions are read-only in MVP (no amendments yet).
+- Published motions are refined via suggestion mode (Phase 3); the author bakes accepted suggestions into a new version.
 - Debate posts allowed only while `status = debate` and before `debate_ends_at`.
 - Mood votes are non-binding and distinct from formal ballots.
 

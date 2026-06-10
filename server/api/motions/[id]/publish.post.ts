@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { motions } from '../../../database/schema'
+import { motions, motionVersions } from '../../../database/schema'
 import { publishSchema } from '../../../utils/validation'
 import { requireAuth } from '../../../utils/auth'
 import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
@@ -33,16 +33,31 @@ export default defineEventHandler(async (event) => {
   const now = new Date()
   const debateEndsAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
 
-  const [updated] = await db
-    .update(motions)
-    .set({
-      status: 'debate',
-      publishedAt: now,
-      debateEndsAt,
-      updatedAt: now,
+  // Publish and capture the v1 content snapshot atomically.
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(motions)
+      .set({
+        status: 'debate',
+        publishedAt: now,
+        debateEndsAt,
+        currentVersion: 1,
+        updatedAt: now,
+      })
+      .where(eq(motions.id, id))
+      .returning()
+
+    await tx.insert(motionVersions).values({
+      motionId: id,
+      versionNumber: 1,
+      title: row.title,
+      summary: row.summary,
+      bodyHtml: row.bodyHtml,
+      createdById: user.id,
     })
-    .where(eq(motions.id, id))
-    .returning()
+
+    return row
+  })
 
   return { motion: updated }
 })

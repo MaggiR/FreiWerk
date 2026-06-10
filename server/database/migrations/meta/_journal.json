@@ -29,6 +29,13 @@
       "when": 1749592800000,
       "tag": "0003_motion_anonymous",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1749679200000,
+      "tag": "0004_phase3_versions_amendments",
+      "breakpoints": true
     }
   ]
 }

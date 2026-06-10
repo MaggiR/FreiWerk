@@ -7,6 +7,8 @@ import {
   motionListQuerySchema,
   archiveSchema,
   profileUpdateSchema,
+  suggestionSubmitSchema,
+  suggestionSaveSchema,
 } from '../../server/utils/validation'
 
 describe('registerSchema', () => {
@@ -81,6 +83,51 @@ describe('motionCreateSchema', () => {
         bodyHtml: '<p>x</p>',
         topic: 'nonsense',
       }),
+    ).toThrow()
+  })
+})
+
+describe('suggestionSubmitSchema', () => {
+  const doc = { type: 'doc', content: [{ type: 'paragraph' }] }
+
+  it('accepts a ProseMirror doc with a base revision', () => {
+    const parsed = suggestionSubmitSchema.parse({ docJson: doc, baseRevision: 3 })
+    expect(parsed.baseRevision).toBe(3)
+    expect(parsed.docJson.type).toBe('doc')
+  })
+
+  it('rejects a non-doc root and negative revisions', () => {
+    expect(() =>
+      suggestionSubmitSchema.parse({ docJson: { type: 'paragraph' }, baseRevision: 0 }),
+    ).toThrow()
+    expect(() =>
+      suggestionSubmitSchema.parse({ docJson: doc, baseRevision: -1 }),
+    ).toThrow()
+  })
+})
+
+describe('suggestionSaveSchema', () => {
+  const doc = { type: 'doc', content: [{ type: 'paragraph' }] }
+
+  it('accepts clean HTML with a working doc or null', () => {
+    const withDoc = suggestionSaveSchema.parse({
+      cleanHtml: '<p>Inhalt</p>',
+      workingDocJson: doc,
+      baseRevision: 1,
+    })
+    expect(withDoc.workingDocJson?.type).toBe('doc')
+
+    const noDoc = suggestionSaveSchema.parse({
+      cleanHtml: '<p>Inhalt</p>',
+      workingDocJson: null,
+      baseRevision: 2,
+    })
+    expect(noDoc.workingDocJson).toBeNull()
+  })
+
+  it('rejects empty clean HTML', () => {
+    expect(() =>
+      suggestionSaveSchema.parse({ cleanHtml: '', workingDocJson: null, baseRevision: 0 }),
     ).toThrow()
   })
 })

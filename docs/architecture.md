@@ -2,9 +2,11 @@
 
 FreiWerk is a full-stack Nuxt 4 application. The MVP covers local auth, motion
 CRUD with a TipTap editor, linear debate posts, and a non-binding mood poll with
-charts. Post-MVP features from the [README](../README.md) (AI assistance, secret
-ballots, quorums, amendments, SSO, moderation tooling, export) are intentionally
-out of scope, but the data model is kept forward-compatible.
+charts. It also includes motion versioning and a suggestion mode (Google-Docs-style
+inline change suggestions). Post-MVP features from the [README](../README.md) (AI
+assistance, secret ballots, quorums, SSO, moderation tooling, export, real-time
+collaboration) are intentionally out of scope, but the data model is kept
+forward-compatible.
 
 ## Stack
 
