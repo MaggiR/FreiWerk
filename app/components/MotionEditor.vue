@@ -119,6 +119,19 @@ watch(model, (value) => {
   }
 })
 
+// Suggestion editors are mounted with HTML fallback when no working doc exists yet.
+// Ensure initial body text is applied once the client-side editor instance exists.
+watch(
+  () => editor.value,
+  (ed) => {
+    if (!ed || !isSuggesting.value || ed.getText().trim().length > 0) return
+    const content = props.docJson ?? model.value
+    if (!content) return
+    ed.commands.setContent(content, false)
+  },
+  { flush: 'post' },
+)
+
 onBeforeUnmount(() => {
   editor.value?.destroy()
 })

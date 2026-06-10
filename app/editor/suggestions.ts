@@ -127,8 +127,11 @@ export function installSuggestChanges(editor: Editor) {
   // TipTap's behavior. This is also called from MotionEditor after creation,
   // because relying only on extension lifecycle ordering can leave the editor
   // with suggest mode enabled but an unwrapped dispatcher.
-  const readProp = view.someProp as (name: string) => EditorView['dispatch'] | undefined
-  const original = readProp('dispatchTransaction')
+  // Call someProp on the view — do not extract the method, or `this` is lost
+  // and ProseMirror throws during editor init.
+  const original = view.someProp('dispatchTransaction' as never) as
+    | ((tr: Transaction) => void)
+    | undefined
   view.setProps({
     dispatchTransaction: withSuggestChanges(original),
   })
