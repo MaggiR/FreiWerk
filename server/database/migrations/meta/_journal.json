@@ -8,34 +8,6 @@
       "when": 1735689600000,
       "tag": "0000_init",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1749420000000,
-      "tag": "0001_phase2_watches_archive",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1749506400000,
-      "tag": "0002_user_avatar",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1749592800000,
-      "tag": "0003_motion_anonymous",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1749679200000,
-      "tag": "0004_phase3_versions_amendments",
-      "breakpoints": true
     }
   ]
 }

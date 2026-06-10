@@ -47,6 +47,13 @@ export default defineEventHandler(async (event) => {
       .where(eq(motions.id, id))
       .returning()
 
+    if (!row) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Veröffentlichung fehlgeschlagen.',
+      })
+    }
+
     await tx.insert(motionVersions).values({
       motionId: id,
       versionNumber: 1,
