@@ -1,5 +1,6 @@
 interface FetchLikeError {
-  data?: { statusMessage?: string; message?: string }
+  data?: { statusMessage?: string; message?: string; statusCode?: number }
+  statusCode?: number
   statusMessage?: string
   message?: string
 }

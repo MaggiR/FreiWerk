@@ -10,11 +10,11 @@ import {
   moodPollTotal,
   type MoodCounts,
 } from '../../server/utils/moodTrend'
-import { MOOD_POLL_CHOICES, type MoodChoiceValue } from '../../shared/constants'
+import type { MoodChoiceValue } from '../../shared/constants'
 
 function pollTotalsFromVotes(
   votes: { choice: MoodChoiceValue }[],
-): Pick<MoodCounts, (typeof MOOD_POLL_CHOICES)[number]> {
+): Pick<MoodCounts, 'approve' | 'reject' | 'abstain'> {
   const totals = { approve: 0, reject: 0, abstain: 0 }
   for (const vote of votes) {
     if (vote.choice === 'undecided') continue

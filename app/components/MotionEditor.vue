@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import type { EditorOptions, JSONContent } from '@tiptap/core'
 import { useEditor, EditorContent, type Editor } from '@tiptap/vue-3'
-import type { JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
@@ -53,6 +53,7 @@ const editor = useEditor({
   // the motion body HTML for the very first proposal.
   content: isSuggesting.value ? (props.docJson ?? model.value) : model.value,
   editable: !isReadOnly.value,
+  // TipTap SSR: defer first render until client mount (not yet in EditorOptions types).
   immediatelyRender: false,
   extensions: [
     StarterKit.configure({
@@ -81,7 +82,7 @@ const editor = useEditor({
       model.value = ed.getHTML()
     }
   },
-})
+} as Partial<EditorOptions> & { immediatelyRender?: boolean })
 
 watch(model, (value) => {
   if (isSuggesting.value) return

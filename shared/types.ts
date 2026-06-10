@@ -1,4 +1,21 @@
-import type { MotionStatus } from '../server/database/schema'
+import type { MotionStatus, UserRole } from '../server/database/schema'
+
+export interface UserProfile {
+  id: string
+  displayName: string
+  fn: string | null
+  role: UserRole
+  avatarUrl: string | null
+  createdAt: string
+  division: { id: string; name: string } | null
+}
+
+export interface UserProfilePageData {
+  user: UserProfile
+  isSelf: boolean
+  motions: MotionListItem[]
+  watched: MotionListItem[]
+}
 
 export interface MotionListItem {
   id: string

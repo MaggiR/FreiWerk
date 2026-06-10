@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MoodChoiceValue } from '../../shared/constants'
+import type { MoodChoiceValue } from '#shared/constants'
 
 const props = defineProps<{ motionId: string; canVote: boolean }>()
 const { loggedIn, SESSION_EXPIRED_MESSAGE } = useAuthUser()

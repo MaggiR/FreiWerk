@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import type { MotionListItem } from '../../../shared/types'
-import { ROLE_LABELS } from '../../../shared/constants'
+import type { MotionListItem, UserProfilePageData } from '#shared/types'
+import { ROLE_LABELS } from '#shared/constants'
 
 const route = useRoute()
 const id = route.params.id as string
 
-const { data, error, refresh } = await useFetch(`/api/users/${id}`, {
-  key: `user-${id}`,
-})
+const { data, error, refresh } = await useFetch<UserProfilePageData>(
+  `/api/users/${id}`,
+  {
+    key: `user-${id}`,
+  },
+)
 
 const editOpen = ref(false)
 const avatarLightboxOpen = ref(false)
