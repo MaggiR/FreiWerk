@@ -2,7 +2,6 @@ import { Extension, Mark, mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/vue-3'
 import { EditorState } from '@tiptap/pm/state'
 import { DOMSerializer } from '@tiptap/pm/model'
-import type { EditorView } from '@tiptap/pm/view'
 import type { Transaction } from '@tiptap/pm/state'
 import {
   suggestChanges,
@@ -126,9 +125,11 @@ export const SuggestChanges = Extension.create({
     const view = this.editor.view
     // Capture TipTap's own dispatchTransaction (keeps Vue state / onUpdate in
     // sync) and wrap it, so suggestion tracking layers on top without replacing
-    // TipTap's behavior.
-    const readProp = view.someProp as (name: string) => EditorView['dispatch'] | undefined
-    const original = readProp('dispatchTransaction')
+    // TipTap's behavior. Call someProp on the view — do not extract the method,
+    // or `this` is lost and ProseMirror throws during editor init.
+    const original = view.someProp('dispatchTransaction' as never) as
+      | ((tr: Transaction) => void)
+      | undefined
     view.setProps({
       dispatchTransaction: withSuggestChanges(original),
     })

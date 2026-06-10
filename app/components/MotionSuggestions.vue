@@ -190,10 +190,12 @@ async function saveReview() {
 
     <!-- Read-only view of open suggestions for everyone -->
     <div v-if="mode === 'idle' && showSuggestions && docJson" class="suggestions__viewer">
-      <MotionEditor
-        :doc-json="docJson"
-        :suggestion="{ mode: 'view', ...suggestionConfig }"
-      />
+      <ClientOnly>
+        <MotionEditor
+          :doc-json="docJson"
+          :suggestion="{ mode: 'view', ...suggestionConfig }"
+        />
+      </ClientOnly>
     </div>
 
     <!-- Propose mode: member edits, changes are tracked as suggestions -->
@@ -202,12 +204,14 @@ async function saveReview() {
         <FontAwesomeIcon icon="comment-dots" />
         Deine Änderungen werden als Vorschläge markiert, nicht direkt übernommen.
       </p>
-      <MotionEditor
-        ref="editorRef"
-        :model-value="motionBodyHtml"
-        :doc-json="docJson"
-        :suggestion="{ mode: 'propose', ...suggestionConfig }"
-      />
+      <ClientOnly>
+        <MotionEditor
+          ref="editorRef"
+          :model-value="motionBodyHtml"
+          :doc-json="docJson"
+          :suggestion="{ mode: 'propose', ...suggestionConfig }"
+        />
+      </ClientOnly>
       <div class="suggestions__actions">
         <FwButton variant="ghost" :disabled="busy" @click="cancel">Abbrechen</FwButton>
         <FwButton variant="primary" :disabled="busy" @click="submitProposal">
@@ -219,11 +223,13 @@ async function saveReview() {
 
     <!-- Review mode: author accepts/rejects, then saves a new version -->
     <div v-else-if="mode === 'review'" class="suggestions__editor">
-      <MotionEditor
-        ref="editorRef"
-        :doc-json="docJson"
-        :suggestion="{ mode: 'review', ...suggestionConfig }"
-      />
+      <ClientOnly>
+        <MotionEditor
+          ref="editorRef"
+          :doc-json="docJson"
+          :suggestion="{ mode: 'review', ...suggestionConfig }"
+        />
+      </ClientOnly>
 
       <ol v-if="reviewPending.length" class="suggestions__list">
         <li v-for="item in reviewPending" :key="item.id" class="suggestions__item">
