@@ -4,7 +4,7 @@ import {
   MOOD_LABELS,
   moodColorsForScheme,
   type MoodPollChoice,
-} from '../../shared/constants'
+} from '#shared/constants'
 
 const props = defineProps<{
   totals: Record<MoodPollChoice, number>

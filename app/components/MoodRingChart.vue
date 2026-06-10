@@ -12,7 +12,7 @@ import {
   MOOD_LABELS,
   moodColorsForScheme,
   type MoodPollChoice,
-} from '../../shared/constants'
+} from '#shared/constants'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 

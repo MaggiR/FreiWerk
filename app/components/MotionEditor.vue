@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { EditorOptions } from '@tiptap/core'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -21,6 +22,7 @@ const uploading = ref(false)
 
 const editor = useEditor({
   content: model.value,
+  // TipTap SSR: defer first render until client mount (not yet in EditorOptions types).
   immediatelyRender: false,
   extensions: [
     StarterKit.configure({
@@ -39,7 +41,7 @@ const editor = useEditor({
   onUpdate: ({ editor: ed }) => {
     model.value = ed.getHTML()
   },
-})
+} as Partial<EditorOptions> & { immediatelyRender?: boolean })
 
 watch(model, (value) => {
   if (editor.value && value !== editor.value.getHTML()) {

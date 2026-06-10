@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasRequiredRole } from '../../server/utils/auth'
+import { hasRequiredRole } from '../../server/utils/authRole'
 
 describe('hasRequiredRole', () => {
   it('grants access when role meets the minimum', () => {

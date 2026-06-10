@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TOPICS, TOPIC_LABELS, type Topic } from '../../shared/constants'
+import { TOPICS, TOPIC_LABELS, type Topic } from '#shared/constants'
 
 function isTopic(value: string): value is Topic {
   return (TOPICS as readonly string[]).includes(value)

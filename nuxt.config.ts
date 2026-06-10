@@ -23,7 +23,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     databaseUrl: '',
     session: {
-      // nuxt-auth-utils reads NUXT_SESSION_PASSWORD automatically
+      // Overridden at runtime via NUXT_SESSION_PASSWORD
+      password: '',
       maxAge: 60 * 60 * 24 * 7, // 7 days
     },
     public: {

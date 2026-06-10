@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { MotionListItem } from '../../../shared/types'
+import type { MotionListItem } from '#shared/types'
 import {
   TOPICS,
   TOPIC_LABELS,
   MOTION_STATUS_LABELS,
   type Topic,
-} from '../../../shared/constants'
+} from '#shared/constants'
 
 type ActiveFilterKey =
   | 'status'

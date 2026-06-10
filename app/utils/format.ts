@@ -2,7 +2,7 @@ import {
   TOPIC_LABELS,
   MOTION_STATUS_LABELS,
   type Topic,
-} from '../../shared/constants'
+} from '#shared/constants'
 
 export function topicLabel(topic: string): string {
   return TOPIC_LABELS[topic as Topic] ?? topic
