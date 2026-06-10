@@ -3,7 +3,7 @@ import {
   MOOD_CHOICE_VALUES,
   MOOD_LABELS,
   type MoodChoiceValue,
-} from '../../shared/constants'
+} from '#shared/constants'
 
 const props = defineProps<{
   current: MoodChoiceValue | null

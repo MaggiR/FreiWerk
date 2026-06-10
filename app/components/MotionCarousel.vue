@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MotionListItem } from '../../shared/types'
+import type { MotionListItem } from '#shared/types'
 
 const props = defineProps<{ motions: MotionListItem[] }>()
 

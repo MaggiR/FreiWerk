@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { motions, motionWatches } from '../../../database/schema'
+import { motionWatches } from '../../../database/schema'
 import { requireAuth } from '../../../utils/auth'
 
 const paramsSchema = z.object({ id: z.string().uuid() })

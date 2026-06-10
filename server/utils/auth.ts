@@ -3,20 +3,7 @@ import { eq } from 'drizzle-orm'
 import type { UserRole } from '../database/schema'
 import { db } from '../database/client'
 import { users } from '../database/schema'
-
-const ROLE_RANK: Record<UserRole, number> = {
-  member: 0,
-  moderator: 1,
-  admin: 2,
-}
-
-/**
- * Pure role check: does `userRole` meet or exceed `minRole`?
- * Extracted so it can be unit-tested without the Nuxt runtime.
- */
-export function hasRequiredRole(userRole: UserRole, minRole: UserRole): boolean {
-  return ROLE_RANK[userRole] >= ROLE_RANK[minRole]
-}
+import { hasRequiredRole } from './authRole'
 
 export interface SessionUser {
   id: string

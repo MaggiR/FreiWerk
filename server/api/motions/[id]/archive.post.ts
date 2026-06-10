@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../../database/client'
 import { motions } from '../../../database/schema'
 import { archiveSchema } from '../../../utils/validation'
-import { requireAuth, hasRequiredRole } from '../../../utils/auth'
+import { requireAuth } from '../../../utils/auth'
+import { hasRequiredRole } from '../../../utils/authRole'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 

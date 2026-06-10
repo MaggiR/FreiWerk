@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../database/client'
-import { divisions, users } from '../../database/schema'
+import { users } from '../../database/schema'
 import { requireAuth } from '../../utils/auth'
 import { profileUpdateSchema } from '../../utils/validation'
 

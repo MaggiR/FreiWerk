@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
+import { DEFAULT_DEBATE_DAYS } from '#shared/constants'
 
 const route = useRoute()
 const id = route.params.id as string
