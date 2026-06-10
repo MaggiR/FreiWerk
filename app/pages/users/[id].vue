@@ -77,10 +77,11 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
             v-if="isSelf"
             variant="ghost"
             class="profile__edit"
+            aria-label="Profil bearbeiten"
             @click="editOpen = true"
           >
-            <FontAwesomeIcon icon="pen-to-square" />
-            Bearbeiten
+            <FontAwesomeIcon icon="pen-to-square" aria-hidden="true" />
+            <span class="profile__edit-label">Bearbeiten</span>
           </FwButton>
         </div>
         <p v-if="profile.fn" class="profile__fn">{{ profile.fn }}</p>
@@ -100,8 +101,8 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
         <h2>
           <FontAwesomeIcon icon="seedling" />
           {{ isSelf ? 'Meine Anträge' : 'Anträge' }}
+          <span class="section__count">{{ motions.length }}</span>
         </h2>
-        <span class="muted">{{ motions.length }}</span>
       </div>
       <div v-if="motions.length > 0" class="grid">
         <MotionCard v-for="m in motions" :key="m.id" :motion="m" />
@@ -111,8 +112,10 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
 
     <section v-if="isSelf" class="section">
       <div class="section__head">
-        <h2><FontAwesomeIcon icon="star" /> Beobachtete Anträge</h2>
-        <span class="muted">{{ watched.length }}</span>
+        <h2>
+          <FontAwesomeIcon icon="star" /> Beobachtete Anträge
+          <span class="section__count">{{ watched.length }}</span>
+        </h2>
       </div>
       <div v-if="watched.length > 0" class="grid">
         <MotionCard
@@ -222,9 +225,6 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
   gap: var(--space-2);
 }
 .section__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: var(--space-4);
 }
 .section__head h2 {
@@ -233,6 +233,18 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
   gap: var(--space-3);
   margin: 0;
 }
+.section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -240,5 +252,52 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
 }
 .muted {
   color: var(--color-text-muted);
+}
+
+@media (max-width: 760px) {
+  .profile__head {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .profile__avatar {
+    width: 6rem;
+    height: 6rem;
+    font-size: 2.5rem;
+  }
+
+  .profile__id {
+    width: 100%;
+    text-align: center;
+    position: relative;
+    padding-right: 3rem;
+  }
+
+  .profile__name-row {
+    justify-content: center;
+  }
+
+  .profile__name {
+    font-size: 1.35rem;
+  }
+
+  .profile__edit {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-left: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+  }
+
+  .profile__edit-label {
+    display: none;
+  }
+
+  .profile__meta {
+    justify-content: center;
+  }
 }
 </style>

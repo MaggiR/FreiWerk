@@ -29,11 +29,13 @@ const model = defineModel<string>({ default: '' })
 const props = withDefaults(
   defineProps<{
     placeholder?: string
+    initialContent?: string
     suggestion?: SuggestionConfig | null
     docJson?: JSONContent | null
   }>(),
   {
     placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.',
+    initialContent: '',
     suggestion: null,
     docJson: null,
   },
@@ -47,12 +49,29 @@ const isReadOnly = computed(() => props.suggestion?.mode === 'view')
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploadError = ref('')
 const uploading = ref(false)
+const initializedContent = ref(false)
+
+function desiredContent() {
+  if (!isSuggesting.value) return model.value
+  return props.docJson ?? props.initialContent
+}
+
+function syncEditorState(ed: Editor) {
+  const content = desiredContent()
+
+  if (!initializedContent.value && content) {
+    setSuggesting(ed, false)
+    ed.commands.setContent(content, false)
+    initializedContent.value = true
+  }
+
+  ed.setEditable(!isReadOnly.value)
+  setSuggesting(ed, props.suggestion?.mode === 'propose')
+}
 
 const editor = useEditor({
-  // In suggestion mode, prefer the shared working document (JSON); fall back to
-  // the motion body HTML for the very first proposal.
-  content: isSuggesting.value ? (props.docJson ?? model.value) : model.value,
-  editable: !isReadOnly.value,
+  content: '',
+  editable: false,
   // TipTap SSR: defer first render until client mount (not yet in EditorOptions types).
   immediatelyRender: false,
   extensions: [
@@ -71,9 +90,7 @@ const editor = useEditor({
     attributes: { class: 'rich-text editor-surface' },
   },
   onCreate: ({ editor: ed }) => {
-    if (props.suggestion?.mode === 'propose') {
-      setSuggesting(ed as Editor, true)
-    }
+    syncEditorState(ed as Editor)
   },
   onUpdate: ({ editor: ed }) => {
     if (isSuggesting.value) {
@@ -84,10 +101,21 @@ const editor = useEditor({
   },
 } as Partial<EditorOptions> & { immediatelyRender?: boolean })
 
+watch(
+  [editor, () => props.suggestion?.mode, () => props.docJson, () => props.initialContent],
+  ([ed]) => {
+    if (!ed) return
+    syncEditorState(ed)
+  },
+  { immediate: true },
+)
+
 watch(model, (value) => {
   if (isSuggesting.value) return
   if (editor.value && value !== editor.value.getHTML()) {
+    setSuggesting(editor.value, false)
     editor.value.commands.setContent(value, false)
+    initializedContent.value = true
   }
 })
 
@@ -448,5 +476,23 @@ const historyTools = computed<ToolItem[]>(() => {
   font-weight: 400;
   pointer-events: none;
   height: 0;
+}
+
+/* Suggestion-mode diff marks (Google-Docs-style review layer). */
+:deep(.editor-surface ins) {
+  text-decoration: none;
+  background: color-mix(in srgb, #0a9f5e 18%, transparent);
+  box-shadow: inset 0 -2px 0 #0a9f5e;
+  border-radius: 2px;
+}
+:deep(.editor-surface del) {
+  text-decoration: line-through;
+  color: #d91e36;
+  background: color-mix(in srgb, #d91e36 12%, transparent);
+  border-radius: 2px;
+}
+:deep(.editor-surface [data-type='modification']) {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: 2px;
 }
 </style>

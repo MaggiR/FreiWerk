@@ -8,11 +8,20 @@ const props = defineProps<{
   motionBodyHtml: string
   isAuthor: boolean
   debateOpen: boolean
+  proposeSignal?: number
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
 
+// Reflects the open suggestion count to the parent (e.g. for a nav badge).
+const count = defineModel<number>('count', { default: 0 })
+// True while the editor or diff view replaces the motion text in the parent.
+const active = defineModel<boolean>('active', { default: false })
+// True only while actively editing (propose/review) — parent hides its nav then.
+const editing = defineModel<boolean>('editing', { default: false })
+
 const { user } = useAuthUser()
+const toast = useToast()
 
 const { data, refresh } = await useFetch<MotionSuggestionsResponse>(
   () => `/api/motions/${props.motionId}/suggestions`,
@@ -26,7 +35,6 @@ const docJson = computed<JSONContent | null>(
 )
 const revision = computed(() => data.value?.revision ?? 0)
 
-const canSuggest = computed(() => Boolean(user.value) && props.debateOpen)
 const suggestionConfig = computed(() => ({
   userId: user.value?.id ?? '',
   userName: user.value?.displayName ?? 'Mitglied',
@@ -54,12 +62,28 @@ const typeLabels: Record<SuggestionItem['type'], string> = {
   modification: 'Formatierung',
 }
 
+const isEditing = computed(() => mode.value === 'propose' || mode.value === 'review')
+const isActive = computed(
+  () => isEditing.value || (showSuggestions.value && Boolean(docJson.value)),
+)
+watch(isActive, (v) => (active.value = v), { immediate: true })
+watch(isEditing, (v) => (editing.value = v), { immediate: true })
+watch(openCount, (v) => (count.value = v), { immediate: true })
+
 function startPropose() {
   errorMsg.value = ''
   conflict.value = false
   showSuggestions.value = false
   mode.value = 'propose'
 }
+
+// Parent triggers propose mode by incrementing `proposeSignal`.
+watch(
+  () => props.proposeSignal,
+  (next, prev) => {
+    if (next != null && next !== prev) startPropose()
+  },
+)
 
 function startReview() {
   errorMsg.value = ''
@@ -79,10 +103,13 @@ function handleError(err: unknown) {
   const code = status.statusCode ?? status.response?.status
   if (code === 409) {
     conflict.value = true
-    errorMsg.value =
-      'Das Arbeitsdokument wurde zwischenzeitlich geändert. Bitte neu laden.'
+    const msg = 'Das Arbeitsdokument wurde zwischenzeitlich geändert. Bitte neu laden.'
+    errorMsg.value = msg
+    toast.error(msg)
   } else {
-    errorMsg.value = extractError(err, 'Aktion fehlgeschlagen.')
+    const msg = extractError(err, 'Aktion fehlgeschlagen.')
+    errorMsg.value = ''
+    toast.error(msg)
   }
 }
 
@@ -101,12 +128,22 @@ async function submitProposal() {
     editorRef.value.stampAuthors()
     const json = editorRef.value.getJSON()
     if (!json) return
+    const openSuggestions = countOpenSuggestionsInJson(json)
+    if (openSuggestions === 0) {
+      toast.error(
+        'Es wurden keine Änderungsvorschläge erkannt. Bitte ändere den Text im Vorschlagsmodus erneut.',
+      )
+      return
+    }
     await $fetch(`/api/motions/${props.motionId}/suggestions`, {
       method: 'PUT',
       body: { docJson: json, baseRevision: revision.value },
     })
     await refresh()
     mode.value = 'idle'
+    // Reveal the diff immediately so the member sees their tracked change.
+    showSuggestions.value = true
+    toast.success('Dein Änderungsvorschlag wurde gespeichert und ist nun einsehbar.')
   } catch (err: unknown) {
     handleError(err)
   } finally {
@@ -142,7 +179,9 @@ async function saveReview() {
     })
     await refresh()
     mode.value = 'idle'
+    showSuggestions.value = false
     emit('saved')
+    toast.success('Die Änderungen wurden übernommen und als neue Version gespeichert.')
   } catch (err: unknown) {
     handleError(err)
   } finally {
@@ -153,26 +192,12 @@ async function saveReview() {
 
 <template>
   <section class="suggestions">
-    <div v-if="mode === 'idle'" class="suggestions__bar">
-      <FwButton
-        v-if="canSuggest"
-        variant="secondary"
-        @click="startPropose"
-      >
-        <FontAwesomeIcon icon="comment-dots" /> Änderungsvorschlag machen
-      </FwButton>
-
-      <button
-        v-if="openCount > 0"
-        type="button"
-        class="suggestions__toggle"
-        :aria-pressed="showSuggestions"
-        @click="showSuggestions = !showSuggestions"
-      >
-        <FontAwesomeIcon :icon="showSuggestions ? 'eye-slash' : 'eye'" />
-        {{ showSuggestions ? 'Vorschläge ausblenden' : 'Vorschläge anzeigen' }}
+    <div v-if="mode === 'idle' && openCount > 0" class="suggestions__bar">
+      <FwSwitch v-if="openCount > 0" v-model="showSuggestions">
+        <FontAwesomeIcon :icon="showSuggestions ? 'eye' : 'eye-slash'" />
+        Änderungen als Diff anzeigen
         <span class="suggestions__count">{{ openCount }}</span>
-      </button>
+      </FwSwitch>
 
       <FwButton
         v-if="isAuthor && openCount > 0 && debateOpen"
@@ -183,11 +208,7 @@ async function saveReview() {
       </FwButton>
     </div>
 
-    <p v-if="mode === 'idle' && openCount === 0 && canSuggest" class="suggestions__hint">
-      Schlage Änderungen direkt im Antragstext vor – sie werden wie in einem
-      Vorschlagsmodus markiert und vom Antragsteller geprüft.
-    </p>
-
+    <Transition name="swap" mode="out-in">
     <!-- Read-only view of open suggestions for everyone -->
     <div v-if="mode === 'idle' && showSuggestions && docJson" class="suggestions__viewer">
       <MotionEditor
@@ -198,13 +219,9 @@ async function saveReview() {
 
     <!-- Propose mode: member edits, changes are tracked as suggestions -->
     <div v-else-if="mode === 'propose'" class="suggestions__editor">
-      <p class="suggestions__lead">
-        <FontAwesomeIcon icon="comment-dots" />
-        Deine Änderungen werden als Vorschläge markiert, nicht direkt übernommen.
-      </p>
       <MotionEditor
         ref="editorRef"
-        :model-value="motionBodyHtml"
+        :initial-content="motionBodyHtml"
         :doc-json="docJson"
         :suggestion="{ mode: 'propose', ...suggestionConfig }"
       />
@@ -215,6 +232,11 @@ async function saveReview() {
           {{ busy ? 'Senden ...' : 'Vorschlag senden' }}
         </FwButton>
       </div>
+      <p class="suggestions__lead">
+        <FontAwesomeIcon icon="comment-dots" aria-hidden="true" />
+        Deine Änderungen werden dem Antragsteller als Vorschläge vorgelegt und sind
+        offen für andere einsehbar.
+      </p>
     </div>
 
     <!-- Review mode: author accepts/rejects, then saves a new version -->
@@ -270,6 +292,7 @@ async function saveReview() {
         </FwButton>
       </div>
     </div>
+    </Transition>
 
     <div v-if="errorMsg" class="suggestions__error form-error">
       {{ errorMsg }}
@@ -281,33 +304,12 @@ async function saveReview() {
 </template>
 
 <style scoped>
-.suggestions {
-  margin-top: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--color-border);
-}
 .suggestions__bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-}
-.suggestions__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.suggestions__toggle:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+  margin-top: var(--space-4);
 }
 .suggestions__count {
   display: inline-flex;
@@ -330,7 +332,7 @@ async function saveReview() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-3);
+  margin: var(--space-3) 0 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
 }
@@ -413,5 +415,22 @@ async function saveReview() {
   align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-3);
+}
+.swap-enter-active {
+  transition: opacity 0.25s ease;
+  transition-delay: 0.05s;
+}
+.swap-leave-active {
+  transition: opacity 0.18s ease;
+}
+.swap-enter-from,
+.swap-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swap-enter-active,
+  .swap-leave-active {
+    transition: none;
+  }
 }
 </style>

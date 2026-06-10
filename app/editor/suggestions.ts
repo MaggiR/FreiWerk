@@ -10,6 +10,7 @@ import {
   withSuggestChanges,
   enableSuggestChanges,
   disableSuggestChanges,
+  isSuggestChangesEnabled,
   applySuggestion,
   revertSuggestion,
   revertSuggestions,
@@ -115,6 +116,25 @@ export const SuggestionModification = Mark.create({
 // TipTap wrapper around the suggest-changes ProseMirror plugin. It also installs
 // the `withSuggestChanges` dispatch decorator so that, while suggesting is
 // enabled, edits are turned into suggestion marks instead of being applied.
+const patchedViews = new WeakSet<EditorView>()
+
+export function installSuggestChanges(editor: Editor) {
+  const view = editor.view
+  if (patchedViews.has(view)) return
+
+  // Capture TipTap's own dispatchTransaction (keeps Vue state / onUpdate in
+  // sync) and wrap it, so suggestion tracking layers on top without replacing
+  // TipTap's behavior. This is also called from MotionEditor after creation,
+  // because relying only on extension lifecycle ordering can leave the editor
+  // with suggest mode enabled but an unwrapped dispatcher.
+  const readProp = view.someProp as (name: string) => EditorView['dispatch'] | undefined
+  const original = readProp('dispatchTransaction')
+  view.setProps({
+    dispatchTransaction: withSuggestChanges(original),
+  })
+  patchedViews.add(view)
+}
+
 export const SuggestChanges = Extension.create({
   name: 'suggestChanges',
 
@@ -123,15 +143,7 @@ export const SuggestChanges = Extension.create({
   },
 
   onCreate() {
-    const view = this.editor.view
-    // Capture TipTap's own dispatchTransaction (keeps Vue state / onUpdate in
-    // sync) and wrap it, so suggestion tracking layers on top without replacing
-    // TipTap's behavior.
-    const readProp = view.someProp as (name: string) => EditorView['dispatch'] | undefined
-    const original = readProp('dispatchTransaction')
-    view.setProps({
-      dispatchTransaction: withSuggestChanges(original),
-    })
+    installSuggestChanges(this.editor as Editor)
   },
 })
 
@@ -142,8 +154,13 @@ export function suggestionExtensions() {
 }
 
 export function setSuggesting(editor: Editor, on: boolean) {
+  installSuggestChanges(editor)
   const command = on ? enableSuggestChanges : disableSuggestChanges
   command(editor.state, editor.view.dispatch)
+}
+
+export function isSuggesting(editor: Editor): boolean {
+  return isSuggestChangesEnabled(editor.state)
 }
 
 export function acceptSuggestion(editor: Editor, id: number) {

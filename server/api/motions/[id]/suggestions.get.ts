@@ -39,12 +39,22 @@ export default defineEventHandler(async (event) => {
       openCount: 0,
     }
   }
+  const openCount = countOpenSuggestions(workingDoc.docJson)
+  if (openCount === 0) {
+    return {
+      docJson: null,
+      baseVersion: workingDoc.baseVersion,
+      revision: workingDoc.revision,
+      suggestions: [],
+      openCount: 0,
+    }
+  }
 
   return {
     docJson: workingDoc.docJson,
     baseVersion: workingDoc.baseVersion,
     revision: workingDoc.revision,
     suggestions: extractSuggestions(workingDoc.docJson),
-    openCount: countOpenSuggestions(workingDoc.docJson),
+    openCount,
   }
 })

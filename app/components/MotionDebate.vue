@@ -4,7 +4,7 @@ const postCount = defineModel<number>('postCount', { default: 0 })
 const { loggedIn } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 
-const postSort = ref<'recent' | 'oldest'>('recent')
+const postSort = defineModel<'recent' | 'oldest'>('postSort', { default: 'recent' })
 
 const { data, refresh, pending } = await useFetch(
   () => `/api/motions/${props.motionId}/posts`,
@@ -64,16 +64,6 @@ function onFirstPostClick() {
     </template>
 
     <template v-else>
-      <div v-if="posts.length > 0" class="debate__toolbar">
-        <label class="debate__sort">
-          <span class="visually-hidden">Sortierung</span>
-          <select v-model="postSort">
-            <option value="recent">Neueste zuerst</option>
-            <option value="oldest">Älteste zuerst</option>
-          </select>
-        </label>
-      </div>
-
       <PostList v-if="posts.length > 0" :posts="posts" />
 
       <template v-if="debateOpen">
@@ -127,23 +117,6 @@ function onFirstPostClick() {
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-accent);
   font-size: 0.95rem;
-}
-.debate__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-.debate__sort select {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.875rem;
 }
 .debate__login,
 .debate__closed {

@@ -73,48 +73,58 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
+const DRAG_THRESHOLD_PX = 4
+
 const isDragging = ref(false)
 let dragStartX = 0
 let dragStartScroll = 0
 let hasDragged = false
+let activePointerId: number | null = null
 
 function onPointerDown(event: PointerEvent) {
-  if (event.pointerType !== 'mouse') return
+  if (event.pointerType !== 'mouse' || event.button !== 0) return
   const el = track.value
   if (!el) return
-  isDragging.value = true
+  activePointerId = event.pointerId
   hasDragged = false
   dragStartX = event.clientX
   dragStartScroll = el.scrollLeft
-  el.setPointerCapture(event.pointerId)
 }
 
 function onPointerMove(event: PointerEvent) {
-  if (!isDragging.value) return
+  if (activePointerId !== event.pointerId) return
   const el = track.value
   if (!el) return
   const delta = event.clientX - dragStartX
-  if (Math.abs(delta) > 4) hasDragged = true
+  if (!isDragging.value) {
+    if (Math.abs(delta) <= DRAG_THRESHOLD_PX) return
+    isDragging.value = true
+    hasDragged = true
+    el.setPointerCapture(event.pointerId)
+  }
   el.scrollLeft = dragStartScroll - delta
 }
 
 function onPointerUp(event: PointerEvent) {
-  if (!isDragging.value) return
+  if (activePointerId !== event.pointerId) return
   const el = track.value
-  isDragging.value = false
-  el?.releasePointerCapture(event.pointerId)
-  const pw = pageWidth()
-  if (el && pw > 0) {
-    goToPage(Math.round(el.scrollLeft / pw))
+  if (isDragging.value) {
+    el?.releasePointerCapture(event.pointerId)
+    const pw = pageWidth()
+    if (el && pw > 0) {
+      goToPage(Math.round(el.scrollLeft / pw))
+    }
   }
+  isDragging.value = false
+  activePointerId = null
 }
 
 function onClickCapture(event: MouseEvent) {
   if (hasDragged) {
     event.preventDefault()
     event.stopPropagation()
-    hasDragged = false
   }
+  hasDragged = false
 }
 
 const canScrollPrev = computed(() => currentPage.value > 0)

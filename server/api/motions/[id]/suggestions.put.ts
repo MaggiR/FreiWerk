@@ -51,6 +51,13 @@ export default defineEventHandler(async (event) => {
   if (!validation.ok) {
     throw createError({ statusCode: 400, statusMessage: validation.reason })
   }
+  const openCount = countOpenSuggestions(docJson)
+  if (openCount === 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Es wurden keine Änderungsvorschläge erkannt.',
+    })
+  }
 
   // Suggestions may only touch text and formatting — media must stay identical.
   const baseMedia = extractMediaRefsFromHtml(motion.bodyHtml)
@@ -98,7 +105,7 @@ export default defineEventHandler(async (event) => {
   return {
     revision,
     baseVersion: existing?.baseVersion ?? motion.currentVersion,
-    openCount: countOpenSuggestions(docJson),
+    openCount,
     suggestions: extractSuggestions(docJson),
   }
 })

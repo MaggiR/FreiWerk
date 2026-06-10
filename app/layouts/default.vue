@@ -21,6 +21,7 @@ watch(() => route.query.auth, syncAuthQuery, { immediate: true })
   <div class="app-shell">
     <AppHeader />
     <AuthModal />
+    <ToastHost />
     <main class="app-main">
       <slot />
     </main>

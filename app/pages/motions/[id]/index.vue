@@ -3,7 +3,7 @@ import { DEFAULT_DEBATE_DAYS } from '#shared/constants'
 
 const route = useRoute()
 const id = route.params.id as string
-const { user, isModerator } = useAuthUser()
+const { user, isModerator, loggedIn } = useAuthUser()
 
 const { data, error } = await useFetch(`/api/motions/${id}`)
 
@@ -48,6 +48,18 @@ const debateOpen = computed(() => {
   if (!m || m.status !== 'debate') return false
   return !m.debateEndsAt || new Date(m.debateEndsAt).getTime() > Date.now()
 })
+
+const canSuggest = computed(() => loggedIn.value && debateOpen.value)
+
+const suggestionsActive = ref(false)
+const suggestionsEditing = ref(false)
+const suggestionCount = ref(0)
+// Reactive trigger: incrementing it tells MotionSuggestions to enter propose mode.
+const proposeSignal = ref(0)
+
+function onStartProposal() {
+  proposeSignal.value += 1
+}
 
 useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
 
@@ -101,6 +113,7 @@ watch(
 const publishPending = ref(false)
 const publishError = ref('')
 const debatePostCount = ref(0)
+const debatePostSort = ref<'recent' | 'oldest'>('recent')
 
 async function onPublish() {
   if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
@@ -198,49 +211,75 @@ async function onPublish() {
         <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
       </header>
 
-      <div class="motion__body-area" :class="{ 'is-expanded': bodyExpanded }">
+      <Transition name="swap">
         <div
-          ref="bodyClip"
-          class="motion__body-clip"
-          :style="{ maxHeight: bodyMaxHeight }"
-          :role="bodyExpanded ? undefined : 'button'"
-          :tabindex="bodyExpanded ? undefined : 0"
-          :aria-expanded="bodyExpanded"
-          @click="!bodyExpanded && setBodyExpanded(true)"
-          @keydown.enter.prevent="!bodyExpanded && setBodyExpanded(true)"
-          @keydown.space.prevent="!bodyExpanded && setBodyExpanded(true)"
+          v-if="!suggestionsActive"
+          class="motion__body-area"
+          :class="{ 'is-expanded': bodyExpanded }"
         >
-          <div class="motion__body-content">
-            <RichText :html="motion.bodyHtml" />
+          <div
+            ref="bodyClip"
+            class="motion__body-clip"
+            :style="{ maxHeight: bodyMaxHeight }"
+            :role="bodyExpanded ? undefined : 'button'"
+            :tabindex="bodyExpanded ? undefined : 0"
+            :aria-expanded="bodyExpanded"
+            @click="!bodyExpanded && setBodyExpanded(true)"
+            @keydown.enter.prevent="!bodyExpanded && setBodyExpanded(true)"
+            @keydown.space.prevent="!bodyExpanded && setBodyExpanded(true)"
+          >
+            <div class="motion__body-content">
+              <RichText :html="motion.bodyHtml" />
+            </div>
+            <span v-show="!bodyExpanded" class="motion__body-fade" aria-hidden="true" />
           </div>
-          <span v-show="!bodyExpanded" class="motion__body-fade" aria-hidden="true" />
-        </div>
 
-        <button
-          type="button"
-          class="motion__body-toggle"
-          :aria-expanded="bodyExpanded"
-          @click="setBodyExpanded(!bodyExpanded)"
-        >
-          <FontAwesomeIcon
-            :icon="bodyExpanded ? 'chevron-up' : 'chevron-down'"
-            class="motion__body-chevron"
-            aria-hidden="true"
-          />
-          {{ bodyExpanded ? 'Antragstext einklappen' : 'Antragstext lesen' }}
-        </button>
-      </div>
+          <button
+            type="button"
+            class="motion__body-toggle"
+            :aria-expanded="bodyExpanded"
+            @click="setBodyExpanded(!bodyExpanded)"
+          >
+            <FontAwesomeIcon
+              :icon="bodyExpanded ? 'chevron-up' : 'chevron-down'"
+              class="motion__body-chevron"
+              aria-hidden="true"
+            />
+            {{ bodyExpanded ? 'Antragstext einklappen' : 'Antragstext lesen' }}
+          </button>
+        </div>
+      </Transition>
 
       <MotionSuggestions
         v-if="!isDraft"
+        v-model:active="suggestionsActive"
+        v-model:editing="suggestionsEditing"
+        v-model:count="suggestionCount"
         :motion-id="motion.id"
         :motion-body-html="motion.bodyHtml"
         :is-author="isAuthor"
         :debate-open="debateOpen"
+        :propose-signal="proposeSignal"
         @saved="refreshNuxtData()"
       />
 
-      <nav v-if="!isDraft" class="motion__history-nav" aria-label="Antragshistorie">
+      <nav
+        v-if="!isDraft && !suggestionsEditing"
+        class="motion__history-nav"
+        aria-label="Antrag-Aktionen"
+      >
+        <FwButton
+          v-if="canSuggest"
+          variant="secondary"
+          class="motion__history-action"
+          @click="onStartProposal"
+        >
+          <FontAwesomeIcon icon="pen" aria-hidden="true" />
+          Änderungsvorschlag machen
+          <span v-if="suggestionCount > 0" class="motion__history-count">
+            {{ suggestionCount }}
+          </span>
+        </FwButton>
         <NuxtLink :to="`/motions/${motion.id}/versions`" class="motion__history-link">
           <FontAwesomeIcon icon="clock-rotate-left" aria-hidden="true" />
           <span>Versionen</span>
@@ -255,12 +294,22 @@ async function onPublish() {
     </section>
 
     <section v-if="!isDraft" class="motion__section">
-      <h2>
-        <FontAwesomeIcon icon="comments" /> Debatte
-        <span class="motion__history-count">{{ debatePostCount }}</span>
-      </h2>
+      <div class="motion__section-head">
+        <h2>
+          <FontAwesomeIcon icon="comments" /> Debatte
+          <span class="motion__history-count">{{ debatePostCount }}</span>
+        </h2>
+        <label v-if="debatePostCount > 0" class="motion__debate-sort">
+          <span class="visually-hidden">Sortierung</span>
+          <select v-model="debatePostSort">
+            <option value="recent">Neueste zuerst</option>
+            <option value="oldest">Älteste zuerst</option>
+          </select>
+        </label>
+      </div>
       <MotionDebate
         v-model:post-count="debatePostCount"
+        v-model:post-sort="debatePostSort"
         :motion-id="motion.id"
         :debate-open="debateOpen"
       />
@@ -407,13 +456,36 @@ async function onPublish() {
   }
 }
 
+.swap-enter-active {
+  transition: opacity 0.25s ease;
+  transition-delay: 0.05s;
+}
+.swap-leave-active {
+  transition: opacity 0.18s ease;
+}
+.swap-enter-from,
+.swap-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swap-enter-active,
+  .swap-leave-active {
+    transition: none;
+  }
+}
+
 .motion__history-nav {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-5);
   padding-top: var(--space-5);
   border-top: 1px solid var(--color-border);
+}
+
+.motion__history-action :deep(.fw-btn) {
+  min-height: 2.75rem;
 }
 
 .motion__history-link {
@@ -452,11 +524,30 @@ async function onPublish() {
 .motion__section {
   margin-bottom: var(--space-7);
 }
+.motion__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
 .motion__section h2 {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  margin: 0;
+}
+.motion__section > h2 {
   margin-bottom: var(--space-4);
+}
+.motion__debate-sort select {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.875rem;
 }
 .motion__hint {
   margin-top: var(--space-2);

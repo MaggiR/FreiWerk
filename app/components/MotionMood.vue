@@ -120,6 +120,8 @@ async function onVote(choice: MoodChoiceValue) {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  min-width: 0;
+  max-width: 100%;
 }
 .mood__vote-title {
   font-weight: 700;
@@ -130,15 +132,17 @@ async function onVote(choice: MoodChoiceValue) {
 }
 .mood__charts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   align-items: start;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .mood__chart-card {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
 }
 
 .mood__chart-head {
@@ -189,9 +193,10 @@ async function onVote(choice: MoodChoiceValue) {
 .chart-placeholder {
   height: 260px;
 }
-@media (max-width: 720px) {
+
+@media (min-width: 860px) {
   .mood__charts {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>
