@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { DEFAULT_DEBATE_DAYS } from '#shared/constants'
+import type { MotionBarAction } from '~/components/MotionActionBar.vue'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -51,9 +52,18 @@ const debateOpen = computed(() => {
 
 const canSuggest = computed(() => loggedIn.value && debateOpen.value)
 
-const suggestionsActive = ref(false)
-const suggestionsEditing = ref(false)
+const showSuggestionDiff = ref(false)
 const suggestionCount = ref(0)
+const suggestionMode = ref<'idle' | 'propose' | 'review'>('idle')
+const suggestionBusy = ref(false)
+const suggestionsRef = ref<{
+  startReview: () => void
+  cancel: () => void
+  submitProposal: () => void | Promise<void>
+  saveReview: () => void | Promise<void>
+} | null>(null)
+const isSuggestionEditing = computed(() => suggestionMode.value !== 'idle')
+
 // Reactive trigger: incrementing it tells MotionSuggestions to enter propose mode.
 const proposeSignal = ref(0)
 
@@ -133,6 +143,123 @@ async function onPublish() {
     publishPending.value = false
   }
 }
+
+// All motion-related actions in priority order; the bar shows as many inline as fit.
+const barActions = computed<MotionBarAction[]>(() => {
+  const m = motion.value
+  if (!m) return []
+
+  if (isSuggestionEditing.value) {
+    const proposing = suggestionMode.value === 'propose'
+    const submitLabel = proposing
+      ? suggestionBusy.value
+        ? 'Senden ...'
+        : 'Vorschlag senden'
+      : suggestionBusy.value
+        ? 'Speichern ...'
+        : 'Speichern'
+    return [
+      {
+        id: 'submit',
+        label: submitLabel,
+        icon: proposing ? 'paper-plane' : 'floppy-disk',
+        variant: 'primary',
+        disabled: suggestionBusy.value,
+      },
+      {
+        id: 'cancel',
+        label: 'Abbrechen',
+        variant: 'ghost',
+        disabled: suggestionBusy.value,
+      },
+    ]
+  }
+
+  const actions: MotionBarAction[] = []
+
+  if (isDraft.value && isAuthor.value) {
+    actions.push({
+      id: 'publish',
+      label: publishPending.value ? 'Veröffentlichen ...' : 'Veröffentlichen',
+      icon: 'paper-plane',
+      variant: 'primary',
+      disabled: publishPending.value,
+    })
+    actions.push({
+      id: 'edit',
+      label: 'Entwurf bearbeiten',
+      icon: 'pen-to-square',
+      to: `/motions/${m.id}/edit`,
+      variant: 'ghost',
+    })
+  }
+
+  if (!isDraft.value && isAuthor.value && suggestionCount.value > 0 && debateOpen.value) {
+    actions.push({ id: 'review', label: 'Vorschläge prüfen', icon: 'check', variant: 'primary' })
+  }
+
+  if (canSuggest.value) {
+    actions.push({
+      id: 'propose',
+      label: 'Änderungen vorschlagen',
+      icon: 'pen',
+      variant: 'secondary',
+    })
+  }
+
+  if (!isDraft.value) {
+    actions.push({
+      id: 'versions',
+      label: 'Versionen',
+      icon: 'clock-rotate-left',
+      to: `/motions/${m.id}/versions`,
+      count: olderVersionCount.value,
+      variant: 'ghost',
+    })
+  }
+
+  if (canArchive.value && !isDraft.value) {
+    actions.push({
+      id: 'archive',
+      label: isArchived.value ? 'Aus Archiv holen' : 'Archivieren',
+      icon: 'box-archive',
+      variant: 'ghost',
+      disabled: archivePending.value,
+    })
+  }
+
+  return actions
+})
+
+const showDiffToggle = computed(() => !isSuggestionEditing.value && suggestionCount.value > 0)
+
+const barVisible = computed(() =>
+  Boolean(motion.value && (barActions.value.length > 0 || showDiffToggle.value)),
+)
+
+function onBarAction(id: string) {
+  switch (id) {
+    case 'publish':
+      onPublish()
+      break
+    case 'archive':
+      onArchiveToggle()
+      break
+    case 'propose':
+      onStartProposal()
+      break
+    case 'review':
+      suggestionsRef.value?.startReview()
+      break
+    case 'submit':
+      if (suggestionMode.value === 'propose') suggestionsRef.value?.submitProposal()
+      else suggestionsRef.value?.saveReview()
+      break
+    case 'cancel':
+      suggestionsRef.value?.cancel()
+      break
+  }
+}
 </script>
 
 <template>
@@ -185,35 +312,13 @@ async function onPublish() {
           </span>
         </div>
 
-        <div v-if="(isAuthor && isDraft) || (canArchive && !isDraft)" class="motion__actions">
-          <template v-if="isAuthor && isDraft">
-            <NuxtLink :to="`/motions/${motion.id}/edit`">
-              <FwButton variant="secondary">
-                <FontAwesomeIcon icon="pen-to-square" /> Entwurf bearbeiten
-              </FwButton>
-            </NuxtLink>
-            <FwButton variant="primary" :disabled="publishPending" @click="onPublish">
-              <FontAwesomeIcon icon="paper-plane" />
-              {{ publishPending ? 'Veröffentlichen ...' : 'Veröffentlichen' }}
-            </FwButton>
-          </template>
-          <FwButton
-            v-if="canArchive && !isDraft"
-            variant="ghost"
-            :disabled="archivePending"
-            @click="onArchiveToggle"
-          >
-            <FontAwesomeIcon icon="box-archive" />
-            {{ isArchived ? 'Aus Archiv holen' : 'Archivieren' }}
-          </FwButton>
-        </div>
         <p v-if="publishError" class="form-error">{{ publishError }}</p>
         <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
       </header>
 
       <Transition name="swap">
         <div
-          v-if="!suggestionsActive"
+          v-if="!isSuggestionEditing"
           class="motion__body-area"
           :class="{ 'is-expanded': bodyExpanded }"
         >
@@ -229,7 +334,22 @@ async function onPublish() {
             @keydown.space.prevent="!bodyExpanded && setBodyExpanded(true)"
           >
             <div class="motion__body-content">
-              <RichText :html="motion.bodyHtml" />
+              <div class="motion__body-swap">
+                <div
+                  class="motion__body-layer"
+                  :class="{ 'is-visible': !showSuggestionDiff }"
+                  :aria-hidden="showSuggestionDiff"
+                >
+                  <RichText :html="motion.bodyHtml" />
+                </div>
+                <div
+                  v-if="suggestionCount > 0"
+                  :id="`motion-body-diff-${motion.id}`"
+                  class="motion__body-layer"
+                  :class="{ 'is-visible': showSuggestionDiff }"
+                  :aria-hidden="!showSuggestionDiff"
+                />
+              </div>
             </div>
             <span v-show="!bodyExpanded" class="motion__body-fade" aria-hidden="true" />
           </div>
@@ -252,40 +372,25 @@ async function onPublish() {
 
       <MotionSuggestions
         v-if="!isDraft"
-        v-model:active="suggestionsActive"
-        v-model:editing="suggestionsEditing"
+        ref="suggestionsRef"
+        v-model:show-diff="showSuggestionDiff"
+        v-model:mode="suggestionMode"
+        v-model:busy="suggestionBusy"
         v-model:count="suggestionCount"
         :motion-id="motion.id"
         :motion-body-html="motion.bodyHtml"
-        :is-author="isAuthor"
-        :debate-open="debateOpen"
         :propose-signal="proposeSignal"
         @saved="refreshNuxtData()"
       />
 
-      <nav
-        v-if="!isDraft && !suggestionsEditing"
-        class="motion__history-nav"
-        aria-label="Antrag-Aktionen"
-      >
-        <FwButton
-          v-if="canSuggest"
-          variant="secondary"
-          class="motion__history-action"
-          @click="onStartProposal"
-        >
-          <FontAwesomeIcon icon="pen" aria-hidden="true" />
-          Änderungsvorschlag machen
-          <span v-if="suggestionCount > 0" class="motion__history-count">
-            {{ suggestionCount }}
-          </span>
-        </FwButton>
-        <NuxtLink :to="`/motions/${motion.id}/versions`" class="motion__history-link">
-          <FontAwesomeIcon icon="clock-rotate-left" aria-hidden="true" />
-          <span>Versionen</span>
-          <span class="motion__history-count">{{ olderVersionCount }}</span>
-        </NuxtLink>
-      </nav>
+      <MotionActionBar
+        v-if="barVisible"
+        v-model:show-diff="showSuggestionDiff"
+        :actions="barActions"
+        :show-diff-toggle="showDiffToggle"
+        :diff-count="suggestionCount"
+        @action="onBarAction"
+      />
     </FwCard>
 
     <section v-if="!isDraft" class="motion__section">
@@ -377,11 +482,6 @@ async function onPublish() {
 .motion__author-link:hover {
   color: var(--color-accent);
 }
-.motion__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
 .motion__box {
   margin-bottom: var(--space-6);
 }
@@ -390,7 +490,6 @@ async function onPublish() {
   margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--color-border);
 }
-.motion__actions:last-child,
 .motion__header > *:last-child {
   margin-bottom: 0;
 }
@@ -407,6 +506,28 @@ async function onPublish() {
 
 .motion__body-content {
   outline: none;
+}
+
+.motion__body-swap {
+  display: grid;
+}
+
+.motion__body-layer {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.motion__body-layer.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion__body-layer {
+    transition: none;
+  }
 }
 
 .motion__body-fade {
@@ -472,40 +593,6 @@ async function onPublish() {
   .swap-leave-active {
     transition: none;
   }
-}
-
-.motion__history-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--color-border);
-}
-
-.motion__history-action :deep(.fw-btn) {
-  min-height: 2.75rem;
-}
-
-.motion__history-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-weight: 600;
-  text-decoration: none;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
-}
-
-.motion__history-link:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
 }
 
 .motion__history-count {

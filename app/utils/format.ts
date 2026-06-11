@@ -57,3 +57,37 @@ export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength).trimEnd()}…`
 }
+
+export interface HighlightPart {
+  text: string
+  highlight: boolean
+}
+
+/** Split plain text into segments for case-insensitive search-term highlighting. */
+export function highlightParts(text: string, query: string): HighlightPart[] {
+  const needle = query.trim()
+  if (!needle) return [{ text, highlight: false }]
+
+  const parts: HighlightPart[] = []
+  const lowerText = text.toLowerCase()
+  const lowerNeedle = needle.toLowerCase()
+  let start = 0
+
+  while (start < text.length) {
+    const index = lowerText.indexOf(lowerNeedle, start)
+    if (index === -1) {
+      parts.push({ text: text.slice(start), highlight: false })
+      break
+    }
+    if (index > start) {
+      parts.push({ text: text.slice(start, index), highlight: false })
+    }
+    parts.push({
+      text: text.slice(index, index + needle.length),
+      highlight: true,
+    })
+    start = index + needle.length
+  }
+
+  return parts.length > 0 ? parts : [{ text, highlight: false }]
+}

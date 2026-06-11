@@ -15,13 +15,25 @@ import {
   daysFromNow,
 } from './seed-data'
 
-// Idempotent-ish seed: clears domain tables, then inserts demo data.
+// Demo seed: clears domain tables, then inserts demo data.
+// Pass --if-empty to skip when the database already has rows (Docker default).
 async function main() {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set.')
 
   const client = postgres(url, { max: 1 })
   const db = drizzle(client, { schema })
+  const seedIfEmpty = process.argv.includes('--if-empty')
+
+  if (seedIfEmpty) {
+    const existing = await db.select({ id: schema.users.id }).from(schema.users).limit(1)
+    if (existing.length > 0) {
+      console.log('[seed] Database already contains data, skipping (--if-empty).')
+      await client.end()
+      return
+    }
+  }
+
   const now = new Date()
 
   console.log('[seed] Resetting tables...')

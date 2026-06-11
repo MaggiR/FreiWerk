@@ -22,7 +22,7 @@ Do **not** run `npm install` on the host. Dependencies are installed inside Dock
 | App URL (dev) | http://localhost:3000 |
 | App URL (prod + nginx) | http://localhost:8080 |
 
-On first start the app container runs `npm install`, migrations, seed, and `nuxt dev`.
+On container start the app runs `npm install` (when needed), migrations, seed-if-empty, and `nuxt dev`. DB and uploads persist in Docker volumes across restarts.
 
 **Demo accounts** (after seed):
 
@@ -50,7 +50,7 @@ On first start the app container runs `npm install`, migrations, seed, and `nuxt
 - Never couple user IDs to secret ballot records.
 
 ## Database handling
-No database migration needed as for now. You may assume that the DB is recreated on each new docker build.
+PostgreSQL and uploads use named Docker volumes (`freiwerk-db-data`, `freiwerk-uploads-data`) and persist across `docker compose up` unless `docker compose down -v` is used.
 
 ## Feature status and roadmap
 

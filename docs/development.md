@@ -14,21 +14,38 @@ inside the app container on first start.
 docker compose up --build
 ```
 
-On first start the `app` container:
+On container start the `app` service:
 
-1. installs dependencies (`npm install`),
+1. installs dependencies (`npm install`) when needed,
 2. waits for PostgreSQL,
 3. applies migrations (`npm run db:migrate`),
-4. seeds demo data (`npm run db:seed`),
+4. seeds demo data **only when the database is empty** (`npm run db:seed:if-empty`),
 5. starts the Nuxt dev server.
+
+PostgreSQL data and uploaded files are stored in named Docker volumes and
+survive `docker compose down` / `docker compose up --build`.
 
 | URL | Description |
 |-----|-------------|
 | http://localhost:3000 | App (dev) |
 | localhost:5432 | PostgreSQL |
 
-Stop the stack with `docker compose down` (add `-v` to also drop the database
-volume).
+Stop the stack with `docker compose down`. Data is kept in the named volumes
+`freiwerk-db-data` and `freiwerk-uploads-data`.
+
+To wipe all persisted data:
+
+```bash
+docker compose down -v
+```
+
+To reset demo data without dropping volumes:
+
+```bash
+docker compose exec app npm run db:seed
+```
+
+Or set `FORCE_SEED=1` on the next container start (truncates and re-seeds).
 
 ## Production-like stack (with Nginx)
 
@@ -55,8 +72,8 @@ npm run db:generate   # generate a new migration into server/database/migrations
 npm run db:migrate    # apply migrations
 ```
 
-Commit generated migrations. Inside Docker, migrations + seed run automatically
-on container start.
+Commit generated migrations. Inside Docker, migrations run on every start; seed
+runs only when the database has no users yet.
 
 ## Quality checks
 

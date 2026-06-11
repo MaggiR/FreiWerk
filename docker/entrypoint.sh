@@ -23,8 +23,13 @@ echo "[entrypoint] Database is ready."
 echo "[entrypoint] Running migrations..."
 npm run db:migrate
 
-echo "[entrypoint] Seeding database..."
-npm run db:seed
+if [ "${FORCE_SEED:-0}" = "1" ]; then
+  echo "[entrypoint] Force-seeding database (FORCE_SEED=1)..."
+  npm run db:seed
+else
+  echo "[entrypoint] Seeding database if empty..."
+  npm run db:seed:if-empty
+fi
 
 echo "[entrypoint] Starting Nuxt dev server..."
 exec npm run dev

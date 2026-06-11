@@ -6,19 +6,19 @@ import { countOpenSuggestionsInJson } from '~/editor/suggestions'
 const props = defineProps<{
   motionId: string
   motionBodyHtml: string
-  isAuthor: boolean
-  debateOpen: boolean
   proposeSignal?: number
 }>()
 
 const emit = defineEmits<{ saved: [] }>()
 
-// Reflects the open suggestion count to the parent (e.g. for a nav badge).
+// Reflects the open suggestion count to the parent (e.g. for an action badge).
 const count = defineModel<number>('count', { default: 0 })
-// True while the editor or diff view replaces the motion text in the parent.
-const active = defineModel<boolean>('active', { default: false })
-// True only while actively editing (propose/review) — parent hides its nav then.
-const editing = defineModel<boolean>('editing', { default: false })
+// Toggles the in-place diff overlay in the parent motion body.
+const showDiff = defineModel<boolean>('showDiff', { default: false })
+// Current flow state, surfaced so the parent action bar can drive submit/cancel.
+const mode = defineModel<'idle' | 'propose' | 'review'>('mode', { default: 'idle' })
+// True while a submit/save request is in flight (disables the bar's primary action).
+const busy = defineModel<boolean>('busy', { default: false })
 
 const { user } = useAuthUser()
 const toast = useToast()
@@ -49,9 +49,6 @@ interface EditorApi {
 }
 
 const editorRef = ref<EditorApi | null>(null)
-const mode = ref<'idle' | 'propose' | 'review'>('idle')
-const showSuggestions = ref(false)
-const busy = ref(false)
 const errorMsg = ref('')
 const conflict = ref(false)
 const reviewPending = ref<SuggestionItem[]>([])
@@ -62,18 +59,14 @@ const typeLabels: Record<SuggestionItem['type'], string> = {
   modification: 'Formatierung',
 }
 
-const isEditing = computed(() => mode.value === 'propose' || mode.value === 'review')
-const isActive = computed(
-  () => isEditing.value || (showSuggestions.value && Boolean(docJson.value)),
-)
-watch(isActive, (v) => (active.value = v), { immediate: true })
-watch(isEditing, (v) => (editing.value = v), { immediate: true })
+const diffTeleportTarget = computed(() => `#motion-body-diff-${props.motionId}`)
+
 watch(openCount, (v) => (count.value = v), { immediate: true })
 
 function startPropose() {
   errorMsg.value = ''
   conflict.value = false
-  showSuggestions.value = false
+  showDiff.value = false
   mode.value = 'propose'
 }
 
@@ -88,7 +81,7 @@ watch(
 function startReview() {
   errorMsg.value = ''
   conflict.value = false
-  showSuggestions.value = false
+  showDiff.value = false
   reviewPending.value = [...suggestions.value]
   mode.value = 'review'
 }
@@ -142,7 +135,7 @@ async function submitProposal() {
     await refresh()
     mode.value = 'idle'
     // Reveal the diff immediately so the member sees their tracked change.
-    showSuggestions.value = true
+    showDiff.value = true
     toast.success('Dein Änderungsvorschlag wurde gespeichert und ist nun einsehbar.')
   } catch (err: unknown) {
     handleError(err)
@@ -179,7 +172,7 @@ async function saveReview() {
     })
     await refresh()
     mode.value = 'idle'
-    showSuggestions.value = false
+    showDiff.value = false
     emit('saved')
     toast.success('Die Änderungen wurden übernommen und als neue Version gespeichert.')
   } catch (err: unknown) {
@@ -188,39 +181,30 @@ async function saveReview() {
     busy.value = false
   }
 }
+
+// Driven by the parent MotionActionBar (the trigger/submit buttons live there).
+defineExpose({ startReview, cancel, submitProposal, saveReview })
 </script>
 
 <template>
   <section class="suggestions">
-    <div v-if="mode === 'idle' && openCount > 0" class="suggestions__bar">
-      <FwSwitch v-if="openCount > 0" v-model="showSuggestions">
-        <FontAwesomeIcon :icon="showSuggestions ? 'eye' : 'eye-slash'" />
-        Änderungen als Diff anzeigen
-        <span class="suggestions__count">{{ openCount }}</span>
-      </FwSwitch>
-
-      <FwButton
-        v-if="isAuthor && openCount > 0 && debateOpen"
-        variant="primary"
-        @click="startReview"
+    <!-- Diff view is teleported into the parent motion body for in-place crossfade. -->
+    <ClientOnly>
+      <Teleport
+        v-if="mode === 'idle' && openCount > 0 && docJson"
+        :to="diffTeleportTarget"
       >
-        <FontAwesomeIcon icon="check" /> Vorschläge prüfen
-      </FwButton>
-    </div>
-
-    <Transition name="swap" mode="out-in">
-    <!-- Read-only view of open suggestions for everyone -->
-    <div v-if="mode === 'idle' && showSuggestions && docJson" class="suggestions__viewer">
-      <ClientOnly>
         <MotionEditor
+          embedded
           :doc-json="docJson"
           :suggestion="{ mode: 'view', ...suggestionConfig }"
         />
-      </ClientOnly>
-    </div>
+      </Teleport>
+    </ClientOnly>
 
+    <Transition name="swap" mode="out-in">
     <!-- Propose mode: member edits, changes are tracked as suggestions -->
-    <div v-else-if="mode === 'propose'" class="suggestions__editor">
+    <div v-if="mode === 'propose'" class="suggestions__editor">
       <ClientOnly>
         <MotionEditor
           ref="editorRef"
@@ -229,13 +213,6 @@ async function saveReview() {
           :suggestion="{ mode: 'propose', ...suggestionConfig }"
         />
       </ClientOnly>
-      <div class="suggestions__actions">
-        <FwButton variant="ghost" :disabled="busy" @click="cancel">Abbrechen</FwButton>
-        <FwButton variant="primary" :disabled="busy" @click="submitProposal">
-          <FontAwesomeIcon icon="paper-plane" />
-          {{ busy ? 'Senden ...' : 'Vorschlag senden' }}
-        </FwButton>
-      </div>
       <p class="suggestions__lead">
         <FontAwesomeIcon icon="comment-dots" aria-hidden="true" />
         Deine Änderungen werden dem Antragsteller als Vorschläge vorgelegt und sind
@@ -289,14 +266,6 @@ async function saveReview() {
       <p v-else class="suggestions__hint">
         Alle Vorschläge bearbeitet. Speichern legt eine neue Version an.
       </p>
-
-      <div class="suggestions__actions">
-        <FwButton variant="ghost" :disabled="busy" @click="cancel">Abbrechen</FwButton>
-        <FwButton variant="primary" :disabled="busy" @click="saveReview">
-          <FontAwesomeIcon icon="floppy-disk" />
-          {{ busy ? 'Speichern ...' : 'Speichern' }}
-        </FwButton>
-      </div>
     </div>
     </Transition>
 
@@ -310,25 +279,6 @@ async function saveReview() {
 </template>
 
 <style scoped>
-.suggestions__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-.suggestions__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.5rem;
-  padding: 0.1rem var(--space-2);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  color: var(--color-accent);
-  font-size: 0.85rem;
-  font-variant-numeric: tabular-nums;
-}
 .suggestions__hint {
   margin: var(--space-3) 0 0;
   color: var(--color-text-muted);
@@ -342,14 +292,7 @@ async function saveReview() {
   color: var(--color-text-muted);
   font-size: 0.9rem;
 }
-.suggestions__viewer,
 .suggestions__editor {
-  margin-top: var(--space-4);
-}
-.suggestions__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
   margin-top: var(--space-4);
 }
 .suggestions__list {

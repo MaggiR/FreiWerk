@@ -290,6 +290,18 @@ const motions = computed<MotionListItem[]>(
   () => (data.value?.motions ?? []) as MotionListItem[],
 )
 
+const hasLoadedOnce = ref(false)
+watch(
+  data,
+  (value) => {
+    if (value != null) hasLoadedOnce.value = true
+  },
+  { immediate: true },
+)
+
+const isInitialLoad = computed(() => pending.value && !hasLoadedOnce.value)
+const isRefreshing = computed(() => pending.value && hasLoadedOnce.value)
+
 function selectSort(value: SortValue) {
   filters.sort = value
   sortOpen.value = false
@@ -495,13 +507,46 @@ function resetFilters() {
       </div>
     </FwCard>
 
-    <p v-if="pending" class="muted">Lade Anträge ...</p>
-    <div v-else-if="motions.length > 0" class="grid">
-      <MotionCard v-for="m in motions" :key="m.id" :motion="m" />
-    </div>
-    <FwCard v-else class="empty">
-      <p>Keine Anträge gefunden. Passe die Filter an oder stelle einen neuen Antrag.</p>
-    </FwCard>
+    <section class="results" :aria-busy="pending || undefined">
+      <p v-if="isInitialLoad" class="results__loading muted">Lade Anträge …</p>
+
+      <div
+        v-else
+        class="results__panel"
+        :class="{ 'results__panel--refreshing': isRefreshing }"
+      >
+        <TransitionGroup
+          v-if="motions.length > 0"
+          name="motion-grid"
+          tag="div"
+          class="grid"
+        >
+          <MotionCard
+            v-for="m in motions"
+            :key="m.id"
+            :motion="m"
+            :highlight-query="filters.q"
+          />
+        </TransitionGroup>
+
+        <Transition v-else name="results-empty">
+          <FwCard v-if="!pending" key="empty" class="empty">
+            <p>Keine Anträge gefunden. Passe die Filter an oder stelle einen neuen Antrag.</p>
+          </FwCard>
+        </Transition>
+
+        <Transition name="results-status">
+          <p
+            v-if="isRefreshing && motions.length === 0"
+            key="searching"
+            class="results__status muted"
+            aria-live="polite"
+          >
+            Suche …
+          </p>
+        </Transition>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -769,7 +814,79 @@ function resetFilters() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-4);
+  position: relative;
 }
+.results {
+  position: relative;
+}
+.results__loading {
+  margin: 0;
+}
+.results__panel {
+  position: relative;
+  transition: opacity 0.25s ease;
+}
+.results__panel--refreshing {
+  opacity: 0.78;
+}
+.results__status {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+}
+
+.motion-grid-enter-active {
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+.motion-grid-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.motion-grid-enter-from {
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+}
+.motion-grid-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+}
+.motion-grid-move {
+  transition: transform 0.35s ease;
+}
+
+.results-empty-enter-active,
+.results-empty-leave-active,
+.results-status-enter-active,
+.results-status-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.results-empty-enter-from,
+.results-empty-leave-to,
+.results-status-enter-from,
+.results-status-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .results__panel,
+  .motion-grid-enter-active,
+  .motion-grid-leave-active,
+  .motion-grid-move,
+  .results-empty-enter-active,
+  .results-empty-leave-active,
+  .results-status-enter-active,
+  .results-status-leave-active {
+    transition: none;
+  }
+  .motion-grid-enter-from,
+  .motion-grid-leave-to,
+  .results-empty-enter-from,
+  .results-empty-leave-to,
+  .results-status-enter-from,
+  .results-status-leave-to {
+    transform: none;
+  }
+}
+
 .muted {
   color: var(--color-text-muted);
 }

@@ -39,6 +39,7 @@ services:
     volumes:
       - .:/app
       - app-node-modules:/app/node_modules
+      - uploads-data:/app/public/uploads
 
   # Production-like app behind nginx. Enable with: docker compose --profile prod up --build
   app-prod:
@@ -61,6 +62,8 @@ services:
       NITRO_PORT: '3000'
     expose:
       - '3000'
+    volumes:
+      - uploads-data:/app/public/uploads
 
   nginx:
     image: nginx:1.27-alpine
@@ -74,5 +77,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
+  # Named volumes persist across `docker compose down` (omit `-v`).
   db-data:
+    name: freiwerk-db-data
+  uploads-data:
+    name: freiwerk-uploads-data
   app-node-modules:
+    name: freiwerk-node-modules

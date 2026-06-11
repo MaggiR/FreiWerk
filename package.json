@@ -21,7 +21,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx server/database/migrate.ts",
     "db:push": "drizzle-kit push",
-    "db:seed": "tsx server/database/seed.ts"
+    "db:seed": "tsx server/database/seed.ts",
+    "db:seed:if-empty": "tsx server/database/seed.ts --if-empty"
   },
   "dependencies": {
     "@handlewithcare/prosemirror-suggest-changes": "^0.1.8",

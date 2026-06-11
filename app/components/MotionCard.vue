@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { MotionListItem } from '#shared/types'
 
-const props = defineProps<{ motion: MotionListItem }>()
-
-const SUMMARY_PREVIEW_MAX = 100
-const summaryPreview = computed(() =>
-  truncateText(props.motion.summary, SUMMARY_PREVIEW_MAX),
-)
+const props = defineProps<{
+  motion: MotionListItem
+  highlightQuery?: string
+}>()
 
 const emit = defineEmits<{
   'watch-changed': [payload: { motionId: string; watched: boolean }]
@@ -31,8 +29,12 @@ const emit = defineEmits<{
         />
       </div>
 
-      <h3 class="motion-card__title">{{ motion.title }}</h3>
-      <p class="motion-card__summary">{{ summaryPreview }}</p>
+      <h3 class="motion-card__title">
+        <HighlightText :text="motion.title" :query="highlightQuery" />
+      </h3>
+      <p class="motion-card__summary">
+        <HighlightText :text="motion.summary" :query="highlightQuery" />
+      </p>
 
       <div class="motion-card__meta">
         <span><FontAwesomeIcon icon="user" /> {{ motion.authorName }}</span>

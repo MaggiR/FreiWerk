@@ -32,12 +32,15 @@ const props = withDefaults(
     initialContent?: string
     suggestion?: SuggestionConfig | null
     docJson?: JSONContent | null
+    /** Strip chrome (border, padding) to match inline RichText rendering. */
+    embedded?: boolean
   }>(),
   {
     placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.',
     initialContent: '',
     suggestion: null,
     docJson: null,
+    embedded: false,
   },
 )
 
@@ -322,7 +325,7 @@ const historyTools = computed<ToolItem[]>(() => {
 </script>
 
 <template>
-  <div class="editor">
+  <div class="editor" :class="{ 'editor--embedded': embedded }">
     <input
       ref="fileInput"
       type="file"
@@ -392,6 +395,24 @@ const historyTools = computed<ToolItem[]>(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+}
+
+.editor--embedded {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.editor--embedded .editor__content {
+  padding: 0;
+  min-height: 0;
+  max-height: none;
+  resize: none;
+  overflow: visible;
+}
+
+.editor--embedded :deep(.editor-surface) {
+  min-height: 0;
 }
 
 .editor__toolbar {
