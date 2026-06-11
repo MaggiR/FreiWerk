@@ -9,6 +9,8 @@ export interface MotionBarAction {
   to?: string
   count?: number
   disabled?: boolean
+  /** Keep inline when space is tight; lower-priority actions overflow first. */
+  pinned?: boolean
 }
 </script>
 
@@ -33,7 +35,9 @@ const barRef = ref<HTMLElement | null>(null)
 const measureRef = ref<HTMLElement | null>(null)
 const endRef = ref<HTMLElement | null>(null)
 const moreMeasureRef = ref<HTMLElement | null>(null)
+const fabRef = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
+const fabOpen = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const isNarrow = ref(false)
 const inlineCount = ref(props.actions.length)
@@ -49,11 +53,42 @@ const effectiveMenuItems = computed<MotionBarAction[]>(() => {
   if (props.showDiffToggle && isNarrow.value) {
     items.unshift({
       id: 'toggle-diff',
-      label: showDiff.value ? 'Änderungen ausblenden' : 'Änderungen anzeigen',
+      label: showDiff.value ? 'Änderungsvorschläge ausblenden' : 'Zeige Änderungsvorschläge',
       count: props.diffCount > 0 ? props.diffCount : undefined,
     })
   }
   return items
+})
+
+const fabMenuItems = computed<MotionBarAction[]>(() => {
+  const items = [...props.actions]
+  if (props.showDiffToggle) {
+    items.push({
+      id: 'toggle-diff',
+      label: showDiff.value ? 'Änderungsvorschläge ausblenden' : 'Zeige Änderungsvorschläge',
+      count: props.diffCount > 0 ? props.diffCount : undefined,
+    })
+  }
+  return items
+})
+
+const fabPrimaryAction = computed(() => props.actions[0] ?? null)
+
+const fabTriggerIcon = computed(() => {
+  if (fabOpen.value) return 'xmark'
+  return fabPrimaryAction.value?.icon ?? 'ellipsis'
+})
+
+const fabBadgeCount = computed(() => {
+  const total = fabMenuItems.value.length
+  if (total <= 1) return fabPrimaryAction.value?.count ?? 0
+  return total - 1
+})
+
+const fabAriaLabel = computed(() => {
+  if (fabOpen.value) return 'Aktionsmenü schließen'
+  if (fabMenuItems.value.length === 1) return fabMenuItems.value[0]?.label ?? 'Aktion'
+  return fabPrimaryAction.value?.label ?? 'Aktionen'
 })
 
 function actionVariant(action: MotionBarAction) {
@@ -72,8 +107,13 @@ function closeMenu() {
   menuOpen.value = false
 }
 
+function closeFab() {
+  fabOpen.value = false
+}
+
 function onItem(item: MotionBarAction) {
   closeMenu()
+  closeFab()
   if (item.id === 'toggle-diff') {
     showDiff.value = !showDiff.value
     return
@@ -81,16 +121,32 @@ function onItem(item: MotionBarAction) {
   if (!item.to) emit('action', item.id)
 }
 
+function onFabTrigger() {
+  const items = fabMenuItems.value
+  if (items.length === 0) return
+  if (items.length === 1) {
+    onItem(items[0]!)
+    return
+  }
+  fabOpen.value = !fabOpen.value
+}
+
 function onDocumentClick(event: MouseEvent) {
-  if (!menuOpen.value || !menuRef.value) return
-  if (!menuRef.value.contains(event.target as Node)) closeMenu()
+  const target = event.target as Node
+  if (menuOpen.value && menuRef.value && !menuRef.value.contains(target)) closeMenu()
+  if (fabOpen.value && fabRef.value && !fabRef.value.contains(target)) closeFab()
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') closeMenu()
+  if (event.key === 'Escape') {
+    closeMenu()
+    closeFab()
+  }
 }
 
 function recalculateOverflow() {
+  if (isNarrow.value) return
+
   const bar = barRef.value
   const measure = measureRef.value
   const end = endRef.value
@@ -106,27 +162,35 @@ function recalculateOverflow() {
   const buttons = measure.querySelectorAll<HTMLElement>('[data-action-measure]')
   const total = props.actions.length
 
-  let used = 0
-  let count = 0
+  const widths = Array.from(buttons).map((btn) => btn.offsetWidth)
 
-  for (let i = 0; i < total; i++) {
-    const btn = buttons[i]
-    if (!btn) break
-
-    const btnWidth = btn.offsetWidth
-    const itemGap = count > 0 ? gap : 0
-    const overflowCount = total - (i + 1)
-    const reserveMore = overflowCount > 0 ? moreWidth : 0
-
-    if (used + itemGap + btnWidth + reserveMore <= available) {
-      used += itemGap + btnWidth
-      count++
-    } else {
-      break
+  const fitsCount = (count: number) => {
+    let used = 0
+    for (let i = 0; i < count; i++) {
+      used += (i > 0 ? gap : 0) + (widths[i] ?? 0)
     }
+    const reserveMore = count < total ? moreWidth : 0
+    return used + reserveMore <= available
   }
 
-  inlineCount.value = count
+  let count = 0
+  for (let i = 0; i < total; i++) {
+    if (fitsCount(i + 1)) count = i + 1
+    else break
+  }
+
+  let pinnedCount = 0
+  for (let i = 0; i < total; i++) {
+    if (!props.actions[i]?.pinned) break
+    pinnedCount++
+  }
+
+  let pinnedInline = 0
+  for (let i = 1; i <= pinnedCount; i++) {
+    if (fitsCount(i)) pinnedInline = i
+  }
+
+  inlineCount.value = Math.max(count, pinnedInline)
 }
 
 let narrowMq: MediaQueryList | null = null
@@ -141,6 +205,15 @@ function scheduleRecalculate() {
     requestAnimationFrame(recalculateOverflow)
   })
 }
+
+watch(isNarrow, (narrow) => {
+  if (narrow) {
+    closeMenu()
+    closeFab()
+  } else {
+    scheduleRecalculate()
+  }
+})
 
 watch(
   () => [props.actions, props.showDiffToggle, isNarrow.value] as const,
@@ -175,8 +248,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="action-bar-wrap">
-    <div ref="barRef" class="action-bar" role="toolbar" aria-label="Antrag-Aktionen">
+  <div class="action-bar-wrap" :class="{ 'is-fab': isNarrow }">
+    <div
+      v-if="!isNarrow"
+      ref="barRef"
+      class="action-bar"
+      role="toolbar"
+      aria-label="Antrag-Aktionen"
+    >
       <div class="action-bar__group action-bar__group--start">
         <template v-for="action in inlineActions" :key="action.id">
           <NuxtLink v-if="action.to" :to="action.to">
@@ -188,6 +267,7 @@ onUnmounted(() => {
           </NuxtLink>
           <FwButton
             v-else
+            :class="{ 'action-bar__btn--archive': action.id === 'archive' }"
             :variant="actionVariant(action)"
             :disabled="action.disabled"
             @click="onAction(action)"
@@ -201,7 +281,7 @@ onUnmounted(() => {
 
       <div ref="endRef" class="action-bar__group action-bar__group--end">
         <FwSwitch v-if="showInlineDiff" v-model="showDiff" class="action-bar__diff">
-          Änderungen anzeigen
+          Zeige Änderungsvorschläge
           <span v-if="diffCount > 0" class="action-bar__count">{{ diffCount }}</span>
         </FwSwitch>
 
@@ -244,6 +324,7 @@ onUnmounted(() => {
                 v-else
                 type="button"
                 class="action-bar__item"
+                :class="{ 'action-bar__item--archive': item.id === 'archive' }"
                 role="menuitem"
                 :disabled="item.disabled"
                 @click="onItem(item)"
@@ -262,7 +343,75 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div ref="measureRef" class="action-bar__measure" aria-hidden="true">
+    <div v-else ref="fabRef" class="action-bar-fab">
+      <div
+        v-if="fabOpen"
+        class="action-bar-fab__backdrop"
+        aria-hidden="true"
+        @click="closeFab"
+      />
+
+      <div
+        v-show="fabOpen && fabMenuItems.length > 1"
+        id="motion-action-fab-menu"
+        class="action-bar-fab__panel"
+        role="menu"
+      >
+        <template v-for="item in fabMenuItems" :key="item.id">
+          <NuxtLink
+            v-if="item.to"
+            :to="item.to"
+            class="action-bar__item"
+            role="menuitem"
+            @click="onItem(item)"
+          >
+            <FontAwesomeIcon
+              v-if="item.icon"
+              :icon="item.icon"
+              class="action-bar__item-icon"
+            />
+            <span class="action-bar__item-label">{{ item.label }}</span>
+            <span v-if="item.count != null" class="action-bar__count">{{ item.count }}</span>
+          </NuxtLink>
+          <button
+            v-else
+            type="button"
+            class="action-bar__item"
+            :class="{ 'action-bar__item--archive': item.id === 'archive' }"
+            role="menuitem"
+            :disabled="item.disabled"
+            @click="onItem(item)"
+          >
+            <FontAwesomeIcon
+              v-if="item.icon"
+              :icon="item.icon"
+              class="action-bar__item-icon"
+            />
+            <span class="action-bar__item-label">{{ item.label }}</span>
+            <span v-if="item.count != null" class="action-bar__count">{{ item.count }}</span>
+          </button>
+        </template>
+      </div>
+
+      <button
+        type="button"
+        class="action-bar-fab__trigger"
+        :class="{ 'is-open': fabOpen }"
+        :aria-expanded="fabOpen"
+        :aria-haspopup="fabMenuItems.length > 1 ? 'menu' : undefined"
+        :aria-controls="fabMenuItems.length > 1 ? 'motion-action-fab-menu' : undefined"
+        :aria-label="fabAriaLabel"
+        :disabled="fabMenuItems.length === 0"
+        @click="onFabTrigger"
+      >
+        <FontAwesomeIcon :icon="fabTriggerIcon" />
+        <span v-if="!fabOpen && fabBadgeCount > 0" class="action-bar-fab__badge">
+          {{ fabBadgeCount }}
+        </span>
+      </button>
+    </div>
+
+    <div v-if="!isNarrow" ref="measureRef" class="action-bar__measure" aria-hidden="true">
       <template v-for="action in actions" :key="`measure-${action.id}`">
         <span data-action-measure class="action-bar__measure-btn">
           <FwButton :variant="actionVariant(action)" :disabled="action.disabled">
@@ -286,13 +435,25 @@ onUnmounted(() => {
   position: sticky;
   bottom: var(--space-4);
   z-index: 30;
-  width: calc(100% - var(--space-4));
-  max-width: 100%;
+  width: fit-content;
+  max-width: calc(100% - var(--space-4));
   margin: var(--space-4) auto 0;
 }
 
+.action-bar-wrap.is-fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  left: auto;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  z-index: 40;
+}
+
 .action-bar {
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -357,11 +518,8 @@ onUnmounted(() => {
   font-size: 0.8rem;
 }
 
-.action-bar__panel {
-  position: absolute;
-  bottom: calc(100% + var(--space-2));
-  right: 0;
-  z-index: 20;
+.action-bar__panel,
+.action-bar-fab__panel {
   min-width: 14rem;
   display: flex;
   flex-direction: column;
@@ -371,6 +529,88 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
+}
+
+.action-bar__panel {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 20;
+}
+
+.action-bar-fab {
+  position: relative;
+}
+
+.action-bar-fab__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--color-text) 18%, transparent);
+}
+
+.action-bar-fab__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-3));
+  z-index: 1;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+}
+
+.action-bar-fab__trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  color: var(--color-accent-contrast);
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.action-bar-fab__trigger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--color-secondary) 35%, transparent);
+}
+
+.action-bar-fab__trigger.is-open {
+  background: var(--color-bg-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.action-bar-fab__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.action-bar-fab__badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: #1a1a00;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-sm);
 }
 
 .action-bar__item {
@@ -394,6 +634,20 @@ onUnmounted(() => {
 .action-bar__item:hover:not(:disabled) {
   background: var(--color-bg);
   color: var(--color-accent);
+}
+
+:deep(.action-bar__btn--archive:hover:not(:disabled)) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-danger) 30%, transparent),
+    0 4px 14px color-mix(in srgb, var(--color-danger) 25%, transparent);
+}
+
+.action-bar__item--archive:hover:not(:disabled) {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
 }
 
 .action-bar__item:disabled {
@@ -441,15 +695,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 600px) {
-  .action-bar {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
-
-  .action-bar__group {
-    flex: 1 1 auto;
-  }
-
   .action-bar__more-label {
     display: none;
   }
@@ -457,7 +702,8 @@ onUnmounted(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .action-bar__more,
-  .action-bar__item {
+  .action-bar__item,
+  .action-bar-fab__trigger {
     transition: none;
   }
 }

@@ -68,7 +68,8 @@ describe('labels', () => {
   it('maps known statuses to icons', () => {
     expect(statusIcon('draft')).toBe('pen')
     expect(statusIcon('debate')).toBe('comments')
-    expect(statusIcon('ballot')).toBe('chart-column')
-    expect(statusIcon('decided')).toBeNull()
+    expect(statusIcon('ballot')).toBe('check-to-slot')
+    expect(statusIcon('decided')).toBe('circle-check')
+    expect(statusIcon('weird')).toBeNull()
   })
 })

@@ -19,8 +19,12 @@ const olderVersionCount = computed(() => data.value?.olderVersionCount ?? 0)
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
 const isDraft = computed(() => motion.value?.status === 'draft')
+const isDebate = computed(() => motion.value?.status === 'debate')
+const isBallot = computed(() => motion.value?.status === 'ballot')
+const isDecided = computed(() => motion.value?.status === 'decided')
 const isArchived = computed(() => Boolean(motion.value?.archivedAt))
 const canArchive = computed(() => isAuthor.value || isModerator.value)
+const canManageBallot = computed(() => isAuthor.value || isModerator.value)
 
 const archivePending = ref(false)
 const archiveError = ref('')
@@ -56,11 +60,14 @@ const showSuggestionDiff = ref(false)
 const suggestionCount = ref(0)
 const suggestionMode = ref<'idle' | 'propose' | 'review'>('idle')
 const suggestionBusy = ref(false)
+const reviewPendingCount = ref(0)
 const suggestionsRef = ref<{
   startReview: () => void
   cancel: () => void
   submitProposal: () => void | Promise<void>
   saveReview: () => void | Promise<void>
+  acceptAll: () => void
+  rejectAll: () => void
 } | null>(null)
 const isSuggestionEditing = computed(() => suggestionMode.value !== 'idle')
 
@@ -122,6 +129,8 @@ watch(
 
 const publishPending = ref(false)
 const publishError = ref('')
+const ballotPending = ref(false)
+const ballotError = ref('')
 const debatePostCount = ref(0)
 const debatePostSort = ref<'recent' | 'oldest'>('recent')
 
@@ -144,6 +153,26 @@ async function onPublish() {
   }
 }
 
+async function onStartBallot() {
+  if (
+    !confirm(
+      'Abstimmung starten? Während der Abstimmung sind keine Beiträge, Änderungsvorschläge oder Stimmungsbilder mehr möglich.',
+    )
+  ) {
+    return
+  }
+  ballotError.value = ''
+  ballotPending.value = true
+  try {
+    await $fetch(`/api/motions/${id}/ballot/start`, { method: 'POST', body: {} })
+    await refreshNuxtData()
+  } catch (err: unknown) {
+    ballotError.value = extractError(err, 'Abstimmung konnte nicht gestartet werden.')
+  } finally {
+    ballotPending.value = false
+  }
+}
+
 // All motion-related actions in priority order; the bar shows as many inline as fit.
 const barActions = computed<MotionBarAction[]>(() => {
   const m = motion.value
@@ -151,6 +180,7 @@ const barActions = computed<MotionBarAction[]>(() => {
 
   if (isSuggestionEditing.value) {
     const proposing = suggestionMode.value === 'propose'
+    const reviewing = suggestionMode.value === 'review'
     const submitLabel = proposing
       ? suggestionBusy.value
         ? 'Senden ...'
@@ -158,21 +188,44 @@ const barActions = computed<MotionBarAction[]>(() => {
       : suggestionBusy.value
         ? 'Speichern ...'
         : 'Speichern'
-    return [
+    const actions: MotionBarAction[] = [
       {
         id: 'submit',
         label: submitLabel,
         icon: proposing ? 'paper-plane' : 'floppy-disk',
         variant: 'primary',
         disabled: suggestionBusy.value,
+        pinned: true,
       },
       {
         id: 'cancel',
         label: 'Abbrechen',
         variant: 'ghost',
         disabled: suggestionBusy.value,
+        pinned: true,
       },
     ]
+
+    if (reviewing) {
+      actions.push(
+        {
+          id: 'accept-all',
+          label: 'Alle Vorschläge annehmen',
+          icon: 'check',
+          variant: 'secondary',
+          disabled: suggestionBusy.value || reviewPendingCount.value === 0,
+        },
+        {
+          id: 'reject-all',
+          label: 'Alle Vorschläge ablehnen',
+          icon: 'xmark',
+          variant: 'ghost',
+          disabled: suggestionBusy.value || reviewPendingCount.value === 0,
+        },
+      )
+    }
+
+    return actions
   }
 
   const actions: MotionBarAction[] = []
@@ -196,6 +249,16 @@ const barActions = computed<MotionBarAction[]>(() => {
 
   if (!isDraft.value && isAuthor.value && suggestionCount.value > 0 && debateOpen.value) {
     actions.push({ id: 'review', label: 'Vorschläge prüfen', icon: 'check', variant: 'primary' })
+  }
+
+  if (isAuthor.value && isDebate.value) {
+    actions.push({
+      id: 'startBallot',
+      label: ballotPending.value ? 'Abstimmung starten ...' : 'Abstimmung starten',
+      icon: 'check-to-slot',
+      variant: 'primary',
+      disabled: ballotPending.value,
+    })
   }
 
   if (canSuggest.value) {
@@ -231,7 +294,13 @@ const barActions = computed<MotionBarAction[]>(() => {
   return actions
 })
 
-const showDiffToggle = computed(() => !isSuggestionEditing.value && suggestionCount.value > 0)
+const showDiffToggle = computed(
+  () => !isSuggestionEditing.value && isDebate.value && suggestionCount.value > 0,
+)
+
+watch(isDebate, (debate) => {
+  if (!debate) showSuggestionDiff.value = false
+})
 
 const barVisible = computed(() =>
   Boolean(motion.value && (barActions.value.length > 0 || showDiffToggle.value)),
@@ -242,6 +311,9 @@ function onBarAction(id: string) {
     case 'publish':
       onPublish()
       break
+    case 'startBallot':
+      onStartBallot()
+      break
     case 'archive':
       onArchiveToggle()
       break
@@ -250,6 +322,12 @@ function onBarAction(id: string) {
       break
     case 'review':
       suggestionsRef.value?.startReview()
+      break
+    case 'accept-all':
+      suggestionsRef.value?.acceptAll()
+      break
+    case 'reject-all':
+      suggestionsRef.value?.rejectAll()
       break
     case 'submit':
       if (suggestionMode.value === 'propose') suggestionsRef.value?.submitProposal()
@@ -271,6 +349,15 @@ function onBarAction(id: string) {
         <div class="motion__topbar">
           <div class="motion__badges">
             <MotionStatusBadge :status="motion.status" />
+            <FwBadge
+              v-if="isDecided && motion.outcome"
+              :tone="motion.outcome === 'accepted' ? 'primary' : 'neutral'"
+            >
+              <FontAwesomeIcon
+                :icon="motion.outcome === 'accepted' ? 'circle-check' : 'circle-xmark'"
+              />
+              {{ outcomeLabel(motion.outcome) }}
+            </FwBadge>
             <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
             <FwBadge v-if="motion.division?.name" tone="neutral">
               {{ motion.division.name }}
@@ -310,9 +397,14 @@ function onBarAction(id: string) {
             <FontAwesomeIcon icon="comments" />
             Debatte {{ timeRemaining(motion.debateEndsAt) }}
           </span>
+          <span v-else-if="isBallot && motion.ballotEndsAt">
+            <FontAwesomeIcon icon="check-to-slot" />
+            Abstimmung {{ timeRemaining(motion.ballotEndsAt) }}
+          </span>
         </div>
 
         <p v-if="publishError" class="form-error">{{ publishError }}</p>
+        <p v-if="ballotError" class="form-error">{{ ballotError }}</p>
         <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
       </header>
 
@@ -343,7 +435,7 @@ function onBarAction(id: string) {
                   <RichText :html="motion.bodyHtml" />
                 </div>
                 <div
-                  v-if="suggestionCount > 0"
+                  v-if="isDebate && suggestionCount > 0"
                   :id="`motion-body-diff-${motion.id}`"
                   class="motion__body-layer"
                   :class="{ 'is-visible': showSuggestionDiff }"
@@ -377,6 +469,7 @@ function onBarAction(id: string) {
         v-model:mode="suggestionMode"
         v-model:busy="suggestionBusy"
         v-model:count="suggestionCount"
+        v-model:review-pending-count="reviewPendingCount"
         :motion-id="motion.id"
         :motion-body-html="motion.bodyHtml"
         :propose-signal="proposeSignal"
@@ -392,6 +485,18 @@ function onBarAction(id: string) {
         @action="onBarAction"
       />
     </FwCard>
+
+    <section v-if="isBallot || isDecided" class="motion__section">
+      <h2>
+        <FontAwesomeIcon icon="check-to-slot" />
+        {{ isDecided ? 'Ergebnis der Abstimmung' : 'Geheime Abstimmung' }}
+      </h2>
+      <MotionBallot
+        :motion-id="motion.id"
+        :can-manage="canManageBallot"
+        @changed="refreshNuxtData()"
+      />
+    </section>
 
     <section v-if="!isDraft" class="motion__section">
       <h2><FontAwesomeIcon icon="chart-pie" /> Stimmungsbild</h2>
@@ -431,6 +536,12 @@ function onBarAction(id: string) {
 .motion {
   max-width: 820px;
   margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  .motion {
+    padding-bottom: calc(3.5rem + var(--space-4) * 2);
+  }
 }
 .back-link {
   display: inline-block;
@@ -506,6 +617,14 @@ function onBarAction(id: string) {
 
 .motion__body-content {
   outline: none;
+}
+
+/* Read-only motion body (RichText + suggestion diff overlay), not the edit surface. */
+.motion__body-layer :deep(.rich-text),
+.motion__body-layer :deep(.editor-surface) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 .motion__body-swap {

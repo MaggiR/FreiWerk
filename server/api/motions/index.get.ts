@@ -1,7 +1,9 @@
 import {
   and,
+  asc,
   desc,
   eq,
+  gt,
   gte,
   isNull,
   isNotNull,
@@ -20,6 +22,7 @@ import {
   posts,
   moodVotes,
   motionWatches,
+  ballotParticipants,
 } from '../../database/schema'
 import { motionListQuerySchema } from '../../utils/validation'
 import { redactMotionAuthor } from '../../utils/motionAnonymity'
@@ -65,6 +68,24 @@ export default defineEventHandler(async (event) => {
     )
   } else if (query.watched && !currentUserId) {
     // Unauthenticated users have no watches.
+    conditions.push(sql`false`)
+  }
+
+  if (query.ballotPending && currentUserId) {
+    conditions.push(eq(motions.status, 'ballot'))
+    const ballotOpen = or(
+      isNull(motions.ballotEndsAt),
+      gt(motions.ballotEndsAt, new Date()),
+    )
+    if (ballotOpen) conditions.push(ballotOpen)
+    conditions.push(
+      sql`not exists (
+        select 1 from ${ballotParticipants}
+        where ${ballotParticipants.motionId} = ${motions.id}
+          and ${ballotParticipants.userId} = ${currentUserId}
+      )`,
+    )
+  } else if (query.ballotPending && !currentUserId) {
     conditions.push(sql`false`)
   }
 
@@ -151,8 +172,9 @@ export default defineEventHandler(async (event) => {
     where ${motionWatches.motionId} = ${motions.id}
   )`
 
-  const orderBy =
-    query.sort === 'active'
+  const orderBy = query.ballotPending
+    ? [asc(motions.ballotEndsAt), desc(motions.updatedAt)]
+    : query.sort === 'active'
       ? [desc(postCount), desc(motions.updatedAt)]
       : query.sort === 'controversial'
         ? [desc(controversyOrder), desc(voteCount), desc(motions.updatedAt)]
@@ -182,6 +204,8 @@ export default defineEventHandler(async (event) => {
       createdAt: motions.createdAt,
       publishedAt: motions.publishedAt,
       debateEndsAt: motions.debateEndsAt,
+      ballotEndsAt: motions.ballotEndsAt,
+      outcome: motions.outcome,
       archivedAt: motions.archivedAt,
       authorId: motions.authorId,
       authorName: users.displayName,

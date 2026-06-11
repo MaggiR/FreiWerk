@@ -124,7 +124,13 @@ export function countOpenSuggestions(docJson: unknown): number {
 export function extractSuggestions(docJson: unknown): SuggestionItem[] {
   const byId = new Map<
     number,
-    { type: SuggestionMarkName; authorId: string | null; authorName: string | null; snippet: string }
+    {
+      type: SuggestionMarkName
+      authorId: string | null
+      authorName: string | null
+      createdAt: string | null
+      snippet: string
+    }
   >()
 
   walkNodes(docJson as PmNode, (node) => {
@@ -146,6 +152,7 @@ export function extractSuggestions(docJson: unknown): SuggestionItem[] {
           type: mark.type,
           authorId: (mark.attrs?.userId as string | undefined) ?? null,
           authorName: (mark.attrs?.userName as string | undefined) ?? null,
+          createdAt: (mark.attrs?.createdAt as string | undefined) ?? null,
           snippet: text.slice(0, 80),
         })
       }
@@ -157,6 +164,7 @@ export function extractSuggestions(docJson: unknown): SuggestionItem[] {
     type: value.type,
     authorId: value.authorId,
     authorName: value.authorName,
+    createdAt: value.createdAt,
     snippet: value.snippet.trim(),
   }))
 }

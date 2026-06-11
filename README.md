@@ -5,7 +5,7 @@
 
 Jeder User kann politische Anträge einbringen, innerhalb der Partei diskutieren und gemeinsam mit anderen Mitgliedern weiterentwickeln. Statt unübersichtlicher Kommentarspalten strukturiert FreiWerk die Debatte entlang von Argumenten, Gegenargumenten, offenen Fragen und Änderungsvorschlägen. KI-gestützte Zusammenfassungen helfen dabei, auch umfangreiche Diskussionen schnell zu erfassen, ohne die ursprünglichen Beiträge zu ersetzen.
 
-Parallel zur Debatte zeigt ein laufendes, unverbindliches Stimmungsbild, wie sich die Unterstützung für einen Antrag entwickelt. Erreicht ein Antrag die erforderlichen Quoren, kann eine formale Abstimmung initiiert werden. Erfolgreiche Anträge sollen — abhängig von der jeweiligen Satzungsgrundlage — verbindlich an die zuständigen Gremien weitergegeben oder als formeller Mitgliederentscheid verabschiedet werden.
+Parallel zur Debatte zeigt ein laufendes, unverbindliches Stimmungsbild, wie sich die Unterstützung für einen Antrag entwickelt. Nach der Debatte kann eine formale, geheime Abstimmung initiiert werden. Erfolgreiche Anträge sollen — abhängig von der jeweiligen Satzungsgrundlage — verbindlich an die zuständigen Gremien weitergegeben oder als formeller Mitgliederentscheid verabschiedet werden.
 
 FreiWerk versteht sich als **Marktplatz liberaler Ideen**: offen für Initiative, transparent in der Debatte und verbindlich in der Entscheidung. FreiWerk zielt nicht darauf ab, bestehende Strukturen wie Parteitage zu ersetzen, sondern sie zu ergänzen.
 
@@ -51,7 +51,7 @@ FreiWerk strukturiert Debatten entlang von Argumenten statt entlang chronologisc
 - Strukturierte Antragseingabe mit:
 	- Art des Antrags
 		- unverbindliches politisches Stimmungsbild (ähnlich einer Umfrage)
-		- formeller Mitgliederentscheid gemäß Satzung (Quorum erforderlich, wird ab einem Punkt verbindlich abgestimmt)
+		- formeller Mitgliederentscheid gemäß Satzung (mit verbindlicher, geheimer Schlussabstimmung)
 	- Titel
 	- Kurzbeschreibung
 	- Text
@@ -71,7 +71,7 @@ FreiWerk strukturiert Debatten entlang von Argumenten statt entlang chronologisc
   1. **Entwurf**: Antragsteller bereitet Antrag vor
   2. **Debatte**: offene Diskussion um den Antrag mit Echtzeit-Stimmungsbild
   3. **Abstimmung**: fest definierte, geheime Abstimmungsphase
-  4. **Entschieden**: entweder verabschiedet (und damit Weiterleitung oder Umsetzung) oder abgelehnt oder Quorum verfehlt
+  4. **Entschieden**: entweder verabschiedet (und damit Weiterleitung oder Umsetzung) oder abgelehnt
 ### 3. Strukturierte Debatten
 - Forumsartige Diskussion unter jedem Antrag, wahlweise linear oder als Themenbaum darstellbar
 - Automatisierte, KI-gestützte Extraktion relevanter Inhalte aus den Beiträgen:
@@ -103,15 +103,13 @@ Die KI hat ausschließlich eine assistierende Funktion. Sie darf keine Beiträge
 - Änderung der eigenen Position während der offenen Debatte jederzeit möglich
 - Visualisierung des zeitlichen Verlaufs als Flächendiagramm sowie des aktuellen Stimmungsbildes als Ringdiagramm
 - Anzeige der Beteiligung und des erreichten Unterstützungsstands
-### 6. Quoren und Entscheidungsverfahren
-- Konfigurierbare Quoren abhängig von:
-	- Gliederungsebene
-	- Zahl der berechtigten Mitglieder
+### 6. Entscheidungsverfahren
 - Feste Fristen für Debatte und Abstimmung
 	- **Debatte**: Frei durch Antragsteller definierbar. Standard: 2 Wochen
-	- **Abstimmung**: 1 Woche
-- Keine Änderungen mehr am Antrag während einer Abstimmung möglich ohne Abbruch der Abstimmung.
-- Anonyme Stimmenabgabe, außer das abstimmende Mitglied möchte explizit seine Stimme parteiöffentlich machen
+	- **Abstimmung**: Standard 1 Woche
+- Keine Änderungen, Beiträge oder Stimmungsbilder mehr während einer laufenden Abstimmung möglich (Sperre der Antragsphase).
+- Geheime Stimmenabgabe: Die abgegebene Stimme wird nicht mit dem Mitgliederprofil verknüpft. Eine Stimme pro Mitglied, keine nachträgliche Änderung.
+- Das Ergebnis (angenommen/abgelehnt) wird erst nach Ablauf der Frist und Auswertung veröffentlicht; es entscheidet die einfache Mehrheit (Zustimmung über Ablehnung, Enthaltungen zählen nicht).
 ### 7. Transparenz und Nachverfolgung
 - Dauerhafte Speicherung angenommener Anträge, Archivierung abgelehnter oder unentschiedener Anträge
 - Dokumentation der weiteren Behandlung des Antrags durch Antragsteller oder zuständige Gremien
@@ -181,7 +179,6 @@ Vorgesehen sind insbesondere:
 - sichere Session-Cookies
 - Schutz vor Cross-Site Request Forgery und Cross-Site Scripting
 - Rate Limiting für schreibende Endpunkte
-- Audit-Logs für administrative und moderative Eingriffe
 - nachvollziehbare Versionierung von Anträgen und KI-Zusammenfassungen
 - regelmäßige Backups
 ### Umgebungsvariablen

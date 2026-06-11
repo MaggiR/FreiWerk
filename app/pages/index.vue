@@ -31,12 +31,19 @@ const { data: watchedData } = await useFetch('/api/motions', {
   immediate: false,
 })
 
+const { data: ballotPendingData } = await useFetch('/api/motions', {
+  query: { ballotPending: 'true' },
+  key: 'home-ballot-pending',
+  immediate: false,
+})
+
 watch(
   loggedIn,
   (val) => {
     if (val) {
       refreshNuxtData('home-mine')
       refreshNuxtData('home-watched')
+      refreshNuxtData('home-ballot-pending')
     }
   },
   { immediate: true },
@@ -58,6 +65,10 @@ const myMotions = computed<MotionListItem[]>(
 )
 const watchedMotions = computed<MotionListItem[]>(
   () => (watchedData.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
+)
+const pendingBallotMotions = computed<MotionListItem[]>(
+  () =>
+    (ballotPendingData.value?.motions ?? []).slice(0, TOP_COUNT) as MotionListItem[],
 )
 
 const myMotionsTo = computed(() => ({
@@ -118,6 +129,14 @@ function onWatchedCardChange({ watched }: { motionId: string; watched: boolean }
         <NuxtLink to="/motions?watched=true">Alle anzeigen</NuxtLink>
       </div>
       <MotionCarousel :motions="watchedMotions" @watch-changed="onWatchedCardChange" />
+    </section>
+
+    <section v-if="loggedIn && pendingBallotMotions.length > 0" class="section">
+      <div class="section__head">
+        <h2><FontAwesomeIcon icon="check-to-slot" /> Noch abzustimmen</h2>
+        <NuxtLink to="/motions?ballotPending=true">Alle anzeigen</NuxtLink>
+      </div>
+      <MotionCarousel :motions="pendingBallotMotions" />
     </section>
 
     <section class="section">

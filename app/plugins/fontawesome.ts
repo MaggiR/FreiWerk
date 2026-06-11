@@ -63,6 +63,12 @@ import {
   faEyeSlash,
   faCommentDots,
   faEllipsis,
+  faCheckToSlot,
+  faCircleCheck,
+  faCircleXmark,
+  faLock,
+  faUserGroup,
+  faHourglassEnd,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -131,6 +137,12 @@ library.add(
   faEyeSlash,
   faCommentDots,
   faEllipsis,
+  faCheckToSlot,
+  faCircleCheck,
+  faCircleXmark,
+  faLock,
+  faUserGroup,
+  faHourglassEnd,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

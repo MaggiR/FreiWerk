@@ -1,4 +1,8 @@
-import type { MotionStatus, UserRole } from '../server/database/schema'
+import type {
+  MotionStatus,
+  MotionOutcome,
+  UserRole,
+} from '../server/database/schema'
 
 export interface UserProfile {
   id: string
@@ -26,6 +30,8 @@ export interface MotionListItem {
   createdAt: string
   publishedAt: string | null
   debateEndsAt: string | null
+  ballotEndsAt: string | null
+  outcome: MotionOutcome | null
   archivedAt: string | null
   authorId: string | null
   authorName: string | null
@@ -56,6 +62,8 @@ export interface SuggestionItem {
   type: 'insertion' | 'deletion' | 'modification'
   authorId: string | null
   authorName: string | null
+  /** ISO timestamp stamped when the suggestion was submitted. */
+  createdAt: string | null
   /** Short plain-text preview of the affected content. */
   snippet: string
 }

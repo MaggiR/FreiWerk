@@ -16,6 +16,7 @@ type ActiveFilterKey =
   | 'publishedTo'
   | 'minSupport'
   | 'watched'
+  | 'ballotPending'
   | 'archived'
 
 type SortValue =
@@ -72,6 +73,7 @@ function queryRecordFromRoute(
     result.minSupport = query.minSupport
   }
   if (query.watched === 'true') result.watched = 'true'
+  if (query.ballotPending === 'true') result.ballotPending = 'true'
   if (query.archived === 'true') result.archived = 'true'
   return result
 }
@@ -88,6 +90,7 @@ function queryRecordFromFilters(): Record<string, string> {
   if (filters.publishedTo) result.publishedTo = filters.publishedTo
   if (filters.minSupport) result.minSupport = filters.minSupport
   if (filters.watched) result.watched = 'true'
+  if (filters.ballotPending) result.ballotPending = 'true'
   if (filters.archived) result.archived = 'true'
   return result
 }
@@ -115,6 +118,7 @@ function applyRouteQuery(query: typeof route.query) {
   filters.minSupport =
     typeof query.minSupport === 'string' ? query.minSupport : ''
   filters.watched = query.watched === 'true'
+  filters.ballotPending = query.ballotPending === 'true'
   filters.archived = query.archived === 'true'
 }
 
@@ -129,6 +133,7 @@ const filters = reactive({
   publishedTo: (route.query.publishedTo as string) ?? '',
   minSupport: (route.query.minSupport as string) ?? '',
   watched: route.query.watched === 'true',
+  ballotPending: route.query.ballotPending === 'true',
   archived: route.query.archived === 'true',
 })
 
@@ -156,6 +161,7 @@ watch(
     filters.publishedTo,
     filters.minSupport,
     filters.watched,
+    filters.ballotPending,
     filters.archived,
   ] as const,
   () => {
@@ -178,6 +184,7 @@ const filtersOpen = ref(
     || filters.publishedTo
     || filters.minSupport
     || filters.watched
+    || filters.ballotPending
     || filters.archived,
   ),
 )
@@ -240,6 +247,9 @@ const activeFilterChips = computed<ActiveFilterChip[]>(() => {
   if (filters.watched) {
     chips.push({ key: 'watched', label: 'Beobachtet' })
   }
+  if (filters.ballotPending) {
+    chips.push({ key: 'ballotPending', label: 'Noch abzustimmen' })
+  }
   if (filters.archived) {
     chips.push({ key: 'archived', label: 'Archiv' })
   }
@@ -271,6 +281,7 @@ const apiQuery = computed(() => {
   if (filters.publishedTo) q.publishedTo = filters.publishedTo
   if (filters.minSupport) q.minSupport = filters.minSupport
   if (filters.watched) q.watched = 'true'
+  if (filters.ballotPending) q.ballotPending = 'true'
   if (filters.archived) q.archived = 'true'
   return q
 })
@@ -328,7 +339,7 @@ onMounted(() => document.addEventListener('click', onDocumentClick))
 onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
 function clearFilter(key: ActiveFilterKey) {
-  if (key === 'watched' || key === 'archived') {
+  if (key === 'watched' || key === 'ballotPending' || key === 'archived') {
     filters[key] = false
     return
   }
@@ -343,6 +354,7 @@ function resetFilters() {
   filters.publishedTo = ''
   filters.minSupport = ''
   filters.watched = false
+  filters.ballotPending = false
   filters.archived = false
 }
 </script>
@@ -446,8 +458,13 @@ function resetFilters() {
             <span>Status</span>
             <select v-model="filters.status">
               <option value="">Alle</option>
-              <option value="debate">Debatte</option>
-              <option value="decided">Entschieden</option>
+              <option
+                v-for="(label, status) in MOTION_STATUS_LABELS"
+                :key="status"
+                :value="status"
+              >
+                {{ label }}
+              </option>
             </select>
           </label>
 

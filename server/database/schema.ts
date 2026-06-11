@@ -31,6 +31,19 @@ export const moodChoiceEnum = pgEnum('mood_choice', [
   'undecided',
 ])
 
+// Formal ballot choices (no "undecided" — a cast ballot is a definite position).
+export const ballotChoiceEnum = pgEnum('ballot_choice', [
+  'approve',
+  'reject',
+  'abstain',
+])
+
+// Final decision outcome stored on the motion once a ballot is finalized.
+export const motionOutcomeEnum = pgEnum('motion_outcome', [
+  'accepted',
+  'rejected',
+])
+
 // ---------- Tables ----------
 
 export const divisions = pgTable('divisions', {
@@ -79,6 +92,11 @@ export const motions = pgTable(
       onDelete: 'set null',
     }),
     debateEndsAt: timestamp('debate_ends_at', { withTimezone: true }),
+    // Formal ballot window (set when the author opens the ballot phase).
+    ballotStartedAt: timestamp('ballot_started_at', { withTimezone: true }),
+    ballotEndsAt: timestamp('ballot_ends_at', { withTimezone: true }),
+    // Final decision once the ballot is finalized (status -> 'decided').
+    outcome: motionOutcomeEnum('outcome'),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     // Set when the motion is archived (withdrawn/closed); null while active.
     archivedAt: timestamp('archived_at', { withTimezone: true }),
@@ -235,6 +253,48 @@ export const motionWorkingDocs = pgTable('motion_working_docs', {
     .defaultNow(),
 })
 
+// Secret ballot: anonymous vote records. Deliberately has NO user reference so a
+// choice can never be linked back to a member (vote/profile separation).
+export const ballots = pgTable(
+  'ballots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    choice: ballotChoiceEnum('choice').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('ballots_motion_idx').on(table.motionId)],
+)
+
+// Participation log: records WHO has voted (to prevent double voting) without
+// storing their choice. Kept separate from `ballots` so the two cannot be joined.
+export const ballotParticipants = pgTable(
+  'ballot_participants',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('ballot_participants_motion_user_idx').on(
+      table.motionId,
+      table.userId,
+    ),
+    index('ballot_participants_user_idx').on(table.userId),
+  ],
+)
+
 // ---------- Relations ----------
 
 export const divisionsRelations = relations(divisions, ({ one, many }) => ({
@@ -271,7 +331,30 @@ export const motionsRelations = relations(motions, ({ one, many }) => ({
   watches: many(motionWatches),
   versions: many(motionVersions),
   workingDoc: one(motionWorkingDocs),
+  ballots: many(ballots),
+  ballotParticipants: many(ballotParticipants),
 }))
+
+export const ballotsRelations = relations(ballots, ({ one }) => ({
+  motion: one(motions, {
+    fields: [ballots.motionId],
+    references: [motions.id],
+  }),
+}))
+
+export const ballotParticipantsRelations = relations(
+  ballotParticipants,
+  ({ one }) => ({
+    motion: one(motions, {
+      fields: [ballotParticipants.motionId],
+      references: [motions.id],
+    }),
+    user: one(users, {
+      fields: [ballotParticipants.userId],
+      references: [users.id],
+    }),
+  }),
+)
 
 export const motionWatchesRelations = relations(motionWatches, ({ one }) => ({
   motion: one(motions, {
@@ -330,6 +413,12 @@ export type MotionVersion = typeof motionVersions.$inferSelect
 export type NewMotionVersion = typeof motionVersions.$inferInsert
 export type MotionWorkingDoc = typeof motionWorkingDocs.$inferSelect
 export type NewMotionWorkingDoc = typeof motionWorkingDocs.$inferInsert
+export type Ballot = typeof ballots.$inferSelect
+export type NewBallot = typeof ballots.$inferInsert
+export type BallotParticipant = typeof ballotParticipants.$inferSelect
+export type NewBallotParticipant = typeof ballotParticipants.$inferInsert
 export type MoodChoice = (typeof moodChoiceEnum.enumValues)[number]
+export type BallotChoice = (typeof ballotChoiceEnum.enumValues)[number]
+export type MotionOutcome = (typeof motionOutcomeEnum.enumValues)[number]
 export type MotionStatus = (typeof motionStatusEnum.enumValues)[number]
 export type UserRole = (typeof userRoleEnum.enumValues)[number]

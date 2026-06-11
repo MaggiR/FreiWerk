@@ -19,6 +19,8 @@ const showDiff = defineModel<boolean>('showDiff', { default: false })
 const mode = defineModel<'idle' | 'propose' | 'review'>('mode', { default: 'idle' })
 // True while a submit/save request is in flight (disables the bar's primary action).
 const busy = defineModel<boolean>('busy', { default: false })
+// Remaining suggestions while the author reviews inline.
+const reviewPendingCount = defineModel<number>('reviewPendingCount', { default: 0 })
 
 const { user } = useAuthUser()
 const toast = useToast()
@@ -53,15 +55,17 @@ const errorMsg = ref('')
 const conflict = ref(false)
 const reviewPending = ref<SuggestionItem[]>([])
 
-const typeLabels: Record<SuggestionItem['type'], string> = {
-  insertion: 'Einfügung',
-  deletion: 'Löschung',
-  modification: 'Formatierung',
-}
-
 const diffTeleportTarget = computed(() => `#motion-body-diff-${props.motionId}`)
 
 watch(openCount, (v) => (count.value = v), { immediate: true })
+
+watch(
+  reviewPending,
+  (items) => {
+    reviewPendingCount.value = items.length
+  },
+  { immediate: true, deep: true },
+)
 
 function startPropose() {
   errorMsg.value = ''
@@ -89,6 +93,7 @@ function startReview() {
 function cancel() {
   mode.value = 'idle'
   errorMsg.value = ''
+  reviewPending.value = []
 }
 
 function handleError(err: unknown) {
@@ -111,6 +116,7 @@ async function reloadAfterConflict() {
   conflict.value = false
   errorMsg.value = ''
   mode.value = 'idle'
+  reviewPending.value = []
 }
 
 async function submitProposal() {
@@ -154,6 +160,18 @@ function rejectOne(id: number) {
   reviewPending.value = reviewPending.value.filter((s) => s.id !== id)
 }
 
+function acceptAll() {
+  const ids = reviewPending.value.map((s) => s.id)
+  for (const id of ids) editorRef.value?.acceptSuggestion(id)
+  reviewPending.value = []
+}
+
+function rejectAll() {
+  const ids = reviewPending.value.map((s) => s.id)
+  for (const id of ids) editorRef.value?.rejectSuggestion(id)
+  reviewPending.value = []
+}
+
 async function saveReview() {
   if (!editorRef.value) return
   busy.value = true
@@ -172,6 +190,7 @@ async function saveReview() {
     })
     await refresh()
     mode.value = 'idle'
+    reviewPending.value = []
     showDiff.value = false
     emit('saved')
     toast.success('Die Änderungen wurden übernommen und als neue Version gespeichert.')
@@ -183,7 +202,7 @@ async function saveReview() {
 }
 
 // Driven by the parent MotionActionBar (the trigger/submit buttons live there).
-defineExpose({ startReview, cancel, submitProposal, saveReview })
+defineExpose({ startReview, cancel, submitProposal, saveReview, acceptAll, rejectAll })
 </script>
 
 <template>
@@ -191,12 +210,13 @@ defineExpose({ startReview, cancel, submitProposal, saveReview })
     <!-- Diff view is teleported into the parent motion body for in-place crossfade. -->
     <ClientOnly>
       <Teleport
-        v-if="mode === 'idle' && openCount > 0 && docJson"
+        v-if="mode === 'idle' && showDiff && openCount > 0 && docJson"
         :to="diffTeleportTarget"
       >
         <MotionEditor
           embedded
           :doc-json="docJson"
+          :review-items="suggestions"
           :suggestion="{ mode: 'view', ...suggestionConfig }"
         />
       </Teleport>
@@ -220,49 +240,22 @@ defineExpose({ startReview, cancel, submitProposal, saveReview })
       </p>
     </div>
 
-    <!-- Review mode: author accepts/rejects, then saves a new version -->
+    <!-- Review mode: author accepts/rejects inline, then saves a new version -->
     <div v-else-if="mode === 'review'" class="suggestions__editor">
       <ClientOnly>
         <MotionEditor
           ref="editorRef"
           :doc-json="docJson"
+          :review-items="reviewPending"
           :suggestion="{ mode: 'review', ...suggestionConfig }"
+          @review-accept="acceptOne"
+          @review-reject="rejectOne"
         />
       </ClientOnly>
-
-      <ol v-if="reviewPending.length" class="suggestions__list">
-        <li v-for="item in reviewPending" :key="item.id" class="suggestions__item">
-          <div class="suggestions__item-info">
-            <FwBadge :tone="item.type === 'deletion' ? 'neutral' : 'tertiary'">
-              {{ typeLabels[item.type] }}
-            </FwBadge>
-            <span class="suggestions__snippet">{{ item.snippet || '—' }}</span>
-            <span v-if="item.authorName" class="suggestions__author">
-              <FontAwesomeIcon icon="user" /> {{ item.authorName }}
-            </span>
-          </div>
-          <div class="suggestions__item-actions">
-            <button
-              type="button"
-              class="suggestions__accept"
-              title="Annehmen"
-              aria-label="Annehmen"
-              @click="acceptOne(item.id)"
-            >
-              <FontAwesomeIcon icon="check" />
-            </button>
-            <button
-              type="button"
-              class="suggestions__reject"
-              title="Verwerfen"
-              aria-label="Verwerfen"
-              @click="rejectOne(item.id)"
-            >
-              <FontAwesomeIcon icon="xmark" />
-            </button>
-          </div>
-        </li>
-      </ol>
+      <p v-if="reviewPending.length" class="suggestions__lead">
+        <FontAwesomeIcon icon="comment-dots" aria-hidden="true" />
+        Fahre mit der Maus über eine Änderung im Text, um sie anzunehmen oder abzulehnen.
+      </p>
       <p v-else class="suggestions__hint">
         Alle Vorschläge bearbeitet. Speichern legt eine neue Version an.
       </p>
@@ -294,70 +287,6 @@ defineExpose({ startReview, cancel, submitProposal, saveReview })
 }
 .suggestions__editor {
   margin-top: var(--space-4);
-}
-.suggestions__list {
-  list-style: none;
-  margin: var(--space-4) 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.suggestions__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-}
-.suggestions__item-info {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  min-width: 0;
-}
-.suggestions__snippet {
-  color: var(--color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 28ch;
-}
-.suggestions__author {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-}
-.suggestions__item-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-.suggestions__accept,
-.suggestions__reject {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-.suggestions__accept:hover {
-  border-color: #0a9f5e;
-  color: #0a9f5e;
-  background: color-mix(in srgb, #0a9f5e 12%, transparent);
-}
-.suggestions__reject:hover {
-  border-color: #d91e36;
-  color: #d91e36;
-  background: color-mix(in srgb, #d91e36 12%, transparent);
 }
 .suggestions__error {
   display: flex;

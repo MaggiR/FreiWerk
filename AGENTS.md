@@ -74,7 +74,7 @@ Legend: `[x]` done · `[~]` partial · `[ ]` open
 - [x] Fields title, summary, body (TipTap), topic, division level
 - [x] Images + PDF/file attachments (upload, MIME whitelist, 5 MB, attachment chips)
 - [x] Edit/delete only for author in `draft` status
-- [~] Motion stages visualized: `draft` + `debate` present, `ballot`/`decided` unused
+- [x] Motion stages visualized: full `draft → debate → ballot → decided` lifecycle
 - [ ] Video attachments
 - [x] Versioning + change history (`motion_versions`; v1 on publish, new version when the author saves accepted suggestions)
 - [x] Suggestion mode (Google-Docs-style): inline edits tracked as `insertion`/`deletion`/`modification` marks in one shared working document per motion (`motion_working_docs`); author accepts/rejects → new version. Powered by `@handlewithcare/prosemirror-suggest-changes` on top of TipTap. Text + formatting only (no media changes).
@@ -100,10 +100,13 @@ Legend: `[x]` done · `[~]` partial · `[ ]` open
 - [x] Ring chart (current) + trend/area chart (history) + participation
 - [~] Choices: approve/reject/abstain in UI — `undecided` missing as button (DB enum only)
 
-### 6. Quorums and decision procedures
+### 6. Decision procedures
 
-- [~] Debate deadline configurable (`debate_ends_at`); voting deadline missing
-- [ ] Configurable quorums, secret ballot, lock during voting (post-MVP)
+- [x] Debate deadline configurable (`debate_ends_at`)
+- [x] Voting deadline (`ballot_ends_at`), set when the ballot phase opens
+- [x] Secret ballot with vote/profile separation (`ballots` + `ballot_participants`)
+- [x] Lock during voting (posts, suggestions, mood disabled while `status=ballot`)
+- Quorums are intentionally out of scope (simple majority decides the outcome)
 
 ### 7. Transparency and tracking
 
@@ -134,7 +137,7 @@ Phases build on each other: MVP gaps and user engagement first, then versioning/
 flowchart TD
     P1["Phase 1: MVP polish"] --> P2["Phase 2: User engagement and profile"]
     P2 --> P3["Phase 3: Versioning and suggestion mode"]
-    P3 --> P4["Phase 4: Formal decisions (ballot, quorums)"]
+    P3 --> P4["Phase 4: Formal decisions (secret ballot)"]
     P4 --> P5["Phase 5: Transparency and moderation"]
     P5 --> P6["Phase 6: AI support"]
     P6 --> P7["Phase 7: SSO and notifications"]
@@ -162,12 +165,18 @@ flowchart TD
 - [x] Suggestion mode instead of structured amendments: one shared working document per motion (`motion_working_docs`, ProseMirror JSON with suggestion marks). Endpoints `GET/PUT /api/motions/[id]/suggestions` and `POST /api/motions/[id]/suggestions/save`. Concurrency is guarded by an optimistic `revision` check (409 → reload).
 - [ ] **Future requirement (binding): real-time collaboration** (e.g. Yjs/CRDT) to replace the optimistic version check, since simultaneous editing of suggestions will become common.
 
-**Phase 4 — Formal decisions**
+**Phase 4 — Formal decisions** (done)
 
-- Activate `ballot`/`decided` lifecycle (`debate → ballot → decided`)
-- Configurable quorums per division level
-- Secret ballot with vote/profile separation (`ballots` table), voting deadline, lock during voting
-- Audit trail for decisions
+- [x] `ballot`/`decided` lifecycle activated (`debate → ballot → decided`). The author
+  opens the ballot from an active debate; finalizing (author/moderator, after the
+  deadline) computes the outcome and moves the motion to `decided`.
+- [x] Secret ballot with vote/profile separation: `ballots` stores anonymous choices
+  (no user reference); `ballot_participants` records who voted (no choice). The two
+  tables are never joined, so a member can never be linked to a vote.
+- [x] Voting deadline (`ballot_ends_at`) and lock during voting (posts, suggestions and
+  mood votes are blocked while `status=ballot`). The tally stays hidden until `decided`.
+- Quorums and a dedicated decision audit trail are intentionally out of scope. The
+  outcome is a simple majority (approvals > rejections; abstentions do not count).
 
 **Phase 5 — Transparency and moderation**
 
@@ -188,16 +197,19 @@ flowchart TD
 - Email notifications for debates, deadlines, votes
 - Committee roles (LFA, BFA, LaVo, BuVo) and their special rights
 
-### Motion lifecycle (current vs. planned)
+### Motion lifecycle
 
 ```text
-draft → debate → (ballot → decided)   # ballot/decided in Phase 4
+draft → debate → ballot → decided
 ```
 
 - Only the author may edit or delete a motion in `draft` status.
 - Published motions are refined via suggestion mode (Phase 3); the author bakes accepted suggestions into a new version.
 - Debate posts allowed only while `status = debate` and before `debate_ends_at`.
 - Mood votes are non-binding and distinct from formal ballots.
+- The author opens the ballot from an active debate (`debate → ballot`), which sets `ballot_ends_at`. While `status = ballot` the motion is locked: no posts, suggestions or mood votes.
+- Ballots are secret: choices live in `ballots` (no user reference), participation in `ballot_participants` (no choice). One vote per member, no changes after casting.
+- Finalizing (author or moderator, after `ballot_ends_at`) tallies the ballots, stores the `outcome` (`accepted`/`rejected`, simple majority), and moves the motion to `decided`. The tally is revealed only once `decided`.
 
 ## Do not modify
 

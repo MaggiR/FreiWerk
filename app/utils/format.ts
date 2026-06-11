@@ -1,7 +1,9 @@
 import {
   TOPIC_LABELS,
   MOTION_STATUS_LABELS,
+  MOTION_OUTCOME_LABELS,
   type Topic,
+  type MotionOutcomeValue,
 } from '#shared/constants'
 
 export function topicLabel(topic: string): string {
@@ -16,9 +18,15 @@ export function statusIcon(status: string): string | null {
   const icons: Record<string, string> = {
     draft: 'pen',
     debate: 'comments',
-    ballot: 'chart-column',
+    ballot: 'check-to-slot',
+    decided: 'circle-check',
   }
   return icons[status] ?? null
+}
+
+export function outcomeLabel(outcome: string | null | undefined): string {
+  if (!outcome) return ''
+  return MOTION_OUTCOME_LABELS[outcome as MotionOutcomeValue] ?? outcome
 }
 
 export function formatDate(value: string | Date | null | undefined): string {
@@ -28,6 +36,18 @@ export function formatDate(value: string | Date | null | undefined): string {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
+  }).format(date)
+}
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  const date = typeof value === 'string' ? new Date(value) : value
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(date)
 }
 

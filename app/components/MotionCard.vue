@@ -17,6 +17,15 @@ const emit = defineEmits<{
       <div class="motion-card__top">
         <div class="motion-card__head">
           <MotionStatusBadge :status="motion.status" />
+          <FwBadge
+            v-if="motion.status === 'decided' && motion.outcome"
+            :tone="motion.outcome === 'accepted' ? 'primary' : 'neutral'"
+          >
+            <FontAwesomeIcon
+              :icon="motion.outcome === 'accepted' ? 'circle-check' : 'circle-xmark'"
+            />
+            {{ outcomeLabel(motion.outcome) }}
+          </FwBadge>
           <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
           <FwBadge v-if="motion.archivedAt" tone="neutral">
             <FontAwesomeIcon icon="box-archive" /> Archiviert
@@ -50,6 +59,10 @@ const emit = defineEmits<{
         />
         <span v-if="motion.status === 'debate' && motion.debateEndsAt">
           <FontAwesomeIcon icon="clock" /> {{ timeRemaining(motion.debateEndsAt) }}
+        </span>
+        <span v-else-if="motion.status === 'ballot' && motion.ballotEndsAt">
+          <FontAwesomeIcon icon="check-to-slot" />
+          Abstimmung {{ timeRemaining(motion.ballotEndsAt) }}
         </span>
       </div>
     </FwCard>

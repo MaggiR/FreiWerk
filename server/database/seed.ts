@@ -10,6 +10,7 @@ import {
   MOOD_TIMELINES_BY_TITLE,
   buildMotionBody,
   buildMoodRows,
+  buildBallotRows,
   assertMotionBodyLength,
   daysAgo,
   daysFromNow,
@@ -39,8 +40,9 @@ async function main() {
   console.log('[seed] Resetting tables...')
   await db.execute(
     drizzleSql`TRUNCATE TABLE
-      "motion_working_docs", "motion_versions", "motion_watches", "mood_vote_events",
-      "mood_votes", "posts", "motions", "users", "divisions"
+      "ballots", "ballot_participants", "motion_working_docs", "motion_versions",
+      "motion_watches", "mood_vote_events", "mood_votes", "posts", "motions",
+      "users", "divisions"
       RESTART IDENTITY CASCADE`,
   )
 
@@ -89,21 +91,32 @@ async function main() {
 
   console.log('[seed] Inserting motions...')
   const insertedMotions = []
+  const ballotParticipantRows: (typeof schema.ballotParticipants.$inferInsert)[] = []
+  const ballotRows: (typeof schema.ballots.$inferInsert)[] = []
+  const voterIds = insertedUsers.map((u) => u.id)
   for (const motion of SEED_MOTIONS) {
     const bodyHtml = buildMotionBody(motion.bodyTheme, motion.bodyDemand)
     assertMotionBodyLength(bodyHtml, motion.title)
 
+    // Drafts stay at version 0; every published stage carries a v1 snapshot.
+    const isPublished = motion.status !== 'draft'
+
     const publishedAt =
-      motion.status === 'debate' && motion.publishedDaysAgo != null
+      isPublished && motion.publishedDaysAgo != null
         ? daysAgo(now, motion.publishedDaysAgo)
         : null
     const debateEndsAt =
-      motion.status === 'debate' && motion.debateDays != null && publishedAt
+      isPublished && motion.debateDays != null && publishedAt
         ? daysFromNow(publishedAt, motion.debateDays)
         : null
-
-    // Published motions carry their v1 content snapshot; drafts stay at version 0.
-    const isPublished = motion.status === 'debate'
+    const ballotStartedAt =
+      motion.ballotStartedDaysAgo != null
+        ? daysAgo(now, motion.ballotStartedDaysAgo)
+        : null
+    const ballotEndsAt =
+      ballotStartedAt && motion.ballotDays != null
+        ? daysFromNow(ballotStartedAt, motion.ballotDays)
+        : null
 
     const [row] = await db
       .insert(schema.motions)
@@ -117,6 +130,9 @@ async function main() {
         divisionId: divisionIdBySlug[motion.divisionSlug],
         publishedAt,
         debateEndsAt,
+        ballotStartedAt,
+        ballotEndsAt,
+        outcome: motion.outcome ?? null,
         currentVersion: isPublished ? 1 : 0,
         createdAt: publishedAt ?? now,
         updatedAt: now,
@@ -135,11 +151,31 @@ async function main() {
       })
     }
 
+    // Seed the secret ballot (anonymous votes + separate participation log).
+    if (motion.ballotTally) {
+      const { participants, ballots } = buildBallotRows(
+        row!.id,
+        motion.ballotTally,
+        voterIds,
+        ballotStartedAt ?? now,
+      )
+      ballotParticipantRows.push(...participants)
+      ballotRows.push(...ballots)
+    }
+
     insertedMotions.push(row!)
   }
 
+  if (ballotParticipantRows.length) {
+    await db.insert(schema.ballotParticipants).values(ballotParticipantRows)
+  }
+  if (ballotRows.length) {
+    await db.insert(schema.ballots).values(ballotRows)
+  }
+
   console.log('[seed] Inserting debate posts...')
-  const debateMotions = insertedMotions.filter((m) => m.status === 'debate')
+  // Posts and mood histories apply to every published motion (debate onward).
+  const debateMotions = insertedMotions.filter((m) => m.status !== 'draft')
   const postBodies = [
     '<p>Starke Idee. Wie verhindern wir Missbrauch und sichern gleichzeitig schnelle Verfahren?</p>',
     '<p>Durch nachgelagerte Prüfungen, klare Haftung und transparente Dokumentation aller Schritte.</p>',
@@ -195,7 +231,7 @@ async function main() {
   await db.insert(schema.motionWatches).values(watches)
 
   console.log(
-    `[seed] Done. ${insertedUsers.length} users, ${insertedMotions.length} motions, ${posts.length} posts, ${moodVotes.length} mood votes, ${moodEvents.length} mood events.`,
+    `[seed] Done. ${insertedUsers.length} users, ${insertedMotions.length} motions, ${posts.length} posts, ${moodVotes.length} mood votes, ${moodEvents.length} mood events, ${ballotRows.length} ballots.`,
   )
   await client.end()
 }

@@ -50,6 +50,14 @@ const authorAttributes = {
         ? {}
         : { 'data-user-name': String(attributes.userName) },
   },
+  createdAt: {
+    default: null,
+    parseHTML: (element: HTMLElement) => element.dataset.createdAt ?? null,
+    renderHTML: (attributes: Record<string, unknown>) =>
+      attributes.createdAt == null
+        ? {}
+        : { 'data-created-at': String(attributes.createdAt) },
+  },
 }
 
 export const SuggestionInsertion = Mark.create({
@@ -198,7 +206,12 @@ export function stampSuggestionAuthors(
         tr.addMark(
           pos,
           pos + node.nodeSize,
-          mark.type.create({ ...mark.attrs, userId, userName }),
+          mark.type.create({
+            ...mark.attrs,
+            userId,
+            userName,
+            createdAt: mark.attrs.createdAt ?? new Date().toISOString(),
+          }),
         )
         changed = true
       }

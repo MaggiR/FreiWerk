@@ -9,6 +9,8 @@ import {
   profileUpdateSchema,
   suggestionSubmitSchema,
   suggestionSaveSchema,
+  ballotStartSchema,
+  ballotVoteSchema,
 } from '../../server/utils/validation'
 
 describe('registerSchema', () => {
@@ -140,6 +142,32 @@ describe('moodVoteSchema', () => {
   })
 })
 
+describe('ballotStartSchema', () => {
+  it('accepts an empty body and an optional ballot length', () => {
+    expect(ballotStartSchema.parse({})).toEqual({})
+    expect(ballotStartSchema.parse({ ballotDays: 7 }).ballotDays).toBe(7)
+  })
+
+  it('rejects out-of-range or non-integer ballot lengths', () => {
+    expect(() => ballotStartSchema.parse({ ballotDays: 0 })).toThrow()
+    expect(() => ballotStartSchema.parse({ ballotDays: 31 })).toThrow()
+    expect(() => ballotStartSchema.parse({ ballotDays: 2.5 })).toThrow()
+  })
+})
+
+describe('ballotVoteSchema', () => {
+  it('only allows definite ballot choices', () => {
+    expect(ballotVoteSchema.parse({ choice: 'approve' }).choice).toBe('approve')
+    expect(ballotVoteSchema.parse({ choice: 'reject' }).choice).toBe('reject')
+    expect(ballotVoteSchema.parse({ choice: 'abstain' }).choice).toBe('abstain')
+  })
+
+  it('rejects "undecided" and unknown choices', () => {
+    expect(() => ballotVoteSchema.parse({ choice: 'undecided' })).toThrow()
+    expect(() => ballotVoteSchema.parse({ choice: 'maybe' })).toThrow()
+  })
+})
+
 describe('motionListQuerySchema', () => {
   it('passes through valid optional filters', () => {
     const parsed = motionListQuerySchema.parse({ status: 'debate', sort: 'active' })
@@ -164,10 +192,12 @@ describe('motionListQuerySchema', () => {
     expect(parsed.minSupport).toBe(50)
   })
 
-  it('parses watched/archived flags only when literally "true"', () => {
+  it('parses watched/archived/ballotPending flags only when literally "true"', () => {
     expect(motionListQuerySchema.parse({ watched: 'true' }).watched).toBe(true)
     expect(motionListQuerySchema.parse({ archived: 'false' }).archived).toBe(false)
+    expect(motionListQuerySchema.parse({ ballotPending: 'true' }).ballotPending).toBe(true)
     expect(motionListQuerySchema.parse({}).watched).toBe(false)
+    expect(motionListQuerySchema.parse({}).ballotPending).toBe(false)
   })
 })
 

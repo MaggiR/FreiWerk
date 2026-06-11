@@ -18,7 +18,15 @@ const workingDoc = {
         {
           type: 'text',
           text: 'neuer Text',
-          marks: [{ type: 'insertion', attrs: { id: 1, userId: 'u1', userName: 'Alice' } }],
+          marks: [{
+            type: 'insertion',
+            attrs: {
+              id: 1,
+              userId: 'u1',
+              userName: 'Alice',
+              createdAt: '2026-06-10T14:30:00.000Z',
+            },
+          }],
         },
         {
           type: 'text',
@@ -78,11 +86,13 @@ describe('extractSuggestions', () => {
     const insertion = items.find((i) => i.id === 1)
     expect(insertion?.type).toBe('insertion')
     expect(insertion?.authorName).toBe('Alice')
+    expect(insertion?.createdAt).toBe('2026-06-10T14:30:00.000Z')
     expect(insertion?.snippet).toBe('neuer Text')
 
     const deletion = items.find((i) => i.id === 2)
     expect(deletion?.type).toBe('deletion')
     expect(deletion?.authorId).toBe('u2')
+    expect(deletion?.createdAt).toBeNull()
   })
 })
 

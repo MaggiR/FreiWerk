@@ -77,6 +77,26 @@ export const MOTION_STATUS_LABELS: Record<string, string> = {
   decided: 'Entschieden',
 }
 
+// Selectable options in a formal ballot (secret vote — no "undecided").
+export const BALLOT_CHOICES = ['approve', 'reject', 'abstain'] as const
+
+export type BallotChoiceValue = (typeof BALLOT_CHOICES)[number]
+
+export const BALLOT_LABELS: Record<BallotChoiceValue, string> = {
+  approve: 'Zustimmung',
+  reject: 'Ablehnung',
+  abstain: 'Enthaltung',
+}
+
+export const MOTION_OUTCOMES = ['accepted', 'rejected'] as const
+
+export type MotionOutcomeValue = (typeof MOTION_OUTCOMES)[number]
+
+export const MOTION_OUTCOME_LABELS: Record<MotionOutcomeValue, string> = {
+  accepted: 'Angenommen',
+  rejected: 'Abgelehnt',
+}
+
 export const ROLE_LABELS: Record<string, string> = {
   member: 'Mitglied',
   moderator: 'Moderator:in',
@@ -84,3 +104,6 @@ export const ROLE_LABELS: Record<string, string> = {
 }
 
 export const DEFAULT_DEBATE_DAYS = 14
+
+// Default length of a formal ballot window in days (README: 1 week).
+export const DEFAULT_BALLOT_DAYS = 7

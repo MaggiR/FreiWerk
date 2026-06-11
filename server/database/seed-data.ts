@@ -83,19 +83,29 @@ export const SEED_USERS: SeedUser[] = [
 
 export type MoodChoice = 'approve' | 'reject' | 'abstain' | 'undecided'
 
+export type BallotTally = { approve: number; reject: number; abstain: number }
+
 export type SeedMotion = {
   authorEmail: string
   title: string
   summary: string
   topic: Topic
-  status: 'draft' | 'debate'
+  status: 'draft' | 'debate' | 'ballot' | 'decided'
   divisionSlug: 'bund' | 'lv-nrw' | 'lv-bayern'
   bodyTheme: string
   bodyDemand: string
-  /** Days from now when debate ends (debate motions only). */
+  /** Days from now when debate ends (published motions only). */
   debateDays?: number
-  /** Days ago when published (debate motions only). */
+  /** Days ago when published (published motions only). */
   publishedDaysAgo?: number
+  /** Length of the ballot window in days (ballot/decided motions). */
+  ballotDays?: number
+  /** Days ago when the ballot was opened (ballot/decided motions). */
+  ballotStartedDaysAgo?: number
+  /** Final decision (decided motions only). */
+  outcome?: 'accepted' | 'rejected'
+  /** Secret ballot distribution to seed (ballot/decided motions). */
+  ballotTally?: BallotTally
 }
 
 export const SEED_MOTIONS: SeedMotion[] = [
@@ -238,6 +248,41 @@ export const SEED_MOTIONS: SeedMotion[] = [
       'Wir fordern ein bundesweites Präventionsbudget, sichere DiGA-Zertifizierung und patientenkontrollierte Datennutzung.',
     debateDays: 14,
     publishedDaysAgo: 7,
+  },
+  {
+    authorEmail: 'felix.weber@freiwerk.local',
+    title: 'Verbindliche Open-Source-Strategie für Behördensoftware',
+    summary:
+      'Öffentlich finanzierte Software soll grundsätzlich quelloffen entwickelt und nachnutzbar bereitgestellt werden.',
+    topic: 'digitales',
+    status: 'ballot',
+    divisionSlug: 'bund',
+    bodyTheme: 'digitale Souveränität und Open Source in der Verwaltung',
+    bodyDemand:
+      'Wir fordern eine verbindliche Open-Source-Strategie mit dem Grundsatz "Public Money, Public Code" für neue Behördensoftware.',
+    debateDays: 14,
+    publishedDaysAgo: 24,
+    ballotDays: 7,
+    ballotStartedDaysAgo: 5,
+    ballotTally: { approve: 4, reject: 1, abstain: 1 },
+  },
+  {
+    authorEmail: 'anna.schneider@freiwerk.local',
+    title: 'Transparenzregister für kommunale Beteiligungen',
+    summary:
+      'Ein offenes Register aller kommunalen Unternehmensbeteiligungen stärkt Kontrolle, Vergleichbarkeit und Vertrauen.',
+    topic: 'inneres',
+    status: 'decided',
+    divisionSlug: 'lv-nrw',
+    bodyTheme: 'kommunale Transparenz und Beteiligungssteuerung',
+    bodyDemand:
+      'Wir fordern ein einheitliches, maschinenlesbares Transparenzregister für alle kommunalen Beteiligungen.',
+    debateDays: 14,
+    publishedDaysAgo: 45,
+    ballotDays: 7,
+    ballotStartedDaysAgo: 21,
+    outcome: 'accepted',
+    ballotTally: { approve: 6, reject: 2, abstain: 1 },
   },
 ]
 
@@ -385,6 +430,22 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }] },
     { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'reject', daysAgo: 1 }] },
   ],
+  'Verbindliche Open-Source-Strategie für Behördensoftware': [
+    { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 20 }, { choice: 'approve', daysAgo: 12 }] },
+    { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 18 }] },
+    { userEmail: 'demo@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 16 }, { choice: 'approve', daysAgo: 11 }] },
+    { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'reject', daysAgo: 15 }] },
+    { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'approve', daysAgo: 13 }] },
+    { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 12 }] },
+  ],
+  'Transparenzregister für kommunale Beteiligungen': [
+    { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 40 }, { choice: 'approve', daysAgo: 30 }] },
+    { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 38 }] },
+    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 36 }] },
+    { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'reject', daysAgo: 35 }, { choice: 'abstain', daysAgo: 30 }] },
+    { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 33 }] },
+    { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'reject', daysAgo: 32 }] },
+  ],
 }
 
 export function buildMoodRows(
@@ -432,6 +493,39 @@ export function buildMoodRows(
 
   events.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
   return { votes, events }
+}
+
+/**
+ * Build secret-ballot rows for a motion: one participation record per voter (who
+ * voted) and one anonymous ballot per voter (the choice). The two lists are kept
+ * structurally separate, mirroring the vote/profile separation in the schema.
+ */
+export function buildBallotRows(
+  motionId: string,
+  tally: BallotTally,
+  voterIds: string[],
+  createdAt: Date,
+) {
+  const participants: { motionId: string; userId: string; createdAt: Date }[] = []
+  const ballots: {
+    motionId: string
+    choice: 'approve' | 'reject' | 'abstain'
+    createdAt: Date
+  }[] = []
+
+  const choices: ('approve' | 'reject' | 'abstain')[] = []
+  for (const choice of ['approve', 'reject', 'abstain'] as const) {
+    for (let i = 0; i < tally[choice]; i++) choices.push(choice)
+  }
+
+  choices.forEach((choice, index) => {
+    const userId = voterIds[index % voterIds.length]
+    if (!userId) return
+    participants.push({ motionId, userId, createdAt })
+    ballots.push({ motionId, choice, createdAt })
+  })
+
+  return { participants, ballots }
 }
 
 /** Verify all motion bodies meet the minimum word count during seeding. */

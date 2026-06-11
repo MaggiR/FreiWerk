@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { TOPICS, MOOD_CHOICES } from '../../shared/constants'
+import { TOPICS, MOOD_CHOICES, BALLOT_CHOICES } from '../../shared/constants'
 import { isValidUploadUrl } from './uploads'
 
 export const registerSchema = z.object({
@@ -60,6 +60,16 @@ export const moodVoteSchema = z.object({
   choice: z.enum(MOOD_CHOICES),
 })
 
+// Opening the formal ballot phase: optional custom ballot length in days.
+export const ballotStartSchema = z.object({
+  ballotDays: z.number().int().min(1).max(30).optional(),
+})
+
+// Casting a secret ballot. Only definite positions — no "undecided".
+export const ballotVoteSchema = z.object({
+  choice: z.enum(BALLOT_CHOICES),
+})
+
 const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
@@ -85,6 +95,8 @@ export const motionListQuerySchema = z.object({
   minSupport: z.coerce.number().int().min(0).max(100).optional(),
   // Restrict results to motions the current user watches.
   watched: booleanFlagSchema,
+  // Open ballots the current user has not voted in yet.
+  ballotPending: booleanFlagSchema,
   // Show archived instead of active motions.
   archived: booleanFlagSchema,
 })
