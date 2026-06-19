@@ -66,6 +66,37 @@ describe('MotionEditor suggestion mode (integration)', () => {
     expect(serialized).toContain('insertion')
   })
 
+  it('inserts a single emoji once when suggesting', async () => {
+    const editor = createSuggestEditor('<p>Text </p>')
+    editors.push(editor)
+    await waitForEditorReady(editor)
+    setSuggesting(editor as never, true)
+
+    const end = editor.state.doc.content.size
+    editor.chain().focus().insertContentAt(end - 1, '😀').run()
+
+    const text = editor.getText()
+    const emojiCount = (text.match(/😀/gu) ?? []).length
+    expect(emojiCount).toBe(1)
+    expect(JSON.stringify(editor.getJSON())).toContain('insertion')
+
+    const html = editor.getHTML()
+    const htmlEmojiCount = (html.match(/😀/gu) ?? []).length
+    expect(htmlEmojiCount).toBe(1)
+  })
+
+  it('inserts compound emoji once when suggesting', async () => {
+    const editor = createSuggestEditor('<p>Text </p>')
+    editors.push(editor)
+    await waitForEditorReady(editor)
+    setSuggesting(editor as never, true)
+
+    const end = editor.state.doc.content.size
+    editor.chain().focus().insertContentAt(end - 1, '👨‍👩‍👧').run()
+
+    expect((editor.getText().match(/👨‍👩‍👧/gu) ?? []).length).toBe(1)
+  })
+
   it('keeps submitted suggestions visible in a read-only diff view', async () => {
     const editor = createSuggestEditor(sampleHtml)
     editors.push(editor)

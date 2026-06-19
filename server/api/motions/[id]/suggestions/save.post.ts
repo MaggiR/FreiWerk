@@ -18,7 +18,7 @@ const paramsSchema = z.object({ id: z.string().uuid() })
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)
   const { id } = await getValidatedRouterParams(event, paramsSchema.parse)
-  const { cleanHtml, workingDocJson, baseRevision } = await readValidatedBody(
+  const { cleanHtml, workingDocJson, baseRevision, title, summary } = await readValidatedBody(
     event,
     suggestionSaveSchema.parse,
   )
@@ -49,26 +49,72 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const [existing] = await db
+  let [existing] = await db
     .select()
     .from(motionWorkingDocs)
     .where(eq(motionWorkingDocs.motionId, id))
     .limit(1)
 
-  if (!existing) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'Es liegen keine Änderungsvorschläge vor.',
-    })
+  const newBodyHtml = sanitizeRichText(cleanHtml)
+  const newTitle = title ?? motion.title
+  const newSummary = summary ?? motion.summary
+  const contentChanged = newBodyHtml !== motion.bodyHtml
+  const metadataChanged = newTitle !== motion.title || newSummary !== motion.summary
+
+  if (existing && countOpenSuggestions(existing.docJson) === 0) {
+    await db.delete(motionWorkingDocs).where(eq(motionWorkingDocs.motionId, id))
+    existing = undefined
   }
+
+  if (!existing) {
+    if (!contentChanged && !metadataChanged) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Es liegen keine Änderungen zum Speichern vor.',
+      })
+    }
+
+    const now = new Date()
+    const newVersion = motion.currentVersion + 1
+    await db.transaction(async (tx) => {
+      await tx
+        .update(motions)
+        .set({
+          bodyHtml: contentChanged ? newBodyHtml : motion.bodyHtml,
+          title: newTitle,
+          summary: newSummary,
+          currentVersion: newVersion,
+          updatedAt: now,
+        })
+        .where(eq(motions.id, id))
+
+      await tx.insert(motionVersions).values({
+        motionId: id,
+        versionNumber: newVersion,
+        title: newTitle,
+        summary: newSummary,
+        bodyHtml: contentChanged ? newBodyHtml : motion.bodyHtml,
+        createdById: user.id,
+      })
+    })
+
+    return {
+      versionCreated: true,
+      currentVersion: newVersion,
+      title: newTitle,
+      summary: newSummary,
+      bodyHtml: contentChanged ? newBodyHtml : motion.bodyHtml,
+      revision: 0,
+      openCount: 0,
+    }
+  }
+
   if (baseRevision !== existing.revision) {
     throw createError({
       statusCode: 409,
       statusMessage: 'Das Arbeitsdokument wurde zwischenzeitlich geändert. Bitte neu laden.',
     })
   }
-
-  const newBodyHtml = sanitizeRichText(cleanHtml)
 
   // Media must remain unchanged versus the published motion text.
   const baseMedia = extractMediaRefsFromHtml(motion.bodyHtml)
@@ -94,24 +140,29 @@ export default defineEventHandler(async (event) => {
     openCount = countOpenSuggestions(workingDocJson)
   }
 
-  const contentChanged = newBodyHtml !== motion.bodyHtml
   const now = new Date()
 
   const result = await db.transaction(async (tx) => {
     let newVersion = motion.currentVersion
 
-    if (contentChanged) {
+    if (contentChanged || metadataChanged) {
       newVersion = motion.currentVersion + 1
       await tx
         .update(motions)
-        .set({ bodyHtml: newBodyHtml, currentVersion: newVersion, updatedAt: now })
+        .set({
+          bodyHtml: newBodyHtml,
+          title: newTitle,
+          summary: newSummary,
+          currentVersion: newVersion,
+          updatedAt: now,
+        })
         .where(eq(motions.id, id))
 
       await tx.insert(motionVersions).values({
         motionId: id,
         versionNumber: newVersion,
-        title: motion.title,
-        summary: motion.summary,
+        title: newTitle,
+        summary: newSummary,
         bodyHtml: newBodyHtml,
         createdById: user.id,
       })
@@ -140,8 +191,10 @@ export default defineEventHandler(async (event) => {
   })
 
   return {
-    versionCreated: contentChanged,
+    versionCreated: contentChanged || metadataChanged,
     currentVersion: result.newVersion,
+    title: newTitle,
+    summary: newSummary,
     bodyHtml: newBodyHtml,
     revision: result.revision,
     openCount,

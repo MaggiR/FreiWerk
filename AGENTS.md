@@ -110,11 +110,11 @@ Legend: `[x]` done · `[~]` partial · `[ ]` open
 
 ### 7. Transparency and tracking
 
-- [ ] Permanent decision documentation, follow-up decisions, PDF/Markdown export (post-MVP)
+- [ ] Permanent decision documentation, PDF/Markdown export
 
 ### 8. Moderation and debate culture
 
-- [ ] Code of conduct, report function, moderation tools, escalation/bans (post-MVP)
+- [ ] Code of conduct, report function, moderation tools, escalation/bans
 
 ### 9. Search and navigation
 
@@ -178,11 +178,13 @@ flowchart TD
 - Quorums and a dedicated decision audit trail are intentionally out of scope. The
   outcome is a simple majority (approvals > rejections; abstentions do not count).
 
-**Phase 5 — Transparency and moderation**
+**Phase 5 — Chats and Motion Finalization**
 
-- Decision documentation, follow-up decisions, implementation steps
+- Decision documentation
 - PDF/Markdown export
-- Code of conduct, report function, moderation tools with mandatory reasoning, escalation/bans
+- Flexible chat pane, shown next to the motion
+- Advanced chat functions: Reply-to feature, arbitrary thread depth
+- Report function, moderation tools with mandatory reasoning, escalation/bans
 - Audit logs for administrative/moderative actions
 
 **Phase 6 — AI support**

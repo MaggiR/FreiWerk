@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { DEFAULT_DEBATE_DAYS } from '#shared/constants'
+import {
+  DEFAULT_DEBATE_DAYS,
+  MOTION_TITLE_MIN,
+  MOTION_TITLE_MAX,
+  MOTION_SUMMARY_MIN,
+  MOTION_SUMMARY_MAX,
+} from '#shared/constants'
 import type { MotionBarAction } from '~/components/MotionActionBar.vue'
 
 const route = useRoute()
@@ -54,15 +60,19 @@ const debateOpen = computed(() => {
   return !m.debateEndsAt || new Date(m.debateEndsAt).getTime() > Date.now()
 })
 
+/** Author may refine the motion until the ballot opens (debate deadline is for posts/votes only). */
+const authorCanEdit = computed(() => isAuthor.value && isDebate.value)
+
 const canSuggest = computed(() => loggedIn.value && debateOpen.value)
 
 const showSuggestionDiff = ref(false)
 const suggestionCount = ref(0)
-const suggestionMode = ref<'idle' | 'propose' | 'review'>('idle')
+const suggestionMode = ref<'idle' | 'propose' | 'review' | 'edit'>('idle')
 const suggestionBusy = ref(false)
 const reviewPendingCount = ref(0)
 const suggestionsRef = ref<{
   startReview: () => void
+  startEdit: () => void
   cancel: () => void
   submitProposal: () => void | Promise<void>
   saveReview: () => void | Promise<void>
@@ -70,21 +80,58 @@ const suggestionsRef = ref<{
   rejectAll: () => void
 } | null>(null)
 const isSuggestionEditing = computed(() => suggestionMode.value !== 'idle')
+const isAuthorEditing = computed(() => suggestionMode.value === 'edit')
+
+const editTitle = ref('')
+const editSummary = ref('')
+const headerBaseline = ref<{ title: string; summary: string } | null>(null)
+const titleDraftLength = computed(() => editTitle.value.length)
+const summaryDraftLength = computed(() => editSummary.value.length)
+
+watch(suggestionMode, (mode) => {
+  if (mode === 'edit' && motion.value) {
+    editTitle.value = motion.value.title
+    editSummary.value = motion.value.summary
+    headerBaseline.value = {
+      title: motion.value.title,
+      summary: motion.value.summary,
+    }
+  } else {
+    headerBaseline.value = null
+  }
+})
 
 // Reactive trigger: incrementing it tells MotionSuggestions to enter propose mode.
 const proposeSignal = ref(0)
+const editSignal = ref(0)
 
 function onStartProposal() {
   proposeSignal.value += 1
 }
 
-useHead({ title: () => `${motion.value?.title ?? 'Antrag'} — FreiWerk` })
+useHead({
+  title: () =>
+    `${(isAuthorEditing.value ? editTitle.value : motion.value?.title) ?? 'Antrag'} — FreiWerk`,
+})
 
 const COLLAPSED_BODY_HEIGHT = '11rem'
 const bodyExpanded = ref(false)
 const bodyClip = ref<HTMLElement | null>(null)
 const bodyMaxHeight = ref<string>(COLLAPSED_BODY_HEIGHT)
 let bodyResetTimer: ReturnType<typeof setTimeout> | null = null
+
+function onStartEdit() {
+  bodyExpanded.value = false
+  bodyMaxHeight.value = COLLAPSED_BODY_HEIGHT
+  editSignal.value += 1
+}
+
+watch(isSuggestionEditing, (editing) => {
+  if (editing) {
+    bodyExpanded.value = false
+    bodyMaxHeight.value = COLLAPSED_BODY_HEIGHT
+  }
+})
 
 function setBodyExpanded(expanded: boolean) {
   if (bodyResetTimer) {
@@ -129,6 +176,9 @@ watch(
 
 const publishPending = ref(false)
 const publishError = ref('')
+const deletePending = ref(false)
+const deleteError = ref('')
+const draftBusy = computed(() => publishPending.value || deletePending.value)
 const ballotPending = ref(false)
 const ballotError = ref('')
 const debatePostCount = ref(0)
@@ -150,6 +200,20 @@ async function onPublish() {
     publishError.value = extractError(err, 'Veröffentlichen fehlgeschlagen.')
   } finally {
     publishPending.value = false
+  }
+}
+
+async function onDeleteDraft() {
+  if (!confirm('Diesen Entwurf endgültig löschen?')) return
+  deleteError.value = ''
+  deletePending.value = true
+  try {
+    await $fetch(`/api/motions/${id}`, { method: 'DELETE' })
+    await navigateTo('/motions')
+  } catch (err: unknown) {
+    deleteError.value = extractError(err, 'Löschen fehlgeschlagen.')
+  } finally {
+    deletePending.value = false
   }
 }
 
@@ -180,7 +244,8 @@ const barActions = computed<MotionBarAction[]>(() => {
 
   if (isSuggestionEditing.value) {
     const proposing = suggestionMode.value === 'propose'
-    const reviewing = suggestionMode.value === 'review'
+    const reviewing =
+      suggestionMode.value === 'review' || suggestionMode.value === 'edit'
     const submitLabel = proposing
       ? suggestionBusy.value
         ? 'Senden ...'
@@ -206,21 +271,21 @@ const barActions = computed<MotionBarAction[]>(() => {
       },
     ]
 
-    if (reviewing) {
+    if (reviewing && reviewPendingCount.value > 0) {
       actions.push(
         {
           id: 'accept-all',
           label: 'Alle Vorschläge annehmen',
           icon: 'check',
           variant: 'secondary',
-          disabled: suggestionBusy.value || reviewPendingCount.value === 0,
+          disabled: suggestionBusy.value,
         },
         {
           id: 'reject-all',
           label: 'Alle Vorschläge ablehnen',
           icon: 'xmark',
           variant: 'ghost',
-          disabled: suggestionBusy.value || reviewPendingCount.value === 0,
+          disabled: suggestionBusy.value,
         },
       )
     }
@@ -236,19 +301,26 @@ const barActions = computed<MotionBarAction[]>(() => {
       label: publishPending.value ? 'Veröffentlichen ...' : 'Veröffentlichen',
       icon: 'paper-plane',
       variant: 'primary',
-      disabled: publishPending.value,
+      disabled: draftBusy.value,
+      pinned: true,
     })
     actions.push({
-      id: 'edit',
-      label: 'Entwurf bearbeiten',
+      id: 'editDraft',
+      label: 'Bearbeiten',
       icon: 'pen-to-square',
-      to: `/motions/${m.id}/edit`,
       variant: 'ghost',
+      to: `/motions/${m.id}/edit`,
+      disabled: draftBusy.value,
+      pinned: true,
     })
-  }
-
-  if (!isDraft.value && isAuthor.value && suggestionCount.value > 0 && debateOpen.value) {
-    actions.push({ id: 'review', label: 'Vorschläge prüfen', icon: 'check', variant: 'primary' })
+    actions.push({
+      id: 'deleteDraft',
+      label: deletePending.value ? 'Löschen ...' : 'Löschen',
+      icon: 'trash',
+      variant: 'ghost',
+      disabled: draftBusy.value,
+      pinned: true,
+    })
   }
 
   if (isAuthor.value && isDebate.value) {
@@ -261,7 +333,14 @@ const barActions = computed<MotionBarAction[]>(() => {
     })
   }
 
-  if (canSuggest.value) {
+  if (!isDraft.value && authorCanEdit.value) {
+    actions.push({
+      id: 'edit',
+      label: 'Bearbeiten',
+      icon: 'pen-to-square',
+      variant: 'secondary',
+    })
+  } else if (canSuggest.value) {
     actions.push({
       id: 'propose',
       label: 'Änderungen vorschlagen',
@@ -306,10 +385,22 @@ const barVisible = computed(() =>
   Boolean(motion.value && (barActions.value.length > 0 || showDiffToggle.value)),
 )
 
+const hasPinnedActionBar = computed(() => barActions.value.some((action) => action.pinned))
+
+const hasFabMenu = computed(() => {
+  if (!barVisible.value) return false
+  const menuActions = barActions.value.filter((action) => !action.pinned)
+  if (menuActions.length > 0) return true
+  return showDiffToggle.value && !hasPinnedActionBar.value
+})
+
 function onBarAction(id: string) {
   switch (id) {
     case 'publish':
       onPublish()
+      break
+    case 'deleteDraft':
+      onDeleteDraft()
       break
     case 'startBallot':
       onStartBallot()
@@ -320,8 +411,8 @@ function onBarAction(id: string) {
     case 'propose':
       onStartProposal()
       break
-    case 'review':
-      suggestionsRef.value?.startReview()
+    case 'edit':
+      onStartEdit()
       break
     case 'accept-all':
       suggestionsRef.value?.acceptAll()
@@ -344,7 +435,14 @@ function onBarAction(id: string) {
   <article v-if="motion" class="motion">
     <NuxtLink to="/motions" class="back-link">← Zur Antragsübersicht</NuxtLink>
 
-    <FwCard class="motion__box">
+    <FwCard
+      class="motion__box"
+      :class="{
+        'motion__box--with-fab': hasFabMenu,
+        'motion__box--editing': isSuggestionEditing || hasPinnedActionBar,
+        'motion__box--fab-menu': hasFabMenu,
+      }"
+    >
       <header class="motion__header">
         <div class="motion__topbar">
           <div class="motion__badges">
@@ -375,8 +473,67 @@ function onBarAction(id: string) {
           />
         </div>
 
-        <h1 class="motion__title">{{ motion.title }}</h1>
-        <p class="motion__summary">{{ motion.summary }}</p>
+        <h1 v-if="!isAuthorEditing" class="motion__title">{{ motion.title }}</h1>
+        <div v-else class="motion__header-field motion__title-edit">
+          <div class="motion__header-field__layer">
+            <div class="motion__header-field__mirror" aria-hidden="true">
+              {{ editTitle }}<FontAwesomeIcon
+                icon="pen-to-square"
+                class="motion__header-field__icon"
+              />
+            </div>
+            <textarea
+              v-model="editTitle"
+              class="motion__title"
+              rows="1"
+              :maxlength="MOTION_TITLE_MAX"
+              autocomplete="off"
+              aria-label="Titel"
+            />
+          </div>
+          <span
+            class="motion__field-counter"
+            :class="{
+              'motion__field-counter--low':
+                titleDraftLength > 0 && titleDraftLength < MOTION_TITLE_MIN,
+              'motion__field-counter--max': titleDraftLength >= MOTION_TITLE_MAX,
+            }"
+            aria-live="polite"
+          >
+            {{ titleDraftLength }} / {{ MOTION_TITLE_MAX }}
+          </span>
+        </div>
+
+        <p v-if="!isAuthorEditing" class="motion__summary">{{ motion.summary }}</p>
+        <div v-else class="motion__header-field motion__summary-edit">
+          <div class="motion__header-field__layer">
+            <div class="motion__header-field__mirror" aria-hidden="true">
+              {{ editSummary }}<FontAwesomeIcon
+                icon="pen-to-square"
+                class="motion__header-field__icon"
+              />
+            </div>
+            <textarea
+              id="motion-summary-edit"
+              v-model="editSummary"
+              class="motion__summary"
+              rows="1"
+              :maxlength="MOTION_SUMMARY_MAX"
+              aria-label="Kurzbeschreibung"
+            />
+          </div>
+          <span
+            class="motion__field-counter"
+            :class="{
+              'motion__field-counter--low':
+                summaryDraftLength > 0 && summaryDraftLength < MOTION_SUMMARY_MIN,
+              'motion__field-counter--max': summaryDraftLength >= MOTION_SUMMARY_MAX,
+            }"
+            aria-live="polite"
+          >
+            {{ summaryDraftLength }} / {{ MOTION_SUMMARY_MAX }}
+          </span>
+        </div>
 
         <div class="motion__meta">
           <NuxtLink
@@ -404,6 +561,7 @@ function onBarAction(id: string) {
         </div>
 
         <p v-if="publishError" class="form-error">{{ publishError }}</p>
+        <p v-if="deleteError" class="form-error">{{ deleteError }}</p>
         <p v-if="ballotError" class="form-error">{{ ballotError }}</p>
         <p v-if="archiveError" class="form-error">{{ archiveError }}</p>
       </header>
@@ -473,6 +631,10 @@ function onBarAction(id: string) {
         :motion-id="motion.id"
         :motion-body-html="motion.bodyHtml"
         :propose-signal="proposeSignal"
+        :edit-signal="editSignal"
+        :title-draft="isAuthorEditing ? editTitle : undefined"
+        :summary-draft="isAuthorEditing ? editSummary : undefined"
+        :header-baseline="headerBaseline"
         @saved="refreshNuxtData()"
       />
 
@@ -537,12 +699,6 @@ function onBarAction(id: string) {
   max-width: 820px;
   margin: 0 auto;
 }
-
-@media (max-width: 600px) {
-  .motion {
-    padding-bottom: calc(3.5rem + var(--space-4) * 2);
-  }
-}
 .back-link {
   display: inline-block;
   margin-bottom: var(--space-4);
@@ -564,14 +720,172 @@ function onBarAction(id: string) {
   flex-shrink: 0;
 }
 .motion__title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   margin: 0 0 var(--space-3);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans);
   font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
 }
-.motion__summary {
-  font-size: 1.15rem;
-  color: var(--color-text-muted);
+
+textarea.motion__title {
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  appearance: none;
+  box-shadow: none;
+  field-sizing: content;
+  min-height: 0;
+  white-space: pre-wrap;
+}
+
+textarea.motion__title:focus,
+textarea.motion__title:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.motion__header-field {
+  position: relative;
+}
+
+.motion__header-field__layer {
+  display: grid;
+  max-width: 100%;
+}
+
+.motion__header-field__mirror,
+.motion__header-field__layer .motion__title,
+.motion__header-field__layer .motion__summary {
+  grid-area: 1 / 1;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.motion__header-field__mirror {
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+.motion__title-edit {
+  margin: 0 0 var(--space-3);
+}
+
+.motion__title-edit .motion__header-field__mirror,
+.motion__title-edit .motion__header-field__layer .motion__title {
+  font-family: var(--font-sans);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.motion__summary-edit {
   margin: 0 0 var(--space-4);
 }
+
+.motion__summary-edit .motion__header-field__mirror,
+.motion__summary-edit .motion__header-field__layer .motion__summary {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: var(--line-height-base);
+}
+
+.motion__header-field__layer .motion__title,
+.motion__header-field__layer .motion__summary {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  field-sizing: content;
+  min-height: 0;
+}
+
+.motion__header-field__icon {
+  display: inline-block;
+  margin-left: 0.35em;
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+  opacity: 0;
+  vertical-align: baseline;
+  transition: opacity 0.15s ease;
+}
+
+.motion__header-field:hover .motion__header-field__icon,
+.motion__header-field:focus-within .motion__header-field__icon {
+  opacity: 0.55;
+}
+
+.motion__field-counter {
+  display: none;
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.motion__header-field:focus-within .motion__field-counter {
+  display: block;
+}
+
+.motion__field-counter--low {
+  color: var(--color-danger);
+}
+
+.motion__field-counter--max {
+  color: var(--color-accent);
+}
+
+.motion__summary {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: var(--line-height-base);
+  box-sizing: border-box;
+}
+
+textarea.motion__summary {
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  appearance: none;
+  box-shadow: none;
+  field-sizing: content;
+  min-height: 0;
+}
+
+textarea.motion__summary:focus,
+textarea.motion__summary:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 .motion__meta {
   display: flex;
   flex-wrap: wrap;
@@ -596,6 +910,21 @@ function onBarAction(id: string) {
 .motion__box {
   margin-bottom: var(--space-6);
 }
+
+/* Keep bottom content clear of sticky pinned action bar. */
+.motion__box--editing :deep(.suggestions__editor),
+.motion__box--editing .motion__body-area {
+  padding-bottom: calc(3.5rem + var(--space-4));
+}
+
+.motion__box--fab-menu :deep(.suggestions__lead),
+.motion__box--fab-menu :deep(.suggestions__hint) {
+  padding-inline-end: calc(3.5rem + var(--space-3));
+}
+
+.motion__box--with-fab :deep(.motion__body-area) {
+  padding-inline-end: calc(3.5rem + var(--space-4));
+}
 .motion__header {
   padding-bottom: var(--space-5);
   margin-bottom: var(--space-5);
@@ -617,25 +946,34 @@ function onBarAction(id: string) {
 
 .motion__body-content {
   outline: none;
+  width: 100%;
 }
 
 /* Read-only motion body (RichText + suggestion diff overlay), not the edit surface. */
-.motion__body-layer :deep(.rich-text),
-.motion__body-layer :deep(.editor-surface) {
-  hyphens: auto;
-  -webkit-hyphens: auto;
-  overflow-wrap: break-word;
-}
-
 .motion__body-swap {
   display: grid;
+  width: 100%;
 }
 
 .motion__body-layer {
   grid-area: 1 / 1;
+  width: 100%;
+  min-width: 0;
   opacity: 0;
   transition: opacity 0.25s ease;
   pointer-events: none;
+}
+
+.motion__body-layer :deep(.rich-text),
+.motion__body-layer :deep(.editor-surface) {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  line-height: 1.7;
+  font-weight: inherit;
+  min-height: 0;
 }
 
 .motion__body-layer.is-visible {

@@ -72,6 +72,24 @@ export function approvalRatio(approve: number, total: number): number {
   return Math.round((approve / total) * 100)
 }
 
+/** Compact German vote counts: 1,0 K from 1_000, 1,0 M from 1_000_000. */
+export function formatCompactCount(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return '0'
+  if (value < 1000) return String(Math.round(value))
+
+  const formatScaled = (scaled: number) =>
+    scaled.toLocaleString('de-DE', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    })
+
+  if (value < 1_000_000) {
+    return `${formatScaled(value / 1000)} K`
+  }
+
+  return `${formatScaled(value / 1_000_000)} M`
+}
+
 /** Truncate preview text at a character limit, appending an ellipsis when shortened. */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text

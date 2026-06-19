@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { TOPICS, MOOD_CHOICES, BALLOT_CHOICES } from '../../shared/constants'
+import {
+  TOPICS,
+  MOOD_CHOICES,
+  BALLOT_CHOICES,
+  MOTION_TITLE_MIN,
+  MOTION_TITLE_MAX,
+  MOTION_SUMMARY_MIN,
+  MOTION_SUMMARY_MAX,
+} from '../../shared/constants'
 import { isValidUploadUrl } from './uploads'
 
 export const registerSchema = z.object({
@@ -14,8 +22,8 @@ export const loginSchema = z.object({
 })
 
 export const motionCreateSchema = z.object({
-  title: z.string().trim().min(5).max(200),
-  summary: z.string().trim().min(50).max(200),
+  title: z.string().trim().min(MOTION_TITLE_MIN).max(MOTION_TITLE_MAX),
+  summary: z.string().trim().min(MOTION_SUMMARY_MIN).max(MOTION_SUMMARY_MAX),
   // Raw TipTap HTML; sanitized server-side before persistence.
   bodyHtml: z.string().min(1).max(100_000),
   topic: z.enum(TOPICS),
@@ -54,6 +62,8 @@ export const suggestionSaveSchema = z.object({
   cleanHtml: z.string().min(1).max(100_000),
   workingDocJson: proseMirrorDocSchema.nullable(),
   baseRevision: z.number().int().min(0),
+  title: z.string().trim().min(MOTION_TITLE_MIN).max(MOTION_TITLE_MAX).optional(),
+  summary: z.string().trim().min(MOTION_SUMMARY_MIN).max(MOTION_SUMMARY_MAX).optional(),
 })
 
 export const moodVoteSchema = z.object({

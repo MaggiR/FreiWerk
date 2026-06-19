@@ -107,3 +107,8 @@ export const DEFAULT_DEBATE_DAYS = 14
 
 // Default length of a formal ballot window in days (README: 1 week).
 export const DEFAULT_BALLOT_DAYS = 7
+
+export const MOTION_TITLE_MIN = 10
+export const MOTION_TITLE_MAX = 150
+export const MOTION_SUMMARY_MIN = 50
+export const MOTION_SUMMARY_MAX = 200

@@ -12,6 +12,11 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
+  /* BMP text only — keep color emoji in --font-emoji (Segoe / Noto / Apple). */
+  unicode-range:
+    U+0000-25FF,
+    U+2800-DFFF,
+    U+E000-FFFD;
 }
 @font-face {
   font-family: 'DejaVu Sans';
@@ -19,6 +24,10 @@
   font-weight: 700;
   font-style: normal;
   font-display: swap;
+  unicode-range:
+    U+0000-25FF,
+    U+2800-DFFF,
+    U+E000-FFFD;
 }
 
 :root {
@@ -34,6 +43,8 @@
 
   /* Typography */
   --font-sans: 'DejaVu Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-emoji: 'Segoe UI Emoji', 'Segoe UI Symbol', 'Apple Color Emoji', 'Noto Color Emoji',
+    emoji;
   --font-size-base: 16px;
   --line-height-base: 1.6;
 

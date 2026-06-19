@@ -102,7 +102,19 @@ select:focus {
 
 /* Rendered rich text (sanitized HTML) */
 .rich-text {
+  font-family: var(--font-sans), var(--font-emoji);
+  font-variant-emoji: emoji;
   line-height: 1.7;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* Hyphenation is for read-only display only, not while typing in the editor. */
+.rich-text[contenteditable='true'],
+.editor-surface[contenteditable='true'] {
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 .rich-text h1,
 .rich-text h2,

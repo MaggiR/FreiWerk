@@ -17,13 +17,15 @@ import {
   stampSuggestionAuthors,
   resolveCleanHtml,
 } from '~/editor/suggestions'
+import { handleUndoRedoKeyDown } from '~/editor/undoRedoKeydown'
+import { handleEmojiPickerBeforeInput } from '~/editor/emojiPickerInput'
 
 const SUGGESTION_MARK_SELECTOR =
   'ins[data-id], del[data-id], [data-type="modification"][data-id]'
 
 /** Configures the Google-Docs-style suggestion layer; null = plain HTML editor. */
 interface SuggestionConfig {
-  mode: 'propose' | 'review' | 'view'
+  mode: 'propose' | 'review' | 'view' | 'edit'
   userId: string
   userName: string
 }
@@ -60,9 +62,13 @@ const emit = defineEmits<{
 const isSuggesting = computed(() => props.suggestion != null)
 const isReadOnly = computed(() => props.suggestion?.mode === 'view')
 const isReviewMode = computed(() => props.suggestion?.mode === 'review')
+const isEditMode = computed(() => props.suggestion?.mode === 'edit')
 const isViewMode = computed(() => props.suggestion?.mode === 'view')
+const canManageSuggestions = computed(() => isReviewMode.value || isEditMode.value)
 const isSuggestionHoverMode = computed(
-  () => props.reviewItems.length > 0 && (isReviewMode.value || isViewMode.value),
+  () =>
+    props.reviewItems.length > 0 &&
+    (isReviewMode.value || isViewMode.value || isEditMode.value),
 )
 
 const reviewItemsById = computed(
@@ -231,7 +237,11 @@ function syncEditorState(ed: Editor) {
     initializedContent.value = true
   }
 
-  ed.setEditable(!isSuggesting.value || props.suggestion?.mode === 'propose')
+  ed.setEditable(
+    !isSuggesting.value ||
+      props.suggestion?.mode === 'propose' ||
+      props.suggestion?.mode === 'edit',
+  )
   setSuggesting(ed, props.suggestion?.mode === 'propose')
   ed.view.dom.classList.toggle(
     'editor-surface--suggestion-hover',
@@ -258,17 +268,23 @@ const editor = useEditor({
     ...(isSuggesting.value ? suggestionExtensions() : []),
   ],
   editorProps: {
-    attributes: { class: 'rich-text editor-surface' },
+    attributes: { class: 'rich-text editor-surface', lang: 'de' },
+    handleKeyDown: handleUndoRedoKeyDown,
+    handleDOMEvents: {
+      beforeinput: (view, event) =>
+        handleEmojiPickerBeforeInput(view, event as InputEvent),
+    },
   },
   onCreate: ({ editor: ed }) => {
     syncEditorState(ed as Editor)
   },
   onUpdate: ({ editor: ed }) => {
-    if (isSuggesting.value) {
+    const mode = props.suggestion?.mode
+    if (mode === 'propose' || mode === 'edit' || isSuggesting.value) {
       emit('update:doc', ed.getJSON())
-    } else {
-      model.value = ed.getHTML()
+      return
     }
+    model.value = ed.getHTML()
   },
 } as Partial<EditorOptions> & { immediatelyRender?: boolean })
 
@@ -485,13 +501,13 @@ const historyTools = computed<ToolItem[]>(() => {
     {
       id: 'rotate-left',
       icon: 'rotate-left',
-      title: 'Rückgängig',
+      title: 'Rückgängig (Strg+Z)',
       action: () => e?.chain().focus().undo().run(),
     },
     {
       id: 'rotate-right',
       icon: 'rotate-right',
-      title: 'Wiederholen',
+      title: 'Wiederholen (Strg+Y)',
       action: () => e?.chain().focus().redo().run(),
     },
   ]
@@ -575,7 +591,7 @@ const historyTools = computed<ToolItem[]>(() => {
           v-if="isSuggestionHoverMode && reviewPopover"
           ref="reviewPopoverRef"
           class="editor__review-popover"
-          :class="{ 'editor__review-popover--info': !isReviewMode }"
+          :class="{ 'editor__review-popover--info': isViewMode }"
           :style="{
             top: `${reviewPopover.top}px`,
             left: `${reviewPopover.left}px`,
@@ -609,7 +625,7 @@ const historyTools = computed<ToolItem[]>(() => {
               {{ reviewPopover.item.authorName }}
             </span>
           </div>
-          <div v-if="isReviewMode" class="editor__review-actions">
+          <div v-if="canManageSuggestions" class="editor__review-actions">
             <button
               type="button"
               class="editor__review-btn editor__review-btn--accept"
@@ -644,6 +660,7 @@ const historyTools = computed<ToolItem[]>(() => {
   border: none;
   border-radius: 0;
   background: transparent;
+  display: contents;
 }
 
 .editor--embedded .editor__content {
@@ -652,10 +669,25 @@ const historyTools = computed<ToolItem[]>(() => {
   max-height: none;
   resize: none;
   overflow: visible;
+  display: contents;
+}
+
+.editor--embedded .editor__content > * {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .editor--embedded :deep(.editor-surface) {
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .editor__toolbar {
@@ -768,8 +800,9 @@ const historyTools = computed<ToolItem[]>(() => {
 }
 :deep(.editor-surface del) {
   text-decoration: line-through;
-  color: var(--mood-reject);
+  text-decoration-color: color-mix(in srgb, var(--mood-reject) 75%, transparent);
   background: color-mix(in srgb, var(--mood-reject) 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 80%, var(--mood-reject));
   border-radius: 4px;
 }
 :deep(.editor-surface [data-type='modification']) {

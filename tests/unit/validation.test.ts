@@ -66,6 +66,28 @@ describe('motionCreateSchema', () => {
     expect(parsed.isAnonymous).toBe(true)
   })
 
+  it('rejects titles shorter than 10 characters', () => {
+    expect(() =>
+      motionCreateSchema.parse({
+        title: 'Kurz',
+        summary: validSummary,
+        bodyHtml: '<p>Inhalt</p>',
+        topic: 'wirtschaft',
+      }),
+    ).toThrow()
+  })
+
+  it('rejects titles longer than 150 characters', () => {
+    expect(() =>
+      motionCreateSchema.parse({
+        title: 'T'.repeat(151),
+        summary: validSummary,
+        bodyHtml: '<p>Inhalt</p>',
+        topic: 'wirtschaft',
+      }),
+    ).toThrow()
+  })
+
   it('rejects summaries shorter than 50 characters', () => {
     expect(() =>
       motionCreateSchema.parse({
@@ -131,6 +153,18 @@ describe('suggestionSaveSchema', () => {
     expect(() =>
       suggestionSaveSchema.parse({ cleanHtml: '', workingDocJson: null, baseRevision: 0 }),
     ).toThrow()
+  })
+
+  it('accepts optional title and summary metadata', () => {
+    const parsed = suggestionSaveSchema.parse({
+      cleanHtml: '<p>Inhalt</p>',
+      workingDocJson: null,
+      baseRevision: 0,
+      title: 'Neuer Titel',
+      summary: 'A'.repeat(50),
+    })
+    expect(parsed.title).toBe('Neuer Titel')
+    expect(parsed.summary).toHaveLength(50)
   })
 })
 

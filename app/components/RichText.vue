@@ -31,7 +31,8 @@ watch(
     v-if="collapsibleHeadings"
     ref="root"
     class="rich-text rich-text--collapsible"
+    lang="de"
   />
   <!-- eslint-disable-next-line vue/no-v-html -->
-  <div v-else class="rich-text" v-html="html" />
+  <div v-else class="rich-text" lang="de" v-html="html" />
 </template>

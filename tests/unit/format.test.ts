@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   approvalRatio,
+  formatCompactCount,
   topicLabel,
   statusLabel,
   statusIcon,
@@ -17,6 +18,21 @@ describe('approvalRatio', () => {
 
   it('returns 0 when there are no votes', () => {
     expect(approvalRatio(0, 0)).toBe(0)
+  })
+})
+
+describe('formatCompactCount', () => {
+  it('keeps values below 1_000 unchanged', () => {
+    expect(formatCompactCount(0)).toBe('0')
+    expect(formatCompactCount(42)).toBe('42')
+    expect(formatCompactCount(999)).toBe('999')
+  })
+
+  it('formats thousands and millions with one decimal in German', () => {
+    expect(formatCompactCount(1000)).toBe('1,0 K')
+    expect(formatCompactCount(1500)).toBe('1,5 K')
+    expect(formatCompactCount(1_000_000)).toBe('1,0 M')
+    expect(formatCompactCount(1_234_567)).toBe('1,2 M')
   })
 })
 

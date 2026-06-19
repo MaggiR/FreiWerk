@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { TOPICS, TOPIC_LABELS, type Topic } from '#shared/constants'
+import {
+  TOPICS,
+  TOPIC_LABELS,
+  MOTION_TITLE_MIN,
+  MOTION_TITLE_MAX,
+  MOTION_SUMMARY_MIN,
+  MOTION_SUMMARY_MAX,
+  type Topic,
+} from '#shared/constants'
 
 function isTopic(value: string): value is Topic {
   return (TOPICS as readonly string[]).includes(value)
@@ -17,14 +25,23 @@ export interface MotionFormValues {
 const props = withDefaults(
   defineProps<{
     initial?: Partial<MotionFormValues>
-    submitLabel: string
+    submitLabel?: string
     publishLabel?: string
     showPublish?: boolean
+    hideSubmit?: boolean
+    /** Hides publish and the actions slot (e.g. when using MotionActionBar). */
+    hideActions?: boolean
+    /** Hides anonymous submit option (e.g. shown in publish modal instead). */
+    hideAnonymous?: boolean
     pending?: boolean
   }>(),
   {
+    submitLabel: 'Speichern',
     publishLabel: 'Veröffentlichen',
     showPublish: false,
+    hideSubmit: false,
+    hideActions: false,
+    hideAnonymous: false,
     pending: false,
   },
 )
@@ -32,6 +49,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   submit: [values: MotionFormValues]
   publish: [values: MotionFormValues]
+  change: []
 }>()
 
 const { data: divisionData } = await useFetch('/api/divisions')
@@ -45,36 +63,67 @@ const form = reactive<MotionFormValues>({
   isAnonymous: props.initial?.isAnonymous ?? false,
 })
 
-const SUMMARY_MIN = 50
-const SUMMARY_MAX = 200
+const TITLE_MIN = MOTION_TITLE_MIN
+const TITLE_MAX = MOTION_TITLE_MAX
+const SUMMARY_MIN = MOTION_SUMMARY_MIN
+const SUMMARY_MAX = MOTION_SUMMARY_MAX
 
 const error = ref('')
+const titleLength = computed(() => form.title.length)
 const summaryLength = computed(() => form.summary.length)
 
-function validateForm(): MotionFormValues | null {
-  error.value = ''
-  if (form.title.trim().length < 5) {
-    error.value = 'Der Titel muss mindestens 5 Zeichen haben.'
+function formSnapshot(): MotionFormValues {
+  return { ...form }
+}
+
+const savedSnapshot = ref(JSON.stringify(formSnapshot()))
+
+watch(
+  form,
+  () => {
+    emit('change')
+  },
+  { deep: true },
+)
+
+function isDirty(): boolean {
+  return JSON.stringify(formSnapshot()) !== savedSnapshot.value
+}
+
+function markSaved(): void {
+  savedSnapshot.value = JSON.stringify(formSnapshot())
+}
+
+function validateForm(silent = false): MotionFormValues | null {
+  if (!silent) error.value = ''
+  if (form.title.trim().length < MOTION_TITLE_MIN) {
+    if (!silent) {
+      error.value = `Der Titel muss mindestens ${MOTION_TITLE_MIN} Zeichen haben.`
+    }
     return null
   }
-  if (form.summary.trim().length < 50) {
-    error.value = 'Die Kurzbeschreibung muss mindestens 50 Zeichen haben.'
+  if (form.title.trim().length > MOTION_TITLE_MAX) {
+    if (!silent) error.value = 'Der Titel darf höchstens 150 Zeichen haben.'
     return null
   }
-  if (form.summary.trim().length > 200) {
-    error.value = 'Die Kurzbeschreibung darf höchstens 200 Zeichen haben.'
+  if (form.summary.trim().length < MOTION_SUMMARY_MIN) {
+    if (!silent) error.value = 'Die Kurzbeschreibung muss mindestens 50 Zeichen haben.'
+    return null
+  }
+  if (form.summary.trim().length > MOTION_SUMMARY_MAX) {
+    if (!silent) error.value = 'Die Kurzbeschreibung darf höchstens 200 Zeichen haben.'
     return null
   }
   if (!isTopic(form.topic)) {
-    error.value = 'Bitte wähle ein Themengebiet.'
+    if (!silent) error.value = 'Bitte wähle ein Themengebiet.'
     return null
   }
   const text = form.bodyHtml.replace(/<[^>]*>/g, '').trim()
   if (text.length === 0) {
-    error.value = 'Der Antragstext darf nicht leer sein.'
+    if (!silent) error.value = 'Der Antragstext darf nicht leer sein.'
     return null
   }
-  return { ...form }
+  return formSnapshot()
 }
 
 function onSubmit() {
@@ -86,13 +135,35 @@ function onPublish() {
   const values = validateForm()
   if (values) emit('publish', values)
 }
+
+defineExpose({
+  getValues: formSnapshot,
+  validateForm,
+  isDirty,
+  markSaved,
+})
 </script>
 
 <template>
   <form class="motion-form" @submit.prevent="onSubmit">
     <label class="field">
       <span>Titel</span>
-      <input v-model="form.title" type="text" required maxlength="200" >
+      <input v-model="form.title" type="text" required :maxlength="MOTION_TITLE_MAX" >
+      <div class="motion-form__field-meta">
+        <span class="form-hint">
+          Ein prägnanter Antragstitel ({{ TITLE_MIN }}–{{ TITLE_MAX }} Zeichen).
+        </span>
+        <span
+          class="motion-form__counter"
+          :class="{
+            'motion-form__counter--low': titleLength > 0 && titleLength < TITLE_MIN,
+            'motion-form__counter--max': titleLength >= TITLE_MAX,
+          }"
+          aria-live="polite"
+        >
+          {{ titleLength }} / {{ TITLE_MAX }}
+        </span>
+      </div>
     </label>
 
     <label class="field">
@@ -103,9 +174,9 @@ function onPublish() {
         rows="4"
         required
         minlength="50"
-        maxlength="200"
+        :maxlength="MOTION_SUMMARY_MAX"
       />
-      <div class="motion-form__summary-meta">
+      <div class="motion-form__field-meta">
         <span class="form-hint">
           Eine prägnante Zusammenfassung des Anliegens ({{ SUMMARY_MIN }}–{{ SUMMARY_MAX }} Zeichen).
         </span>
@@ -148,7 +219,7 @@ function onPublish() {
       </label>
     </div>
 
-    <div class="field">
+    <div class="field motion-form__editor-field">
       <span>Antragstext</span>
       <ClientOnly>
         <MotionEditor v-model="form.bodyHtml" />
@@ -156,20 +227,21 @@ function onPublish() {
           <div class="editor-loading">Editor wird geladen ...</div>
         </template>
       </ClientOnly>
+      <slot name="editor-status" />
     </div>
 
-    <label class="motion-form__check">
+    <label v-if="!hideAnonymous" class="motion-form__check">
       <input v-model="form.isAnonymous" type="checkbox">
       <span>Anonym einreichen</span>
     </label>
-    <p class="form-hint motion-form__anon-hint">
+    <p v-if="!hideAnonymous" class="form-hint motion-form__anon-hint">
       Dein Name wird öffentlich nicht angezeigt. Die Zuordnung bleibt intern für die Verwaltung des Antrags erhalten.
     </p>
 
     <p v-if="error" class="form-error">{{ error }}</p>
 
-    <div class="motion-form__actions">
-      <FwButton type="submit" :disabled="pending">
+    <div v-if="!hideActions" class="motion-form__actions">
+      <FwButton v-if="!hideSubmit" type="submit" :disabled="pending">
         <FontAwesomeIcon icon="floppy-disk" />
         {{ pending ? 'Speichern ...' : submitLabel }}
       </FwButton>
@@ -208,7 +280,7 @@ function onPublish() {
   resize: none;
 }
 
-.motion-form__summary-meta {
+.motion-form__field-meta {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -253,6 +325,18 @@ function onPublish() {
 
 .motion-form__anon-hint {
   margin: calc(-1 * var(--space-3)) 0 0;
+}
+
+.motion-form__editor-field :deep(.editor-status) {
+  display: block;
+  margin-top: var(--space-2);
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.motion-form__editor-field :deep(.editor-status--error) {
+  color: var(--color-danger);
 }
 @media (max-width: 640px) {
   .motion-form__row {

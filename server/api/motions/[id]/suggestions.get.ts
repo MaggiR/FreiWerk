@@ -39,12 +39,15 @@ export default defineEventHandler(async (event) => {
       openCount: 0,
     }
   }
+
   const openCount = countOpenSuggestions(workingDoc.docJson)
   if (openCount === 0) {
+    // Drop resolved shells so clients do not inherit a stale revision token.
+    await db.delete(motionWorkingDocs).where(eq(motionWorkingDocs.motionId, id))
     return {
       docJson: null,
-      baseVersion: workingDoc.baseVersion,
-      revision: workingDoc.revision,
+      baseVersion: motion.currentVersion,
+      revision: 0,
       suggestions: [],
       openCount: 0,
     }

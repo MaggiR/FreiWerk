@@ -130,18 +130,22 @@ export function installSuggestChanges(editor: Editor) {
   const view = editor.view
   if (patchedViews.has(view)) return
 
-  // Capture TipTap's own dispatchTransaction (keeps Vue state / onUpdate in
-  // sync) and wrap it, so suggestion tracking layers on top without replacing
-  // TipTap's behavior. This is also called from MotionEditor after creation,
-  // because relying only on extension lifecycle ordering can leave the editor
-  // with suggest mode enabled but an unwrapped dispatcher.
-  // Call someProp on the view — do not extract the method, or `this` is lost
-  // and ProseMirror throws during editor init.
-  const original = view.someProp('dispatchTransaction' as never) as
-    | ((tr: Transaction) => void)
-    | undefined
+  // Always forward to TipTap's dispatch — never view.props.dispatchTransaction,
+  // or composition bypass and suggest wrapping recurse into each other.
+  const applyTransaction = (tr: Transaction) => {
+    editor.dispatchTransaction(tr)
+  }
+
+  const suggestDispatch = withSuggestChanges(applyTransaction)
+
   view.setProps({
-    dispatchTransaction: withSuggestChanges(original),
+    dispatchTransaction(tr: Transaction) {
+      if (tr.getMeta('composition')) {
+        applyTransaction(tr)
+        return
+      }
+      suggestDispatch.call(view, tr)
+    },
   })
   patchedViews.add(view)
 }
