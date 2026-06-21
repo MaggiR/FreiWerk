@@ -40,9 +40,9 @@ async function main() {
   console.log('[seed] Resetting tables...')
   await db.execute(
     drizzleSql`TRUNCATE TABLE
-      "ballots", "ballot_participants", "motion_working_docs", "motion_versions",
-      "motion_watches", "mood_vote_events", "mood_votes", "posts", "motions",
-      "users", "divisions"
+      "moderation_actions", "reports", "post_reactions", "ballots", "ballot_participants",
+      "motion_working_docs", "motion_versions", "motion_watches",
+      "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
       RESTART IDENTITY CASCADE`,
   )
 

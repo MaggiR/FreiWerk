@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -44,6 +45,39 @@ export const motionOutcomeEnum = pgEnum('motion_outcome', [
   'rejected',
 ])
 
+// What a member report points at (Phase 5 moderation).
+export const reportTargetTypeEnum = pgEnum('report_target_type', [
+  'motion',
+  'post',
+])
+
+// Lifecycle of a member report as handled by moderators.
+export const reportStatusEnum = pgEnum('report_status', [
+  'open',
+  'resolved',
+  'dismissed',
+])
+
+// Distinct moderative/administrative actions captured in the audit log.
+export const moderationActionEnum = pgEnum('moderation_action', [
+  'post_removed',
+  'user_banned',
+  'user_unbanned',
+  'report_resolved',
+  'report_dismissed',
+  'motion_archived',
+  'motion_unarchived',
+  'ballot_finalized',
+])
+
+// What an audit-log entry refers to. Never references ballots (vote secrecy).
+export const moderationTargetTypeEnum = pgEnum('moderation_target_type', [
+  'motion',
+  'post',
+  'user',
+  'report',
+])
+
 // ---------- Tables ----------
 
 export const divisions = pgTable('divisions', {
@@ -68,6 +102,12 @@ export const users = pgTable('users', {
   // Optional self-described function (e.g. "Mitglied LFA Wirtschaft").
   fn: text('fn'),
   divisionId: uuid('division_id').references(() => divisions.id, {
+    onDelete: 'set null',
+  }),
+  // Moderation ban: set when a moderator/admin blocks the account (Phase 5).
+  bannedAt: timestamp('banned_at', { withTimezone: true }),
+  banReason: text('ban_reason'),
+  bannedById: uuid('banned_by_id').references((): AnyPgColumn => users.id, {
     onDelete: 'set null',
   }),
   createdAt: timestamp('created_at', { withTimezone: true })
@@ -153,13 +193,55 @@ export const posts = pgTable(
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    // Self-reference for threaded replies (arbitrary depth); null = top-level.
+    parentId: uuid('parent_id').references((): AnyPgColumn => posts.id, {
+      onDelete: 'cascade',
+    }),
     // Sanitized HTML output.
     bodyHtml: text('body_html').notNull(),
+    // Moderation soft-delete: body is hidden but the node stays so replies survive.
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedById: uuid('deleted_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    deletedReason: text('deleted_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('posts_motion_idx').on(table.motionId),
+    index('posts_parent_idx').on(table.parentId),
+  ],
+)
+
+// Emoji reactions on debate posts (one row per user per emoji per post).
+export const postReactions = pgTable(
+  'post_reactions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    emoji: text('emoji').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (table) => [index('posts_motion_idx').on(table.motionId)],
+  (table) => [
+    uniqueIndex('post_reactions_post_user_emoji_idx').on(
+      table.postId,
+      table.userId,
+      table.emoji,
+    ),
+    index('post_reactions_post_idx').on(table.postId),
+  ],
 )
 
 // Current mood vote per user per motion (drives the ring/doughnut chart).
@@ -295,6 +377,59 @@ export const ballotParticipants = pgTable(
   ],
 )
 
+// Member reports about a motion or a debate post; triaged by moderators with a
+// mandatory resolution note. targetId is a loose reference (no FK) because the
+// underlying motion/post may be removed while the report stays for the record.
+export const reports = pgTable(
+  'reports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    reporterId: uuid('reporter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    targetType: reportTargetTypeEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    reason: text('reason').notNull(),
+    status: reportStatusEnum('status').notNull().default('open'),
+    resolvedById: uuid('resolved_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    resolutionNote: text('resolution_note'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('reports_status_idx').on(table.status),
+    index('reports_target_idx').on(table.targetType, table.targetId),
+  ],
+)
+
+// Append-only audit log of moderative/administrative actions. Deliberately never
+// references ballots/ballot_participants so it cannot break vote/profile secrecy.
+export const moderationActions = pgTable(
+  'moderation_actions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    actorId: uuid('actor_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    action: moderationActionEnum('action').notNull(),
+    targetType: moderationTargetTypeEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    reason: text('reason'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('moderation_actions_actor_idx').on(table.actorId),
+    index('moderation_actions_created_idx').on(table.createdAt),
+  ],
+)
+
 // ---------- Relations ----------
 
 export const divisionsRelations = relations(divisions, ({ one, many }) => ({
@@ -367,7 +502,7 @@ export const motionWatchesRelations = relations(motionWatches, ({ one }) => ({
   }),
 }))
 
-export const postsRelations = relations(posts, ({ one }) => ({
+export const postsRelations = relations(posts, ({ one, many }) => ({
   motion: one(motions, {
     fields: [posts.motionId],
     references: [motions.id],
@@ -376,7 +511,46 @@ export const postsRelations = relations(posts, ({ one }) => ({
     fields: [posts.authorId],
     references: [users.id],
   }),
+  parent: one(posts, {
+    fields: [posts.parentId],
+    references: [posts.id],
+    relationName: 'post_parent',
+  }),
+  replies: many(posts, { relationName: 'post_parent' }),
+  reactions: many(postReactions),
 }))
+
+export const postReactionsRelations = relations(postReactions, ({ one }) => ({
+  post: one(posts, {
+    fields: [postReactions.postId],
+    references: [posts.id],
+  }),
+  user: one(users, {
+    fields: [postReactions.userId],
+    references: [users.id],
+  }),
+}))
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+  reporter: one(users, {
+    fields: [reports.reporterId],
+    references: [users.id],
+  }),
+  resolvedBy: one(users, {
+    fields: [reports.resolvedById],
+    references: [users.id],
+  }),
+}))
+
+export const moderationActionsRelations = relations(
+  moderationActions,
+  ({ one }) => ({
+    actor: one(users, {
+      fields: [moderationActions.actorId],
+      references: [users.id],
+    }),
+  }),
+)
 
 export const motionVersionsRelations = relations(motionVersions, ({ one }) => ({
   motion: one(motions, {
@@ -407,6 +581,8 @@ export type Division = typeof divisions.$inferSelect
 export type Motion = typeof motions.$inferSelect
 export type NewMotion = typeof motions.$inferInsert
 export type Post = typeof posts.$inferSelect
+export type PostReaction = typeof postReactions.$inferSelect
+export type NewPostReaction = typeof postReactions.$inferInsert
 export type MoodVote = typeof moodVotes.$inferSelect
 export type MotionWatch = typeof motionWatches.$inferSelect
 export type MotionVersion = typeof motionVersions.$inferSelect
@@ -417,8 +593,18 @@ export type Ballot = typeof ballots.$inferSelect
 export type NewBallot = typeof ballots.$inferInsert
 export type BallotParticipant = typeof ballotParticipants.$inferSelect
 export type NewBallotParticipant = typeof ballotParticipants.$inferInsert
+export type Report = typeof reports.$inferSelect
+export type NewReport = typeof reports.$inferInsert
+export type ModerationAction = typeof moderationActions.$inferSelect
+export type NewModerationAction = typeof moderationActions.$inferInsert
 export type MoodChoice = (typeof moodChoiceEnum.enumValues)[number]
 export type BallotChoice = (typeof ballotChoiceEnum.enumValues)[number]
 export type MotionOutcome = (typeof motionOutcomeEnum.enumValues)[number]
 export type MotionStatus = (typeof motionStatusEnum.enumValues)[number]
 export type UserRole = (typeof userRoleEnum.enumValues)[number]
+export type ReportTargetType = (typeof reportTargetTypeEnum.enumValues)[number]
+export type ReportStatus = (typeof reportStatusEnum.enumValues)[number]
+export type ModerationActionType =
+  (typeof moderationActionEnum.enumValues)[number]
+export type ModerationTargetType =
+  (typeof moderationTargetTypeEnum.enumValues)[number]

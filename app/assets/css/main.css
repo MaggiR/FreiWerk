@@ -342,3 +342,21 @@ select:focus {
   white-space: nowrap;
   border: 0;
 }
+
+/* Print: the decision document (Beschluss) page renders without app chrome so
+   the browser's "print to PDF" produces a clean document. */
+@media print {
+  body.beschluss-print .header-wrap,
+  body.beschluss-print .app-footer,
+  body.beschluss-print .beschluss__no-print {
+    display: none !important;
+  }
+  body.beschluss-print .app-main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  body.beschluss-print .beschluss__doc {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

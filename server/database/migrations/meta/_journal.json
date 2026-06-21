@@ -15,6 +15,34 @@
       "when": 1749600000000,
       "tag": "0001_phase4_ballots",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766000000000,
+      "tag": "0002_phase5_posts_threads",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766000100000,
+      "tag": "0003_phase5_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766000200000,
+      "tag": "0004_phase5_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766000300000,
+      "tag": "0005_post_reactions",
+      "breakpoints": true
     }
   ]
 }

@@ -12,11 +12,16 @@ export interface UserProfile {
   avatarUrl: string | null
   createdAt: string
   division: { id: string; name: string } | null
+  // Only populated for moderators/admins viewing the profile.
+  bannedAt: string | null
+  banReason: string | null
 }
 
 export interface UserProfilePageData {
   user: UserProfile
   isSelf: boolean
+  // True when the viewer may use moderation controls (ban/unban) on this profile.
+  canModerate: boolean
   motions: MotionListItem[]
   watched: MotionListItem[]
 }

@@ -5,6 +5,7 @@ import { motions } from '../../../database/schema'
 import { archiveSchema } from '../../../utils/validation'
 import { requireAuth } from '../../../utils/auth'
 import { hasRequiredRole } from '../../../utils/authRole'
+import { recordModerationAction } from '../../../utils/audit'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
@@ -32,6 +33,16 @@ export default defineEventHandler(async (event) => {
     .set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() })
     .where(eq(motions.id, id))
     .returning()
+
+  // Record the action only when a moderator acts on someone else's motion.
+  if (!isAuthor) {
+    await recordModerationAction({
+      actorId: user.id,
+      action: archived ? 'motion_archived' : 'motion_unarchived',
+      targetType: 'motion',
+      targetId: id,
+    })
+  }
 
   return { motion: updated }
 })

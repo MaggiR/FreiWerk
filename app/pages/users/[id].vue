@@ -21,6 +21,43 @@ if (error.value) {
 
 const profile = computed(() => data.value?.user)
 const isSelf = computed(() => data.value?.isSelf ?? false)
+const canModerate = computed(() => data.value?.canModerate ?? false)
+const isBanned = computed(() => Boolean(profile.value?.bannedAt))
+const banBusy = ref(false)
+const toast = useToast()
+
+async function onBan() {
+  const reason = window.prompt('Begründung für die Sperre (für das Protokoll):')
+  if (reason === null) return
+  if (reason.trim().length < 5) {
+    toast.error('Bitte gib eine Begründung (min. 5 Zeichen) an.')
+    return
+  }
+  banBusy.value = true
+  try {
+    await $fetch(`/api/users/${id}/ban`, { method: 'POST', body: { reason } })
+    toast.success('Mitglied gesperrt.')
+    await refresh()
+  } catch (err: unknown) {
+    toast.error(extractError(err, 'Aktion fehlgeschlagen.'))
+  } finally {
+    banBusy.value = false
+  }
+}
+
+async function onUnban() {
+  if (!confirm('Sperre für dieses Mitglied aufheben?')) return
+  banBusy.value = true
+  try {
+    await $fetch(`/api/users/${id}/unban`, { method: 'POST' })
+    toast.success('Sperre aufgehoben.')
+    await refresh()
+  } catch (err: unknown) {
+    toast.error(extractError(err, 'Aktion fehlgeschlagen.'))
+  } finally {
+    banBusy.value = false
+  }
+}
 const motions = computed<MotionListItem[]>(
   () => (data.value?.motions ?? []) as MotionListItem[],
 )
@@ -73,6 +110,9 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
         <div class="profile__name-row">
           <h1 class="profile__name">{{ profile.displayName }}</h1>
           <FwBadge :tone="roleTone">{{ ROLE_LABELS[profile.role] ?? profile.role }}</FwBadge>
+          <FwBadge v-if="canModerate && isBanned" tone="neutral">
+            <FontAwesomeIcon icon="user-slash" /> Gesperrt
+          </FwBadge>
           <FwButton
             v-if="isSelf"
             variant="ghost"
@@ -94,6 +134,25 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
           </span>
         </div>
       </div>
+    </FwCard>
+
+    <FwCard v-if="canModerate" class="profile__mod">
+      <div class="profile__mod-info">
+        <FontAwesomeIcon icon="shield-halved" />
+        <span v-if="isBanned">
+          Gesperrt am {{ formatDateTime(profile.bannedAt) }}<template v-if="profile.banReason">
+            — {{ profile.banReason }}</template>
+        </span>
+        <span v-else>Dieses Mitglied ist nicht gesperrt.</span>
+      </div>
+      <FwButton
+        :variant="isBanned ? 'ghost' : 'danger'"
+        :disabled="banBusy"
+        @click="isBanned ? onUnban() : onBan()"
+      >
+        <FontAwesomeIcon :icon="isBanned ? 'ban' : 'user-slash'" />
+        {{ isBanned ? 'Sperre aufheben' : 'Mitglied sperren' }}
+      </FwButton>
     </FwCard>
 
     <section class="section">
@@ -160,6 +219,19 @@ async function onWatchedCardChange({ watched }: { motionId: string; watched: boo
   display: flex;
   align-items: center;
   gap: var(--space-5);
+}
+.profile__mod {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.profile__mod-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
 }
 .profile__avatar {
   display: inline-flex;

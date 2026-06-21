@@ -84,10 +84,11 @@ Legend: `[x]` done · `[~]` partial · `[ ]` open
 ### 3. Structured debates
 
 - [x] Linear debate posts under a motion, only when `status=debate` before `debate_ends_at`
-- [~] Post input: plain textarea instead of TipTap
+- [x] Post input uses TipTap (rich text), same editor as motions
+- [x] Threaded replies (arbitrary depth, `posts.parent_id`) rendered as a sticky chat side-pane
 - [ ] Topic tree view
 - [ ] Post ratings
-- [ ] Sort posts by approval/recency
+- [x] Sort posts by recency (top-level recent/oldest toggle)
 - [ ] AI extraction pro/contra/questions + juxtaposition (AI)
 
 ### 4. Further AI support
@@ -110,11 +111,14 @@ Legend: `[x]` done · `[~]` partial · `[ ]` open
 
 ### 7. Transparency and tracking
 
-- [ ] Permanent decision documentation, PDF/Markdown export
+- [x] Permanent decision documentation (`/motions/[id]/beschluss`), browser-print PDF + server Markdown export (`GET /api/motions/[id]/export?format=markdown`, gated to `decided`/archived)
 
 ### 8. Moderation and debate culture
 
-- [ ] Code of conduct, report function, moderation tools, escalation/bans
+- [x] Report function (members report motions/posts with mandatory reason)
+- [x] Moderation tools: post soft-delete, user ban/unban — all with mandatory reasoning
+- [x] Append-only audit log (`moderation_actions`) + role-gated `/moderation` area (reports queue, bans, protocol)
+- [ ] Code of conduct, automated escalation
 
 ### 9. Search and navigation
 
@@ -178,14 +182,15 @@ flowchart TD
 - Quorums and a dedicated decision audit trail are intentionally out of scope. The
   outcome is a simple majority (approvals > rejections; abstentions do not count).
 
-**Phase 5 — Chats and Motion Finalization**
+**Phase 5 — Chats and Motion Finalization** (done)
 
-- Decision documentation
-- PDF/Markdown export
-- Flexible chat pane, shown next to the motion
-- Advanced chat functions: Reply-to feature, arbitrary thread depth
-- Report function, moderation tools with mandatory reasoning, escalation/bans
-- Audit logs for administrative/moderative actions
+- [x] Decision documentation: print-optimized `/motions/[id]/beschluss` view
+- [x] PDF (browser print) + Markdown export (`GET /api/motions/[id]/export?format=markdown`), gated to `decided`/archived
+- [x] Flexible chat pane shown next to the motion (sticky side-pane, responsive grid)
+- [x] Advanced chat functions: reply-to with arbitrary thread depth (`posts.parent_id`); moderator-removed posts become tombstones so replies survive
+- [x] Report function (`reports` table) + moderation tools (post soft-delete, user ban/unban) with mandatory reasoning; bans enforced in `requireAuth` and login
+- [x] Append-only audit log (`moderation_actions`) for moderative/administrative actions; never references ballots (vote secrecy). Role-gated `/moderation` UI (middleware `moderator`)
+- [ ] Code of conduct + automated escalation (out of scope for this phase)
 
 **Phase 6 — AI support**
 

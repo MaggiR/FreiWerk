@@ -40,6 +40,8 @@ export const publishSchema = z.object({
 
 export const postCreateSchema = z.object({
   bodyHtml: z.string().min(1).max(50_000),
+  // Optional parent for threaded replies; omitted/undefined = top-level post.
+  parentId: z.string().uuid().optional(),
 })
 
 // A ProseMirror document node (top-level). Structural allow-list validation of
@@ -117,6 +119,50 @@ export const postListQuerySchema = z.object({
 
 export const archiveSchema = z.object({
   archived: z.boolean(),
+})
+
+// ---------- Phase 5: moderation & reports ----------
+
+// A member reports a motion or a debate post. The reason is mandatory.
+export const reportCreateSchema = z.object({
+  targetType: z.enum(['motion', 'post']),
+  targetId: z.string().uuid(),
+  reason: z.string().trim().min(10).max(1000),
+})
+
+export const reportListQuerySchema = z.object({
+  status: z.enum(['open', 'resolved', 'dismissed']).optional(),
+})
+
+// A moderator resolves or dismisses a report. The note is mandatory either way.
+export const reportResolveSchema = z.object({
+  action: z.enum(['resolve', 'dismiss']),
+  resolutionNote: z.string().trim().min(3).max(1000),
+})
+
+// A moderator removes a debate post (soft delete). Reason is mandatory.
+export const postModerationDeleteSchema = z.object({
+  reason: z.string().trim().min(5).max(1000),
+})
+
+// A moderator/admin bans a member. Reason is mandatory.
+export const userBanSchema = z.object({
+  reason: z.string().trim().min(5).max(1000),
+})
+
+export const motionExportQuerySchema = z.object({
+  format: z.enum(['markdown']).optional(),
+})
+
+// Toggle an emoji reaction on a debate post (any Extended_Pictographic emoji).
+export const postReactionSchema = z.object({
+  emoji: z
+    .string()
+    .min(1)
+    .max(32)
+    .refine((value) => /\p{Extended_Pictographic}/u.test(value), {
+      message: 'Ungültiges Emoji.',
+    }),
 })
 
 export const profileUpdateSchema = z

@@ -31,6 +31,14 @@ export default defineEventHandler(async (event) => {
     throw invalid()
   }
 
+  if (user.bannedAt) {
+    throw createError({
+      statusCode: 403,
+      statusMessage:
+        'Dein Konto wurde gesperrt. Bitte wende dich an die Moderation.',
+    })
+  }
+
   await setUserSession(event, {
     user: {
       id: user.id,

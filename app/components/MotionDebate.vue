@@ -1,129 +1,106 @@
 <script setup lang="ts">
-const props = defineProps<{ motionId: string; debateOpen: boolean }>()
-const postCount = defineModel<number>('postCount', { default: 0 })
-const { loggedIn } = useAuthUser()
-const { open: openAuthModal } = useAuthModal()
+import { countVisiblePosts, type DebatePost } from '~/utils/debate'
 
-const postSort = defineModel<'recent' | 'oldest'>('postSort', { default: 'recent' })
+const props = withDefaults(
+  defineProps<{
+    motionId: string
+    debateOpen: boolean
+    canModerate?: boolean
+    currentUserId?: string | null
+  }>(),
+  { canModerate: false, currentUserId: null },
+)
+
+const postCount = defineModel<number>('postCount', { default: 0 })
+const postSort = defineModel<'recent' | 'oldest'>('postSort', { default: 'oldest' })
+
+const { loggedIn, SESSION_EXPIRED_MESSAGE } = useAuthUser()
+const { open: openAuthModal } = useAuthModal()
+const toast = useToast()
 
 const { data, refresh, pending } = await useFetch(
   () => `/api/motions/${props.motionId}/posts`,
-  {
-    key: computed(() => `posts-${props.motionId}-${postSort.value}`),
-    query: computed(() => ({ sort: postSort.value })),
-  },
+  { key: computed(() => `posts-${props.motionId}`) },
 )
 
-const posts = computed(() => data.value?.posts ?? [])
-const showPostForm = ref(false)
-
-const isEmpty = computed(() => !pending.value && posts.value.length === 0)
+const posts = computed<DebatePost[]>(() =>
+  (data.value?.posts ?? []).map((p) => ({
+    ...p,
+    reactions: p.reactions ?? [],
+  })),
+)
 
 watch(
   posts,
   (list) => {
-    postCount.value = list.length
-    if (list.length > 0) {
-      showPostForm.value = true
-    }
+    postCount.value = countVisiblePosts(list)
   },
   { immediate: true },
 )
 
-function onFirstPostClick() {
+// ---- Reporting ----
+const reportOpen = ref(false)
+const reportTargetId = ref<string | null>(null)
+
+function onReport(postId: string) {
   if (!loggedIn.value) {
     openAuthModal('login')
     return
   }
-  showPostForm.value = true
+  reportTargetId.value = postId
+  reportOpen.value = true
+}
+
+function onReported() {
+  toast.success('Meldung an die Moderation übermittelt.')
+}
+
+async function onRemove(postId: string) {
+  const reason = window.prompt(
+    'Begründung für das Entfernen dieses Beitrags (für das Moderationsprotokoll):',
+  )
+  if (reason === null) return
+  if (reason.trim().length < 5) {
+    toast.error('Bitte gib eine Begründung (min. 5 Zeichen) an.')
+    return
+  }
+  try {
+    await $fetch(`/api/posts/${postId}`, {
+      method: 'DELETE',
+      body: { reason },
+    })
+    await refresh()
+    toast.success('Beitrag entfernt.')
+  } catch (err: unknown) {
+    if (isUnauthorized(err)) {
+      toast.error(SESSION_EXPIRED_MESSAGE)
+      return
+    }
+    toast.error(extractError(err, 'Beitrag konnte nicht entfernt werden.'))
+  }
 }
 </script>
 
 <template>
-  <div class="debate">
-    <p v-if="pending" class="debate__loading">Beiträge werden geladen ...</p>
+  <DebateChat
+    v-model:post-sort="postSort"
+    :motion-id="motionId"
+    :posts="posts"
+    :debate-open="debateOpen"
+    :can-moderate="canModerate"
+    :logged-in="loggedIn"
+    :current-user-id="currentUserId"
+    :pending="pending"
+    @refresh="refresh"
+    @report="onReport"
+    @remove="onRemove"
+    @login="openAuthModal('login')"
+  />
 
-    <template v-else-if="isEmpty && debateOpen">
-      <button
-        v-if="!showPostForm"
-        type="button"
-        class="debate__cta"
-        @click="onFirstPostClick"
-      >
-        <span class="debate__cta-icon">
-          <FontAwesomeIcon icon="paper-plane" />
-        </span>
-        <span class="debate__cta-text">Ersten Beitrag posten</span>
-      </button>
-      <PostForm
-        v-else-if="loggedIn"
-        :motion-id="motionId"
-        default-open
-        @created="refresh"
-      />
-    </template>
-
-    <template v-else>
-      <PostList v-if="posts.length > 0" :posts="posts" />
-
-      <template v-if="debateOpen">
-        <PostForm v-if="loggedIn" :motion-id="motionId" @created="refresh" />
-        <FwCard v-else class="debate__login">
-          <p>
-            <button type="button" class="inline-link" @click="openAuthModal('login')">
-              Melde dich an
-            </button>, um an der Debatte teilzunehmen.
-          </p>
-        </FwCard>
-      </template>
-      <FwCard v-else class="debate__closed">
-        <p>Die Debattenphase ist abgeschlossen. Neue Beiträge sind nicht möglich.</p>
-      </FwCard>
-    </template>
-  </div>
+  <ReportModal
+    v-model:open="reportOpen"
+    target-type="post"
+    :target-id="reportTargetId"
+    @reported="onReported"
+  />
 </template>
-
-<style scoped>
-.debate__cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-4) var(--space-5);
-  font: inherit;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  background: transparent;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.debate__cta:hover {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-}
-
-.debate__cta-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  color: var(--color-accent);
-  font-size: 0.95rem;
-}
-.debate__login,
-.debate__closed {
-  margin-top: var(--space-4);
-  color: var(--color-text-muted);
-}
-.debate__loading {
-  color: var(--color-text-muted);
-}
-</style>

@@ -68,6 +68,8 @@ export default defineEventHandler(async (event) => {
       role: true,
       avatarUrl: true,
       createdAt: true,
+      bannedAt: true,
+      banReason: true,
     },
     with: { division: { columns: { id: true, name: true } } },
   })
@@ -120,6 +122,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const viewerId = session.user?.id
+  const viewerRole = session.user?.role
+  const canModerate =
+    !isSelf && (viewerRole === 'moderator' || viewerRole === 'admin')
 
   return {
     user: {
@@ -130,8 +135,12 @@ export default defineEventHandler(async (event) => {
       avatarUrl: profile.avatarUrl,
       createdAt: profile.createdAt,
       division: profile.division,
+      // Ban state is only disclosed to moderators/admins.
+      bannedAt: canModerate ? profile.bannedAt : null,
+      banReason: canModerate ? profile.banReason : null,
     },
     isSelf,
+    canModerate,
     motions: authored.map((row) => redactMotionAuthor(row, viewerId)),
     watched: watched.map((row) => redactMotionAuthor(row, viewerId)),
   }

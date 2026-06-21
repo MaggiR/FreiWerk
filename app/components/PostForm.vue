@@ -1,13 +1,20 @@
 <script setup lang="ts">
 const props = withDefaults(
-  defineProps<{ motionId: string; defaultOpen?: boolean }>(),
-  { defaultOpen: false },
+  defineProps<{
+    motionId: string
+    defaultOpen?: boolean
+    // When set, the post is created as a reply to this post.
+    parentId?: string
+    // Reply mode: no standalone trigger button, cancel closes the form entirely.
+    reply?: boolean
+  }>(),
+  { defaultOpen: false, reply: false },
 )
-const emit = defineEmits<{ created: [] }>()
+const emit = defineEmits<{ created: []; cancel: [] }>()
 
 const { SESSION_EXPIRED_MESSAGE } = useAuthUser()
 
-const open = ref(props.defaultOpen)
+const open = ref(props.defaultOpen || props.reply)
 const bodyHtml = ref('')
 const pending = ref(false)
 const error = ref('')
@@ -20,6 +27,7 @@ function cancel() {
   bodyHtml.value = ''
   error.value = ''
   open.value = false
+  emit('cancel')
 }
 
 async function onSubmit() {
@@ -29,7 +37,7 @@ async function onSubmit() {
   try {
     await $fetch(`/api/motions/${props.motionId}/posts`, {
       method: 'POST',
-      body: { bodyHtml: bodyHtml.value },
+      body: { bodyHtml: bodyHtml.value, parentId: props.parentId },
     })
     bodyHtml.value = ''
     open.value = false
@@ -48,7 +56,7 @@ async function onSubmit() {
 
 <template>
   <button
-    v-if="!open"
+    v-if="!open && !reply"
     type="button"
     class="post-form__trigger"
     @click="open = true"
@@ -59,10 +67,10 @@ async function onSubmit() {
     <span>Beitrag verfassen</span>
   </button>
 
-  <FwCard v-else class="post-form">
+  <FwCard v-else-if="open" class="post-form" :class="{ 'post-form--reply': reply }">
     <form @submit.prevent="onSubmit">
       <div class="field">
-        <span>Dein Diskussionsbeitrag</span>
+        <span>{{ reply ? 'Deine Antwort' : 'Dein Diskussionsbeitrag' }}</span>
         <ClientOnly>
           <MotionEditor
             v-model="bodyHtml"
@@ -80,7 +88,7 @@ async function onSubmit() {
         </FwButton>
         <FwButton type="submit" :disabled="pending || isEmpty">
           <FontAwesomeIcon icon="paper-plane" />
-          {{ pending ? 'Senden ...' : 'Beitrag senden' }}
+          {{ pending ? 'Senden ...' : reply ? 'Antwort senden' : 'Beitrag senden' }}
         </FwButton>
       </div>
     </form>
@@ -90,6 +98,9 @@ async function onSubmit() {
 <style scoped>
 .post-form {
   margin-top: var(--space-4);
+}
+.post-form--reply {
+  margin-top: var(--space-3);
 }
 .post-form__actions {
   display: flex;

@@ -42,6 +42,8 @@ const props = withDefaults(
     reviewItems?: SuggestionItem[]
     /** Strip chrome (border, padding) to match inline RichText rendering. */
     embedded?: boolean
+    /** Compact messenger composer: minimal chrome, toolbar only on text selection. */
+    variant?: 'default' | 'chat'
   }>(),
   {
     placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.',
@@ -50,6 +52,7 @@ const props = withDefaults(
     docJson: null,
     reviewItems: () => [],
     embedded: false,
+    variant: 'default',
   },
 )
 
@@ -64,6 +67,9 @@ const isReadOnly = computed(() => props.suggestion?.mode === 'view')
 const isReviewMode = computed(() => props.suggestion?.mode === 'review')
 const isEditMode = computed(() => props.suggestion?.mode === 'edit')
 const isViewMode = computed(() => props.suggestion?.mode === 'view')
+const isChatVariant = computed(() => props.variant === 'chat')
+const hasTextSelection = ref(false)
+const chatToolbarPos = ref<{ top: number; left: number } | null>(null)
 const canManageSuggestions = computed(() => isReviewMode.value || isEditMode.value)
 const isSuggestionHoverMode = computed(
   () =>
@@ -84,6 +90,21 @@ const reviewPopoverRef = ref<HTMLElement | null>(null)
 let hoveredMark: HTMLElement | null = null
 let hidePopoverTimer: ReturnType<typeof setTimeout> | null = null
 
+function updateChatToolbarPosition(ed: Editor) {
+  if (!isChatVariant.value) return
+  const { from, to } = ed.state.selection
+  if (from === to) {
+    chatToolbarPos.value = null
+    return
+  }
+  const { view } = ed
+  const start = view.coordsAtPos(from)
+  const end = view.coordsAtPos(to)
+  chatToolbarPos.value = {
+    top: Math.min(start.top, end.top) - 44,
+    left: (start.left + end.right) / 2,
+  }
+}
 function parseSuggestionId(element: HTMLElement): number | null {
   const raw = element.dataset.id
   if (!raw) return null
@@ -285,6 +306,16 @@ const editor = useEditor({
       return
     }
     model.value = ed.getHTML()
+  },
+  onSelectionUpdate: ({ editor: ed }) => {
+    if (!isChatVariant.value) return
+    const { from, to } = ed.state.selection
+    hasTextSelection.value = from !== to
+    if (from !== to) {
+      updateChatToolbarPosition(ed as Editor)
+    } else {
+      chatToolbarPos.value = null
+    }
   },
 } as Partial<EditorOptions> & { immediatelyRender?: boolean })
 
@@ -512,10 +543,85 @@ const historyTools = computed<ToolItem[]>(() => {
     },
   ]
 })
+
+/** Compact formatting tools for the chat floating toolbar. */
+const chatFormatTools = computed<ToolItem[]>(() => {
+  const e = editor.value
+  return [
+    {
+      id: 'bold',
+      icon: 'bold',
+      title: 'Fett',
+      action: () => e?.chain().focus().toggleBold().run(),
+      active: () => !!e?.isActive('bold'),
+    },
+    {
+      id: 'italic',
+      icon: 'italic',
+      title: 'Kursiv',
+      action: () => e?.chain().focus().toggleItalic().run(),
+      active: () => !!e?.isActive('italic'),
+    },
+    {
+      id: 'underline',
+      icon: 'underline',
+      title: 'Unterstrichen',
+      action: () => e?.chain().focus().toggleUnderline().run(),
+      active: () => !!e?.isActive('underline'),
+    },
+    {
+      id: 'strikethrough',
+      icon: 'strikethrough',
+      title: 'Durchgestrichen',
+      action: () => e?.chain().focus().toggleStrike().run(),
+      active: () => !!e?.isActive('strike'),
+    },
+  ]
+})
+
+const chatBlockTools = computed<ToolItem[]>(() => {
+  const e = editor.value
+  return [
+    {
+      id: 'list-ul',
+      icon: 'list-ul',
+      title: 'Aufzählung',
+      action: () => e?.chain().focus().toggleBulletList().run(),
+      active: () => !!e?.isActive('bulletList'),
+    },
+    {
+      id: 'list-ol',
+      icon: 'list-ol',
+      title: 'Nummerierte Liste',
+      action: () => e?.chain().focus().toggleOrderedList().run(),
+      active: () => !!e?.isActive('orderedList'),
+    },
+    {
+      id: 'quote-right',
+      icon: 'quote-right',
+      title: 'Zitat',
+      action: () => e?.chain().focus().toggleBlockquote().run(),
+      active: () => !!e?.isActive('blockquote'),
+    },
+    {
+      id: 'link',
+      icon: 'link',
+      title: 'Link',
+      action: addLink,
+      active: () => !!e?.isActive('link'),
+    },
+  ]
+})
 </script>
 
 <template>
-  <div class="editor" :class="{ 'editor--embedded': embedded }">
+  <div
+    class="editor"
+    :class="{
+      'editor--embedded': embedded,
+      'editor--chat': isChatVariant,
+    }"
+  >
     <input
       ref="fileInput"
       type="file"
@@ -524,7 +630,10 @@ const historyTools = computed<ToolItem[]>(() => {
       @change="onFileSelected"
     >
 
-    <div v-if="!isReadOnly && !isReviewMode" class="editor__toolbar">
+    <div
+      v-if="!isReadOnly && !isReviewMode && !isChatVariant"
+      class="editor__toolbar"
+    >
       <div class="editor__group">
         <button
           v-for="tool in headingTools"
@@ -574,11 +683,60 @@ const historyTools = computed<ToolItem[]>(() => {
       </div>
     </div>
 
+    <Teleport to="body">
+      <Transition name="chat-toolbar">
+        <div
+          v-if="isChatVariant && hasTextSelection && chatToolbarPos && !isReadOnly && !isReviewMode"
+          class="editor__chat-toolbar"
+          :style="{
+            top: `${chatToolbarPos.top}px`,
+            left: `${chatToolbarPos.left}px`,
+          }"
+          role="toolbar"
+          aria-label="Textformatierung"
+          @mousedown.prevent
+        >
+          <div class="editor__chat-group">
+            <button
+              v-for="tool in chatFormatTools"
+              :key="tool.id"
+              type="button"
+              class="editor__chat-tool"
+              :class="{ 'is-active': tool.active?.() }"
+              :title="tool.title"
+              :aria-label="tool.title"
+              @click="tool.action()"
+            >
+              <FontAwesomeIcon :icon="tool.icon!" />
+            </button>
+          </div>
+          <span class="editor__chat-divider" aria-hidden="true" />
+          <div class="editor__chat-group">
+            <button
+              v-for="tool in chatBlockTools"
+              :key="tool.id"
+              type="button"
+              class="editor__chat-tool"
+              :class="{ 'is-active': tool.active?.() }"
+              :title="tool.title"
+              :aria-label="tool.title"
+              @click="tool.action()"
+            >
+              <FontAwesomeIcon :icon="tool.icon!" />
+            </button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <p v-if="uploadError" class="editor__error form-error">{{ uploadError }}</p>
 
     <div
       class="editor__content"
-      :class="{ 'editor__content--suggestion-hover': isSuggestionHoverMode }"
+      :class="{
+        'editor__content--suggestion-hover': isSuggestionHoverMode,
+        'editor__content--chat': isChatVariant,
+      }"
       @mouseover="onReviewMouseOver"
       @mouseout="onReviewMouseOut"
     >
@@ -688,6 +846,110 @@ const historyTools = computed<ToolItem[]>(() => {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.editor--chat {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.editor--chat .editor__content--chat {
+  padding: var(--space-1) 0;
+  min-height: 1.75rem;
+  max-height: 12rem;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.editor--chat :deep(.editor-surface) {
+  min-height: 1.25rem;
+}
+
+.editor--chat :deep(.editor-surface p) {
+  margin: 0;
+}
+
+.editor__chat-toolbar {
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+.editor__chat-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.editor__chat-divider {
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.1rem;
+  background: color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+.editor__chat-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.editor__chat-tool:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.editor__chat-tool.is-active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.chat-toolbar-enter-active,
+.chat-toolbar-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.chat-toolbar-enter-from,
+.chat-toolbar-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px) scale(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-toolbar-enter-active,
+  .chat-toolbar-leave-active {
+    transition: opacity 0.12s ease;
+  }
+
+  .chat-toolbar-enter-from,
+  .chat-toolbar-leave-to {
+    transform: translateX(-50%);
+  }
 }
 
 .editor__toolbar {

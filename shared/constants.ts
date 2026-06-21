@@ -103,6 +103,30 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator:in',
 }
 
+// ---------- Phase 5: moderation & reports ----------
+
+export const REPORT_TARGET_LABELS: Record<string, string> = {
+  motion: 'Antrag',
+  post: 'Debattenbeitrag',
+}
+
+export const REPORT_STATUS_LABELS: Record<string, string> = {
+  open: 'Offen',
+  resolved: 'Bearbeitet',
+  dismissed: 'Abgewiesen',
+}
+
+export const MODERATION_ACTION_LABELS: Record<string, string> = {
+  post_removed: 'Beitrag entfernt',
+  user_banned: 'Mitglied gesperrt',
+  user_unbanned: 'Sperre aufgehoben',
+  report_resolved: 'Meldung bearbeitet',
+  report_dismissed: 'Meldung abgewiesen',
+  motion_archived: 'Antrag archiviert',
+  motion_unarchived: 'Antrag aus Archiv geholt',
+  ballot_finalized: 'Abstimmung ausgewertet',
+}
+
 export const DEFAULT_DEBATE_DAYS = 14
 
 // Default length of a formal ballot window in days (README: 1 week).

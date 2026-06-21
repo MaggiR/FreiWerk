@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../../../database/client'
 import { posts } from '../../../database/schema'
 import { postCreateSchema } from '../../../utils/validation'
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, postCreateSchema.parse)
 
   const motion = await db.query.motions.findFirst({
-    where: (m, { eq }) => eq(m.id, id),
+    where: (m, { eq: eqOp }) => eqOp(m.id, id),
     columns: { id: true, status: true, debateEndsAt: true },
   })
 
@@ -35,6 +36,27 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // A reply must point at a non-deleted post of the same motion.
+  if (body.parentId) {
+    const [parent] = await db
+      .select({ id: posts.id, deletedAt: posts.deletedAt })
+      .from(posts)
+      .where(and(eq(posts.id, body.parentId), eq(posts.motionId, id)))
+      .limit(1)
+    if (!parent) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Der Beitrag, auf den du antwortest, wurde nicht gefunden.',
+      })
+    }
+    if (parent.deletedAt) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Auf einen entfernten Beitrag kann nicht geantwortet werden.',
+      })
+    }
+  }
+
   const bodyHtml = sanitizeRichText(body.bodyHtml)
   if (bodyHtml.trim().length === 0) {
     throw createError({
@@ -45,7 +67,12 @@ export default defineEventHandler(async (event) => {
 
   const [created] = await db
     .insert(posts)
-    .values({ motionId: id, authorId: user.id, bodyHtml })
+    .values({
+      motionId: id,
+      authorId: user.id,
+      parentId: body.parentId ?? null,
+      bodyHtml,
+    })
     .returning()
 
   setResponseStatus(event, 201)

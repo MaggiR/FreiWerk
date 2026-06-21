@@ -69,6 +69,18 @@ import {
   faLock,
   faUserGroup,
   faHourglassEnd,
+  faReply,
+  faFlag,
+  faDownload,
+  faPrint,
+  faFileLines,
+  faShieldHalved,
+  faBan,
+  faUserSlash,
+  faClipboardList,
+  faGavel,
+  faCircleInfo,
+  faFaceSmile,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -143,6 +155,18 @@ library.add(
   faLock,
   faUserGroup,
   faHourglassEnd,
+  faReply,
+  faFlag,
+  faDownload,
+  faPrint,
+  faFileLines,
+  faShieldHalved,
+  faBan,
+  faUserSlash,
+  faClipboardList,
+  faGavel,
+  faCircleInfo,
+  faFaceSmile,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

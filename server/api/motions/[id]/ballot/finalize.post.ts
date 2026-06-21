@@ -4,6 +4,7 @@ import { db } from '../../../../database/client'
 import { motions, ballots } from '../../../../database/schema'
 import { requireAuth } from '../../../../utils/auth'
 import { hasRequiredRole } from '../../../../utils/authRole'
+import { recordModerationAction } from '../../../../utils/audit'
 import { computeBallotOutcome, emptyBallotCounts } from '../../../../utils/ballot'
 import type { BallotChoice } from '../../../../database/schema'
 
@@ -56,6 +57,17 @@ export default defineEventHandler(async (event) => {
     .set({ status: 'decided', outcome, updatedAt: new Date() })
     .where(eq(motions.id, id))
     .returning()
+
+  // Record the action only when a moderator finalizes someone else's ballot.
+  if (!isAuthor) {
+    await recordModerationAction({
+      actorId: user.id,
+      action: 'ballot_finalized',
+      targetType: 'motion',
+      targetId: id,
+      metadata: { outcome },
+    })
+  }
 
   return { motion: updated, outcome, counts }
 })

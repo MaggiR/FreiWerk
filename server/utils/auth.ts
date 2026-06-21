@@ -26,6 +26,7 @@ export async function requireAuth(event: H3Event): Promise<SessionUser> {
       email: users.email,
       displayName: users.displayName,
       role: users.role,
+      bannedAt: users.bannedAt,
     })
     .from(users)
     .where(eq(users.id, sessionUser.id))
@@ -39,7 +40,22 @@ export async function requireAuth(event: H3Event): Promise<SessionUser> {
     })
   }
 
-  return dbUser
+  // Banned members keep no active session; block every authenticated action.
+  if (dbUser.bannedAt) {
+    await clearUserSession(event)
+    throw createError({
+      statusCode: 403,
+      statusMessage:
+        'Dein Konto wurde gesperrt. Bitte wende dich an die Moderation.',
+    })
+  }
+
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    displayName: dbUser.displayName,
+    role: dbUser.role,
+  }
 }
 
 /**

@@ -11,6 +11,12 @@ import {
   suggestionSaveSchema,
   ballotStartSchema,
   ballotVoteSchema,
+  postCreateSchema,
+  reportCreateSchema,
+  reportResolveSchema,
+  postModerationDeleteSchema,
+  userBanSchema,
+  postReactionSchema,
 } from '../../server/utils/validation'
 
 describe('registerSchema', () => {
@@ -239,6 +245,81 @@ describe('archiveSchema', () => {
   it('requires a boolean archived flag', () => {
     expect(archiveSchema.parse({ archived: true }).archived).toBe(true)
     expect(() => archiveSchema.parse({ archived: 'yes' })).toThrow()
+  })
+})
+
+const uuid = '550e8400-e29b-41d4-a716-446655440000'
+
+describe('postCreateSchema', () => {
+  it('accepts a top-level post without a parent', () => {
+    const parsed = postCreateSchema.parse({ bodyHtml: '<p>Hi</p>' })
+    expect(parsed.parentId).toBeUndefined()
+  })
+
+  it('accepts an optional parentId for replies', () => {
+    const parsed = postCreateSchema.parse({ bodyHtml: '<p>Hi</p>', parentId: uuid })
+    expect(parsed.parentId).toBe(uuid)
+  })
+
+  it('rejects a non-uuid parentId and empty body', () => {
+    expect(() => postCreateSchema.parse({ bodyHtml: '<p>x</p>', parentId: 'nope' })).toThrow()
+    expect(() => postCreateSchema.parse({ bodyHtml: '' })).toThrow()
+  })
+})
+
+describe('reportCreateSchema', () => {
+  it('accepts a valid motion/post report', () => {
+    const parsed = reportCreateSchema.parse({
+      targetType: 'post',
+      targetId: uuid,
+      reason: 'Beleidigender Inhalt gegen ein Mitglied.',
+    })
+    expect(parsed.targetType).toBe('post')
+  })
+
+  it('rejects unknown target types and too-short reasons', () => {
+    expect(() =>
+      reportCreateSchema.parse({ targetType: 'user', targetId: uuid, reason: 'x'.repeat(20) }),
+    ).toThrow()
+    expect(() =>
+      reportCreateSchema.parse({ targetType: 'motion', targetId: uuid, reason: 'kurz' }),
+    ).toThrow()
+  })
+})
+
+describe('reportResolveSchema', () => {
+  it('requires an action and a mandatory note', () => {
+    expect(
+      reportResolveSchema.parse({ action: 'resolve', resolutionNote: 'Beitrag entfernt.' }).action,
+    ).toBe('resolve')
+    expect(() => reportResolveSchema.parse({ action: 'resolve', resolutionNote: '' })).toThrow()
+    expect(() =>
+      reportResolveSchema.parse({ action: 'delete', resolutionNote: 'egal' }),
+    ).toThrow()
+  })
+})
+
+describe('postModerationDeleteSchema', () => {
+  it('requires a reason of at least 5 characters', () => {
+    expect(postModerationDeleteSchema.parse({ reason: 'Spam-Beitrag' }).reason).toBe('Spam-Beitrag')
+    expect(() => postModerationDeleteSchema.parse({ reason: 'x' })).toThrow()
+  })
+})
+
+describe('userBanSchema', () => {
+  it('requires a reason of at least 5 characters', () => {
+    expect(userBanSchema.parse({ reason: 'Wiederholte Verstöße' }).reason).toBeTruthy()
+    expect(() => userBanSchema.parse({ reason: '' })).toThrow()
+  })
+})
+
+describe('postReactionSchema', () => {
+  it('accepts valid emoji characters', () => {
+    expect(postReactionSchema.parse({ emoji: '👍' }).emoji).toBe('👍')
+  })
+
+  it('rejects non-emoji strings', () => {
+    expect(() => postReactionSchema.parse({ emoji: 'like' })).toThrow()
   })
 })
 

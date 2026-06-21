@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { loggedIn, user, logout } = useAuthUser()
+const { loggedIn, user, logout, isModerator } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 const menuOpen = ref(false)
 
@@ -66,6 +66,15 @@ watch(
               </NuxtLink>
             </div>
           </div>
+
+          <NuxtLink
+            v-if="isModerator"
+            to="/moderation"
+            class="nav__link nav__link--primary"
+          >
+            <FontAwesomeIcon icon="shield-halved" aria-hidden="true" />
+            Moderation
+          </NuxtLink>
 
           <div class="nav-actions">
             <ThemeToggle />

@@ -182,7 +182,21 @@ const draftBusy = computed(() => publishPending.value || deletePending.value)
 const ballotPending = ref(false)
 const ballotError = ref('')
 const debatePostCount = ref(0)
-const debatePostSort = ref<'recent' | 'oldest'>('recent')
+const debatePostSort = ref<'recent' | 'oldest'>('oldest')
+const reportOpen = ref(false)
+const chatVisible = ref(true)
+const chatMenuOpen = ref(false)
+const chatMenuRef = ref<HTMLElement | null>(null)
+
+function onChatMenuClickOutside(event: MouseEvent) {
+  if (!chatMenuOpen.value) return
+  if (chatMenuRef.value && !chatMenuRef.value.contains(event.target as Node)) {
+    chatMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onChatMenuClickOutside, true))
+onUnmounted(() => document.removeEventListener('click', onChatMenuClickOutside, true))
 
 async function onPublish() {
   if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
@@ -360,6 +374,16 @@ const barActions = computed<MotionBarAction[]>(() => {
     })
   }
 
+  if (isDecided.value || isArchived.value) {
+    actions.push({
+      id: 'beschluss',
+      label: 'Beschlussdokument',
+      icon: 'file-lines',
+      to: `/motions/${m.id}/beschluss`,
+      variant: 'ghost',
+    })
+  }
+
   if (canArchive.value && !isDraft.value) {
     actions.push({
       id: 'archive',
@@ -367,6 +391,15 @@ const barActions = computed<MotionBarAction[]>(() => {
       icon: 'box-archive',
       variant: 'ghost',
       disabled: archivePending.value,
+    })
+  }
+
+  if (loggedIn.value && !isAuthor.value && !isDraft.value) {
+    actions.push({
+      id: 'report',
+      label: 'Antrag melden',
+      icon: 'flag',
+      variant: 'ghost',
     })
   }
 
@@ -414,6 +447,9 @@ function onBarAction(id: string) {
     case 'edit':
       onStartEdit()
       break
+    case 'report':
+      reportOpen.value = true
+      break
     case 'accept-all':
       suggestionsRef.value?.acceptAll()
       break
@@ -432,13 +468,14 @@ function onBarAction(id: string) {
 </script>
 
 <template>
-  <article v-if="motion" class="motion">
+  <article v-if="motion" class="motion" :class="{ 'motion--wide': !isDraft && chatVisible }">
     <NuxtLink to="/motions" class="back-link">← Zur Antragsübersicht</NuxtLink>
 
+    <div class="motion__layout" :class="{ 'motion__layout--with-chat': !isDraft && chatVisible }">
+    <div class="motion__main">
     <FwCard
       class="motion__box"
       :class="{
-        'motion__box--with-fab': hasFabMenu,
         'motion__box--editing': isSuggestionEditing || hasPinnedActionBar,
         'motion__box--fab-menu': hasFabMenu,
       }"
@@ -665,32 +702,98 @@ function onBarAction(id: string) {
       <MotionMood :motion-id="motion.id" :can-vote="debateOpen" />
     </section>
 
-    <section v-if="!isDraft" class="motion__section">
-      <div class="motion__section-head">
-        <h2>
-          <FontAwesomeIcon icon="comments" /> Debatte
-          <span class="motion__history-count">{{ debatePostCount }}</span>
-        </h2>
-        <label v-if="debatePostCount > 0" class="motion__debate-sort">
-          <span class="visually-hidden">Sortierung</span>
-          <select v-model="debatePostSort">
-            <option value="recent">Neueste zuerst</option>
-            <option value="oldest">Älteste zuerst</option>
-          </select>
-        </label>
-      </div>
-      <MotionDebate
-        v-model:post-count="debatePostCount"
-        v-model:post-sort="debatePostSort"
-        :motion-id="motion.id"
-        :debate-open="debateOpen"
-      />
-    </section>
-
-    <p v-else class="app-hint motion__hint">
+    <p v-if="isDraft" class="app-hint motion__hint">
       Dieser Antrag ist noch ein Entwurf. Stimmungsbild und Debatte werden mit der
       Veröffentlichung aktiviert.
     </p>
+    </div>
+
+    <aside v-if="!isDraft && chatVisible" class="motion__chat">
+      <section class="motion__section motion__section--chat">
+        <div class="motion__section-head motion__section-head--chat">
+          <h2
+            class="motion__chat-title"
+            role="button"
+            tabindex="0"
+            aria-label="Debatte ausblenden"
+            @click="chatVisible = false"
+            @keydown.enter.prevent="chatVisible = false"
+            @keydown.space.prevent="chatVisible = false"
+          >
+            <FontAwesomeIcon icon="comments" /> Debatte
+            <span class="motion__history-count">{{ debatePostCount }}</span>
+          </h2>
+          <div ref="chatMenuRef" class="motion__chat-menu" @click.stop>
+            <button
+              type="button"
+              class="motion__chat-tool"
+              aria-label="Chat-Optionen"
+              :aria-expanded="chatMenuOpen"
+              @click.stop="chatMenuOpen = !chatMenuOpen"
+            >
+              <FontAwesomeIcon icon="ellipsis" />
+            </button>
+            <div v-if="chatMenuOpen" class="motion__chat-menu-panel" role="menu">
+              <button
+                type="button"
+                class="motion__chat-menu-item"
+                role="menuitemradio"
+                :aria-checked="debatePostSort === 'oldest'"
+                @click="debatePostSort = 'oldest'; chatMenuOpen = false"
+              >
+                <span class="motion__chat-menu-check">
+                  <FontAwesomeIcon v-if="debatePostSort === 'oldest'" icon="check" />
+                </span>
+                Älteste zuerst
+              </button>
+              <button
+                type="button"
+                class="motion__chat-menu-item"
+                role="menuitemradio"
+                :aria-checked="debatePostSort === 'recent'"
+                @click="debatePostSort = 'recent'; chatMenuOpen = false"
+              >
+                <span class="motion__chat-menu-check">
+                  <FontAwesomeIcon v-if="debatePostSort === 'recent'" icon="check" />
+                </span>
+                Neueste zuerst
+              </button>
+            </div>
+          </div>
+        </div>
+        <MotionDebate
+          v-model:post-count="debatePostCount"
+          v-model:post-sort="debatePostSort"
+          :motion-id="motion.id"
+          :debate-open="debateOpen"
+          :can-moderate="isModerator"
+          :current-user-id="user?.id ?? null"
+        />
+      </section>
+    </aside>
+
+    <div
+      v-if="!isDraft && !chatVisible"
+      class="motion__chat-tab"
+      role="button"
+      tabindex="0"
+      aria-label="Debatte einblenden"
+      @click="chatVisible = true"
+      @keydown.enter.prevent="chatVisible = true"
+      @keydown.space.prevent="chatVisible = true"
+    >
+      <FontAwesomeIcon icon="comments" class="motion__chat-tab-icon" />
+      <span class="motion__chat-tab-label">Debatte</span>
+      <span v-if="debatePostCount > 0" class="motion__chat-tab-count">{{ debatePostCount }}</span>
+    </div>
+    </div>
+
+    <ReportModal
+      v-model:open="reportOpen"
+      target-type="motion"
+      :target-id="motion.id"
+      @reported="reportOpen = false"
+    />
   </article>
 </template>
 
@@ -699,10 +802,176 @@ function onBarAction(id: string) {
   max-width: 820px;
   margin: 0 auto;
 }
+.motion--wide {
+  max-width: 1180px;
+}
 .back-link {
   display: inline-block;
   margin-bottom: var(--space-4);
   color: var(--color-text-muted);
+}
+.motion__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+}
+.motion__main {
+  min-width: 0;
+}
+.motion__chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 20rem;
+  height: min(28rem, 60vh);
+}
+/* Flexible chat pane: sits beside the motion on wide screens, sticky while the
+   member reads, and stacks underneath on narrow screens. */
+@media (min-width: 1024px) {
+  .motion__layout--with-chat {
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 380px);
+    align-items: start;
+  }
+  .motion__chat {
+    position: sticky;
+    top: calc(var(--header-total-height) + var(--space-4));
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--header-total-height) - var(--space-6));
+    min-height: 24rem;
+    min-width: 0;
+  }
+}
+.motion__chat-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-right: none;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: color 0.15s ease, padding-right 0.15s ease, background 0.15s ease;
+}
+.motion__chat-tab:hover {
+  padding-right: var(--space-3);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--glass-bg) 80%, var(--color-accent) 8%);
+}
+.motion__chat-tab-icon {
+  font-size: 1.1rem;
+}
+.motion__chat-tab-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.motion__chat-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.motion__chat-title {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease;
+}
+.motion__chat-title:hover {
+  color: var(--color-accent);
+}
+.motion__section--chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+}
+.motion__section-head--chat {
+  flex-shrink: 0;
+  margin-bottom: var(--space-2);
+}
+.motion__section--chat :deep(.chat) {
+  flex: 1;
+  min-height: 0;
+}
+.motion__chat-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.motion__chat-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.motion__chat-tool:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.motion__chat-menu-panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 30;
+  min-width: 11rem;
+  padding: var(--space-1);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.motion__chat-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.motion__chat-menu-item:hover {
+  background: var(--color-bg);
+}
+.motion__chat-menu-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  color: var(--color-accent);
 }
 .motion__topbar {
   display: flex;
@@ -922,9 +1191,6 @@ textarea.motion__summary:focus-visible {
   padding-inline-end: calc(3.5rem + var(--space-3));
 }
 
-.motion__box--with-fab :deep(.motion__body-area) {
-  padding-inline-end: calc(3.5rem + var(--space-4));
-}
 .motion__header {
   padding-bottom: var(--space-5);
   margin-bottom: var(--space-5);
