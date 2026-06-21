@@ -7,8 +7,15 @@ import {
   MOTION_TITLE_MAX,
   MOTION_SUMMARY_MIN,
   MOTION_SUMMARY_MAX,
+  ARGUMENT_STANCES,
+  ARGUMENT_TITLE_MIN,
+  ARGUMENT_TITLE_MAX,
+  QUESTION_TITLE_MIN,
+  QUESTION_TITLE_MAX,
+  RESOURCE_TITLE_MIN,
+  RESOURCE_TITLE_MAX,
 } from '../../shared/constants'
-import { isValidUploadUrl } from './uploads'
+import { isValidUploadUrl, isValidUploadFileUrl } from './uploads'
 
 export const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
@@ -38,10 +45,22 @@ export const publishSchema = z.object({
   debateDays: z.number().int().min(1).max(90).optional(),
 })
 
+// An inline reference from a message to a deliberation element. For a
+// 'motion_excerpt', targetId is the motionId and excerptText holds the marked
+// passage (with the version it was taken from for anchoring).
+export const referenceInputSchema = z.object({
+  targetType: z.enum(['argument', 'question', 'answer', 'resource', 'post', 'motion_excerpt']),
+  targetId: z.string().uuid(),
+  excerptText: z.string().trim().min(1).max(500).optional(),
+  excerptVersion: z.number().int().min(0).optional(),
+})
+
 export const postCreateSchema = z.object({
   bodyHtml: z.string().min(1).max(50_000),
   // Optional parent for threaded replies; omitted/undefined = top-level post.
   parentId: z.string().uuid().optional(),
+  // Optional inline references to one or more deliberation elements.
+  references: z.array(referenceInputSchema).max(20).optional(),
 })
 
 // A ProseMirror document node (top-level). Structural allow-list validation of
@@ -117,6 +136,11 @@ export const postListQuerySchema = z.object({
   sort: z.enum(['recent', 'oldest']).optional(),
 })
 
+export const activityListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(25),
+  cursor: z.string().trim().min(1).max(80).optional(),
+})
+
 export const archiveSchema = z.object({
   archived: z.boolean(),
 })
@@ -154,15 +178,75 @@ export const motionExportQuerySchema = z.object({
   format: z.enum(['markdown']).optional(),
 })
 
-// Toggle an emoji reaction on a debate post (any Extended_Pictographic emoji).
-export const postReactionSchema = z.object({
-  emoji: z
-    .string()
-    .min(1)
-    .max(32)
-    .refine((value) => /\p{Extended_Pictographic}/u.test(value), {
-      message: 'Ungültiges Emoji.',
-    }),
+// ---------- Phase 6: deliberation ----------
+
+// Toggle a generic upvote on any deliberation element (no downvotes).
+export const upvoteToggleSchema = z.object({
+  targetType: z.enum(['argument', 'question', 'answer', 'resource', 'post']),
+  targetId: z.string().uuid(),
+})
+
+// Create/propose a pro or contra argument. Author-authored ones are accepted
+// immediately; member proposals enter the author's moderation queue.
+export const argumentCreateSchema = z.object({
+  stance: z.enum(ARGUMENT_STANCES),
+  title: z.string().trim().min(ARGUMENT_TITLE_MIN).max(ARGUMENT_TITLE_MAX),
+  bodyHtml: z.string().min(1).max(20_000),
+})
+
+// Author/moderator updates an argument's approval and/or deliberation status.
+export const argumentUpdateSchema = z
+  .object({
+    status: z.enum(['accepted', 'rejected']).optional(),
+    deliberationStatus: z.enum(['open', 'confirmed', 'refuted']).optional(),
+  })
+  .refine(
+    (value) =>
+      value.status !== undefined || value.deliberationStatus !== undefined,
+    'Mindestens ein Feld muss gesetzt sein.',
+  )
+
+// Ask a Q&A question (no approval needed).
+export const questionCreateSchema = z.object({
+  title: z.string().trim().min(QUESTION_TITLE_MIN).max(QUESTION_TITLE_MAX),
+  bodyHtml: z.string().max(20_000).optional().default(''),
+})
+
+// Answer a question.
+export const answerCreateSchema = z.object({
+  bodyHtml: z.string().min(1).max(20_000),
+})
+
+// Accept (or clear) the accepted answer of a question.
+export const questionUpdateSchema = z.object({
+  acceptedAnswerId: z.string().uuid().nullable(),
+})
+
+// Propose a resource: an external link or an uploaded file.
+export const resourceCreateSchema = z
+  .object({
+    title: z.string().trim().min(RESOURCE_TITLE_MIN).max(RESOURCE_TITLE_MAX),
+    description: z
+      .string()
+      .trim()
+      .max(500)
+      .transform((value) => (value.length === 0 ? null : value))
+      .nullable()
+      .optional(),
+    kind: z.enum(['link', 'file']),
+    url: z.string().trim().min(1).max(2000),
+  })
+  .refine(
+    (value) =>
+      value.kind === 'link'
+        ? /^https?:\/\/.+/i.test(value.url)
+        : isValidUploadFileUrl(value.url),
+    'Ungültige Ressourcen-URL.',
+  )
+
+// Author/moderator accepts or rejects a proposed resource.
+export const resourceUpdateSchema = z.object({
+  status: z.enum(['accepted', 'rejected']),
 })
 
 export const profileUpdateSchema = z

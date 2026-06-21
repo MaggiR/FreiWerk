@@ -1,13 +1,12 @@
 import { isSuggestChangesEnabled } from '@handlewithcare/prosemirror-suggest-changes'
 import type { EditorView } from '@tiptap/pm/view'
+import { textContainsEmoji } from './emoji'
 
 const EMOJI_INPUT_TYPES = new Set([
   'insertText',
   'insertReplacementText',
   'insertFromComposition',
 ])
-
-const HAS_EMOJI = /\p{Extended_Pictographic}/u
 
 /**
  * Windows' emoji panel (Win+.) commits via beforeinput, often as a short
@@ -23,7 +22,7 @@ export function handleEmojiPickerBeforeInput(
   if (!EMOJI_INPUT_TYPES.has(event.inputType)) return false
 
   const data = event.data
-  if (!data || !HAS_EMOJI.test(data)) return false
+  if (!data || !textContainsEmoji(data)) return false
 
   event.preventDefault()
   const { from, to } = view.state.selection

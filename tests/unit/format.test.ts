@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   approvalRatio,
+  formatAddedAt,
+  formatAuthorAffiliation,
   formatCompactCount,
   topicLabel,
   statusLabel,
@@ -87,5 +89,39 @@ describe('labels', () => {
     expect(statusIcon('ballot')).toBe('check-to-slot')
     expect(statusIcon('decided')).toBe('circle-check')
     expect(statusIcon('weird')).toBeNull()
+  })
+})
+
+describe('formatAddedAt', () => {
+  const now = new Date(2026, 5, 22, 12, 0)
+
+  it('uses relative labels within 7 days', () => {
+    const recent = new Date(2026, 5, 22, 11, 30)
+    expect(formatAddedAt(recent, now)).toBe('Hinzugefügt vor 30 Min.')
+  })
+
+  it('uses absolute date for entries 7 days or older', () => {
+    const older = new Date(2026, 5, 10, 8, 0)
+    expect(formatAddedAt(older, now)).toBe('Hinzugefügt am 10. Juni 2026')
+  })
+})
+
+describe('formatAuthorAffiliation', () => {
+  it('returns profile function when set', () => {
+    expect(formatAuthorAffiliation('Mitglied LFA Digitales', 'member')).toBe(
+      'Mitglied LFA Digitales',
+    )
+  })
+
+  it('falls back to platform role for moderators without fn', () => {
+    expect(formatAuthorAffiliation(null, 'moderator')).toBe('Moderator:in')
+  })
+
+  it('avoids duplicating role label when fn already contains it', () => {
+    expect(formatAuthorAffiliation('Administrator:in', 'admin')).toBe('Administrator:in')
+  })
+
+  it('returns null for members without fn', () => {
+    expect(formatAuthorAffiliation(null, 'member')).toBeNull()
   })
 })

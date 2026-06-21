@@ -190,19 +190,27 @@ flowchart TD
 - [x] Advanced chat functions: reply-to with arbitrary thread depth (`posts.parent_id`); moderator-removed posts become tombstones so replies survive
 - [x] Report function (`reports` table) + moderation tools (post soft-delete, user ban/unban) with mandatory reasoning; bans enforced in `requireAuth` and login
 - [x] Append-only audit log (`moderation_actions`) for moderative/administrative actions; never references ballots (vote secrecy). Role-gated `/moderation` UI (middleware `moderator`)
-- [ ] Code of conduct + automated escalation (out of scope for this phase)
 
-**Phase 6 — AI support**
+**Phase 6 — Deliberation**
+- Introduction of Deliberation Elements ("Elemente der Entscheidungsfindung"): Arguments (pro/con), Questions and answers, Änderungsvorschläge
+- Dedicated argument view per motion with argument status (unattested, attested, refuted, ...)
+- Dedicated Q&A view per motion with question status (open, partially answered, answered, ...)
+- Dedicated resources view per motion (ability to upload or suggest documents, save links etc.)
+- Upvotes (no downvotes) for deliberation elements and messages (remove Emoji reactions)
+- Separate activity feed showing a log of past changes (motion changed, argument proposed, )
+
+**Phase 7 — AI support**
 
 - Semantic full-text search + similar motion hints (vector search)
-- AI extraction pro/contra/questions + structured juxtaposition + rating
-- Summaries, changelog between versions, wording help, report/feedback for AI
+- AI suggestions for pro/contra/questions
+- Auto-generated changelog between motion versions
 
-**Phase 7 — Integration and notifications**
+**Phase 8 — Integration and notifications**
 
 - FDP member portal SSO (replace local auth)
 - Email notifications for debates, deadlines, votes
 - Committee roles (LFA, BFA, LaVo, BuVo) and their special rights
+- Code of conduct
 
 ### Motion lifecycle
 

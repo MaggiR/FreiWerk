@@ -78,6 +78,80 @@ export const moderationTargetTypeEnum = pgEnum('moderation_target_type', [
   'report',
 ])
 
+// ---------- Phase 6: deliberation ----------
+
+// Whether an argument speaks for or against the motion.
+export const argumentStanceEnum = pgEnum('argument_stance', ['pro', 'con'])
+
+// Moderation/approval status shared by author-moderated elements (arguments,
+// resources). Author-authored items start 'accepted'; member proposals 'proposed'.
+export const proposalStatusEnum = pgEnum('proposal_status', [
+  'proposed',
+  'accepted',
+  'rejected',
+])
+
+// Deliberation status of an accepted argument (its standing in the debate).
+export const argumentStatusEnum = pgEnum('argument_status', [
+  'open',
+  'confirmed',
+  'refuted',
+])
+
+// Lifecycle of a Q&A question.
+export const questionStatusEnum = pgEnum('question_status', [
+  'open',
+  'partially_answered',
+  'answered',
+])
+
+// A proposed resource is either an external link or an uploaded file.
+export const resourceKindEnum = pgEnum('resource_kind', ['link', 'file'])
+
+// Polymorphic target of a generic (single, contextless) upvote.
+export const upvoteTargetTypeEnum = pgEnum('upvote_target_type', [
+  'argument',
+  'question',
+  'answer',
+  'resource',
+  'post',
+])
+
+// What kind of element contains an inline reference (the referencing message).
+export const referenceSourceTypeEnum = pgEnum('reference_source_type', [
+  'post',
+  'answer',
+  'argument',
+])
+
+// What a reference points at. 'motion_excerpt' anchors a marked passage of the
+// motion text (targetId = motionId, plus excerptText/excerptVersion).
+export const referenceTargetTypeEnum = pgEnum('reference_target_type', [
+  'argument',
+  'question',
+  'answer',
+  'resource',
+  'post',
+  'motion_excerpt',
+])
+
+// Kinds of events recorded in a motion's deliberation activity feed.
+export const activityTypeEnum = pgEnum('activity_type', [
+  'motion_published',
+  'debate_started',
+  'motion_version',
+  'argument_proposed',
+  'argument_accepted',
+  'argument_rejected',
+  'argument_status_changed',
+  'question_asked',
+  'question_answered',
+  'answer_accepted',
+  'resource_proposed',
+  'resource_accepted',
+  'resource_rejected',
+])
+
 // ---------- Tables ----------
 
 export const divisions = pgTable('divisions', {
@@ -215,32 +289,6 @@ export const posts = pgTable(
   (table) => [
     index('posts_motion_idx').on(table.motionId),
     index('posts_parent_idx').on(table.parentId),
-  ],
-)
-
-// Emoji reactions on debate posts (one row per user per emoji per post).
-export const postReactions = pgTable(
-  'post_reactions',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    postId: uuid('post_id')
-      .notNull()
-      .references(() => posts.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    emoji: text('emoji').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    uniqueIndex('post_reactions_post_user_emoji_idx').on(
-      table.postId,
-      table.userId,
-      table.emoji,
-    ),
-    index('post_reactions_post_idx').on(table.postId),
   ],
 )
 
@@ -430,6 +478,209 @@ export const moderationActions = pgTable(
   ],
 )
 
+// ---------- Phase 6: deliberation tables ----------
+
+// Pro/contra arguments authored or proposed by members. Author-authored ones are
+// immediately 'accepted'; member proposals start 'proposed' and the motion author
+// (or a moderator) accepts/rejects them. deliberationStatus tracks their standing.
+export const motionArguments = pgTable(
+  'arguments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    stance: argumentStanceEnum('stance').notNull(),
+    title: text('title').notNull(),
+    // Sanitized TipTap HTML output.
+    bodyHtml: text('body_html').notNull(),
+    status: proposalStatusEnum('status').notNull().default('proposed'),
+    deliberationStatus: argumentStatusEnum('deliberation_status')
+      .notNull()
+      .default('open'),
+    reviewedById: uuid('reviewed_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('arguments_motion_idx').on(table.motionId),
+    index('arguments_author_idx').on(table.authorId),
+  ],
+)
+
+// Q&A questions under a motion. Questions need no approval. acceptedAnswerId marks
+// the answer the asker/author accepted (Stack-Overflow style).
+export const questions = pgTable(
+  'questions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    // Sanitized TipTap HTML output.
+    bodyHtml: text('body_html').notNull(),
+    status: questionStatusEnum('status').notNull().default('open'),
+    acceptedAnswerId: uuid('accepted_answer_id'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('questions_motion_idx').on(table.motionId)],
+)
+
+// Answers to Q&A questions.
+export const answers = pgTable(
+  'answers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'cascade' }),
+    // Denormalized for motion-scoped queries (upvotes, activity, references).
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Sanitized TipTap HTML output.
+    bodyHtml: text('body_html').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('answers_question_idx').on(table.questionId),
+    index('answers_motion_idx').on(table.motionId),
+  ],
+)
+
+// Proposed resources (links/files) backing a motion. Author-moderated like arguments.
+export const resources = pgTable(
+  'resources',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    kind: resourceKindEnum('kind').notNull(),
+    // External URL (kind=link) or uploaded file URL under /uploads/ (kind=file).
+    url: text('url').notNull(),
+    status: proposalStatusEnum('status').notNull().default('proposed'),
+    reviewedById: uuid('reviewed_by_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('resources_motion_idx').on(table.motionId)],
+)
+
+// Generic single upvote (no downvotes). Polymorphic: targetId is a loose
+// reference to the upvoted element identified by targetType. One row per user.
+export const elementUpvotes = pgTable(
+  'element_upvotes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    targetType: upvoteTargetTypeEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('element_upvotes_target_user_idx').on(
+      table.targetType,
+      table.targetId,
+      table.userId,
+    ),
+    index('element_upvotes_target_idx').on(table.targetType, table.targetId),
+  ],
+)
+
+// Inline references from a message (post/answer/argument) to one or more
+// deliberation elements. Drives multi-reference "Textbausteine" and implicit,
+// bidirectionally traversable threads. For 'motion_excerpt' targets, targetId is
+// the motionId and the marked passage is kept in excerptText/excerptVersion.
+export const elementReferences = pgTable(
+  'element_references',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    sourceType: referenceSourceTypeEnum('source_type').notNull(),
+    sourceId: uuid('source_id').notNull(),
+    targetType: referenceTargetTypeEnum('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    // Only set for 'motion_excerpt': the marked passage and the version it came from.
+    excerptText: text('excerpt_text'),
+    excerptVersion: integer('excerpt_version'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('element_references_source_idx').on(table.sourceType, table.sourceId),
+    index('element_references_target_idx').on(table.targetType, table.targetId),
+    index('element_references_motion_idx').on(table.motionId),
+  ],
+)
+
+// Append-only activity feed per motion: a human-readable log of deliberation and
+// motion changes (argument proposed/accepted, question asked/answered, …).
+export const activityEvents = pgTable(
+  'activity_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    motionId: uuid('motion_id')
+      .notNull()
+      .references(() => motions.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    type: activityTypeEnum('type').notNull(),
+    // Loose reference to the element the event is about (no FK; element may be gone).
+    targetType: text('target_type'),
+    targetId: uuid('target_id'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('activity_events_motion_idx').on(table.motionId, table.createdAt)],
+)
+
 // ---------- Relations ----------
 
 export const divisionsRelations = relations(divisions, ({ one, many }) => ({
@@ -468,6 +719,10 @@ export const motionsRelations = relations(motions, ({ one, many }) => ({
   workingDoc: one(motionWorkingDocs),
   ballots: many(ballots),
   ballotParticipants: many(ballotParticipants),
+  arguments: many(motionArguments),
+  questions: many(questions),
+  resources: many(resources),
+  activityEvents: many(activityEvents),
 }))
 
 export const ballotsRelations = relations(ballots, ({ one }) => ({
@@ -517,16 +772,84 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
     relationName: 'post_parent',
   }),
   replies: many(posts, { relationName: 'post_parent' }),
-  reactions: many(postReactions),
 }))
 
-export const postReactionsRelations = relations(postReactions, ({ one }) => ({
-  post: one(posts, {
-    fields: [postReactions.postId],
-    references: [posts.id],
+export const motionArgumentsRelations = relations(
+  motionArguments,
+  ({ one }) => ({
+    motion: one(motions, {
+      fields: [motionArguments.motionId],
+      references: [motions.id],
+    }),
+    author: one(users, {
+      fields: [motionArguments.authorId],
+      references: [users.id],
+    }),
   }),
+)
+
+export const questionsRelations = relations(questions, ({ one, many }) => ({
+  motion: one(motions, {
+    fields: [questions.motionId],
+    references: [motions.id],
+  }),
+  author: one(users, {
+    fields: [questions.authorId],
+    references: [users.id],
+  }),
+  answers: many(answers),
+}))
+
+export const answersRelations = relations(answers, ({ one }) => ({
+  question: one(questions, {
+    fields: [answers.questionId],
+    references: [questions.id],
+  }),
+  motion: one(motions, {
+    fields: [answers.motionId],
+    references: [motions.id],
+  }),
+  author: one(users, {
+    fields: [answers.authorId],
+    references: [users.id],
+  }),
+}))
+
+export const resourcesRelations = relations(resources, ({ one }) => ({
+  motion: one(motions, {
+    fields: [resources.motionId],
+    references: [motions.id],
+  }),
+  author: one(users, {
+    fields: [resources.authorId],
+    references: [users.id],
+  }),
+}))
+
+export const elementUpvotesRelations = relations(elementUpvotes, ({ one }) => ({
   user: one(users, {
-    fields: [postReactions.userId],
+    fields: [elementUpvotes.userId],
+    references: [users.id],
+  }),
+}))
+
+export const elementReferencesRelations = relations(
+  elementReferences,
+  ({ one }) => ({
+    motion: one(motions, {
+      fields: [elementReferences.motionId],
+      references: [motions.id],
+    }),
+  }),
+)
+
+export const activityEventsRelations = relations(activityEvents, ({ one }) => ({
+  motion: one(motions, {
+    fields: [activityEvents.motionId],
+    references: [motions.id],
+  }),
+  actor: one(users, {
+    fields: [activityEvents.actorId],
     references: [users.id],
   }),
 }))
@@ -581,8 +904,6 @@ export type Division = typeof divisions.$inferSelect
 export type Motion = typeof motions.$inferSelect
 export type NewMotion = typeof motions.$inferInsert
 export type Post = typeof posts.$inferSelect
-export type PostReaction = typeof postReactions.$inferSelect
-export type NewPostReaction = typeof postReactions.$inferInsert
 export type MoodVote = typeof moodVotes.$inferSelect
 export type MotionWatch = typeof motionWatches.$inferSelect
 export type MotionVersion = typeof motionVersions.$inferSelect
@@ -608,3 +929,29 @@ export type ModerationActionType =
   (typeof moderationActionEnum.enumValues)[number]
 export type ModerationTargetType =
   (typeof moderationTargetTypeEnum.enumValues)[number]
+
+export type MotionArgument = typeof motionArguments.$inferSelect
+export type NewMotionArgument = typeof motionArguments.$inferInsert
+export type Question = typeof questions.$inferSelect
+export type NewQuestion = typeof questions.$inferInsert
+export type Answer = typeof answers.$inferSelect
+export type NewAnswer = typeof answers.$inferInsert
+export type Resource = typeof resources.$inferSelect
+export type NewResource = typeof resources.$inferInsert
+export type ElementUpvote = typeof elementUpvotes.$inferSelect
+export type NewElementUpvote = typeof elementUpvotes.$inferInsert
+export type ElementReference = typeof elementReferences.$inferSelect
+export type NewElementReference = typeof elementReferences.$inferInsert
+export type ActivityEvent = typeof activityEvents.$inferSelect
+export type NewActivityEvent = typeof activityEvents.$inferInsert
+export type ArgumentStance = (typeof argumentStanceEnum.enumValues)[number]
+export type ProposalStatus = (typeof proposalStatusEnum.enumValues)[number]
+export type ArgumentStatus = (typeof argumentStatusEnum.enumValues)[number]
+export type QuestionStatus = (typeof questionStatusEnum.enumValues)[number]
+export type ResourceKind = (typeof resourceKindEnum.enumValues)[number]
+export type UpvoteTargetType = (typeof upvoteTargetTypeEnum.enumValues)[number]
+export type ReferenceSourceType =
+  (typeof referenceSourceTypeEnum.enumValues)[number]
+export type ReferenceTargetType =
+  (typeof referenceTargetTypeEnum.enumValues)[number]
+export type ActivityType = (typeof activityTypeEnum.enumValues)[number]

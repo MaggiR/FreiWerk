@@ -73,6 +73,8 @@ const reviewPending = ref<SuggestionItem[]>([])
 const editSessionKey = ref(0)
 const sessionBaseline = ref<string | null>(null)
 const sessionReviewCount = ref(0)
+const sessionBaselineOpenCount = ref(0)
+const discardConfirmOpen = ref(false)
 
 function captureSessionBaseline() {
   const ed = editorRef.value
@@ -90,6 +92,24 @@ function headerChanged(): boolean {
   )
 }
 
+function hasUnsavedChanges(): boolean {
+  if (headerChanged()) return true
+  if (reviewPending.value.length !== sessionReviewCount.value) return true
+
+  const json = editorRef.value?.getJSON()
+  if (!json) return false
+
+  if (sessionBaseline.value !== null) {
+    return JSON.stringify(json) !== sessionBaseline.value
+  }
+
+  if (mode.value === 'propose' || mode.value === 'edit') {
+    return countOpenSuggestionsInJson(json) > sessionBaselineOpenCount.value
+  }
+
+  return false
+}
+
 function validateHeader(): string | null {
   if (props.titleDraft === undefined) return null
   const title = props.titleDraft.trim()
@@ -105,15 +125,6 @@ function validateHeader(): string | null {
     return 'Die Kurzbeschreibung darf höchstens 200 Zeichen haben.'
   }
   return null
-}
-
-function hasUnsavedChanges(): boolean {
-  if (headerChanged()) return true
-  if (reviewPending.value.length !== sessionReviewCount.value) return true
-  if (sessionBaseline.value === null) return false
-  const json = editorRef.value?.getJSON()
-  const current = json ? JSON.stringify(json) : null
-  return current !== sessionBaseline.value
 }
 
 async function reloadSuggestions(): Promise<MotionSuggestionsResponse> {
@@ -134,6 +145,9 @@ async function beginSession(targetMode: 'propose' | 'edit' | 'review') {
     reviewPending.value = []
   }
   sessionReviewCount.value = reviewPending.value.length
+  sessionBaselineOpenCount.value = fresh.docJson
+    ? countOpenSuggestionsInJson(fresh.docJson)
+    : 0
   sessionBaseline.value = null
   editSessionKey.value += 1
   mode.value = targetMode
@@ -190,18 +204,36 @@ function startEdit() {
   void beginSession('edit')
 }
 
-async function cancel() {
+function cancel() {
+  if (mode.value === 'idle') return
   if (hasUnsavedChanges()) {
-    const confirmed = confirm(
-      'Alle Änderungen werden verworfen. Möchtest du wirklich abbrechen?',
-    )
-    if (!confirmed) return
+    discardConfirmOpen.value = true
+    return
   }
   mode.value = 'idle'
+}
+
+function confirmDiscard() {
+  discardConfirmOpen.value = false
+  mode.value = 'idle'
+}
+
+function onDiscardKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && discardConfirmOpen.value) {
+    discardConfirmOpen.value = false
+  }
+}
+
+watch(mode, async (current, previous) => {
+  if (current !== 'idle' || !previous || previous === 'idle') return
+  discardConfirmOpen.value = false
   reviewPending.value = []
   sessionBaseline.value = null
   await reloadSuggestions()
-}
+})
+
+onMounted(() => document.addEventListener('keydown', onDiscardKeydown))
+onUnmounted(() => document.removeEventListener('keydown', onDiscardKeydown))
 
 async function handleError(err: unknown) {
   const status = (err as { statusCode?: number; response?: { status?: number } })
@@ -388,6 +420,35 @@ defineExpose({ startReview, startEdit, cancel, submitProposal, saveReview, accep
       </p>
     </div>
     </Transition>
+
+    <Teleport to="body">
+      <div
+        v-if="discardConfirmOpen"
+        class="suggestions__discard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="suggestions-discard-title"
+        @click.self="discardConfirmOpen = false"
+      >
+        <FwCard class="suggestions__discard-card" pad>
+          <h3 id="suggestions-discard-title" class="suggestions__discard-title">
+            Änderungen verwerfen?
+          </h3>
+          <p class="suggestions__discard-lead">
+            Deine nicht gespeicherten Änderungen gehen verloren. Möchtest du wirklich
+            abbrechen?
+          </p>
+          <div class="suggestions__discard-actions">
+            <FwButton type="button" variant="ghost" @click="discardConfirmOpen = false">
+              Weiter bearbeiten
+            </FwButton>
+            <FwButton type="button" variant="danger" @click="confirmDiscard">
+              Verwerfen
+            </FwButton>
+          </div>
+        </FwCard>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -396,14 +457,20 @@ defineExpose({ startReview, startEdit, cancel, submitProposal, saveReview, accep
   margin: var(--space-3) 0 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+  line-height: 1.5;
 }
 .suggestions__lead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
   margin: var(--space-3) 0 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;
+  line-height: 1.5;
+}
+.suggestions__lead svg {
+  flex-shrink: 0;
+  margin-top: 0.15em;
 }
 .suggestions__editor {
   margin-top: var(--space-4);
@@ -424,5 +491,41 @@ defineExpose({ startReview, startEdit, cancel, submitProposal, saveReview, accep
   .swap-leave-active {
     transition: none;
   }
+}
+
+.suggestions__discard {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(3, 45, 103, 0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.dark .suggestions__discard {
+  background: rgba(0, 0, 0, 0.55);
+}
+.suggestions__discard-card {
+  width: 100%;
+  max-width: 440px;
+}
+.suggestions__discard-title {
+  margin: 0 0 var(--space-2);
+}
+.suggestions__discard-lead {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.suggestions__discard-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 </style>

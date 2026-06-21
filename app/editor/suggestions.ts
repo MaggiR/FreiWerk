@@ -1,6 +1,8 @@
 import { Extension, Mark, mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/vue-3'
-import { EditorState } from '@tiptap/pm/state'
+import { EditorState, Plugin, PluginKey } from '@tiptap/pm/state'
+import type { Mark as PMMark, MarkType } from '@tiptap/pm/model'
+import type { ResolvedPos } from '@tiptap/pm/model'
 import { DOMSerializer } from '@tiptap/pm/model'
 import type { EditorView } from '@tiptap/pm/view'
 import type { Transaction } from '@tiptap/pm/state'
@@ -15,6 +17,7 @@ import {
   revertSuggestion,
   revertSuggestions,
 } from '@handlewithcare/prosemirror-suggest-changes'
+import { textContainsEmoji } from './emoji'
 
 // Suggestion mode = a Google-Docs-style review layer on top of the regular TipTap
 // editor. It is powered by @handlewithcare/prosemirror-suggest-changes, which
@@ -150,11 +153,68 @@ export function installSuggestChanges(editor: Editor) {
   patchedViews.add(view)
 }
 
+function adjacentInsertionMark(
+  $pos: ResolvedPos,
+  insertion: MarkType,
+): PMMark | null {
+  const before = $pos.nodeBefore
+  const after = $pos.nodeAfter
+  return (
+    before?.marks.find((mark) => mark.type === insertion) ??
+    after?.marks.find((mark) => mark.type === insertion) ??
+    null
+  )
+}
+
+/** Emoji picker inserts can land in unmarked text nodes beside marked insertions. */
+function reconcileEmojiInsertionMarks(state: EditorState): Transaction | null {
+  if (!isSuggestChangesEnabled(state)) return null
+
+  const insertion = state.schema.marks.insertion
+  const deletion = state.schema.marks.deletion
+  if (!insertion) return null
+
+  const tr = state.tr
+  let changed = false
+
+  state.doc.descendants((node, pos) => {
+    if (!node.isText || !node.text || !textContainsEmoji(node.text)) return
+    if (insertion.isInSet(node.marks)) return
+    if (deletion?.isInSet(node.marks)) return
+
+    const neighborMark = adjacentInsertionMark(state.doc.resolve(pos), insertion)
+    if (!neighborMark) return
+
+    tr.addMark(
+      pos,
+      pos + node.nodeSize,
+      insertion.create({ ...neighborMark.attrs }),
+    )
+    changed = true
+  })
+
+  if (!changed) return null
+  tr.setMeta(suggestChangesKey, { skip: true })
+  tr.setMeta('addToHistory', false)
+  return tr
+}
+
+const emojiInsertionMarksKey = new PluginKey('emojiInsertionMarks')
+
 export const SuggestChanges = Extension.create({
   name: 'suggestChanges',
 
   addProseMirrorPlugins() {
-    return [suggestChanges()]
+    return [
+      suggestChanges(),
+      new Plugin({
+        key: emojiInsertionMarksKey,
+        appendTransaction(transactions, _oldState, newState) {
+          if (!transactions.some((tr) => tr.docChanged)) return null
+          return reconcileEmojiInsertionMarks(newState)
+        },
+      }),
+    ]
   },
 
   onCreate() {

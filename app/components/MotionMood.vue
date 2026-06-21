@@ -117,6 +117,8 @@ async function onVote(choice: MoodChoiceValue) {
 
 <style scoped>
 .mood {
+  container-type: inline-size;
+  container-name: mood;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -130,6 +132,7 @@ async function onVote(choice: MoodChoiceValue) {
 .mood__login {
   color: var(--color-text-muted);
 }
+
 .mood__charts {
   display: grid;
   grid-template-columns: 1fr;
@@ -158,8 +161,10 @@ async function onVote(choice: MoodChoiceValue) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 1rem;
+  font-size: clamp(0.88rem, 2.5vw, 1rem);
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .mood__chart-head-spacer {
@@ -191,10 +196,10 @@ async function onVote(choice: MoodChoiceValue) {
 }
 
 .chart-placeholder {
-  height: 260px;
+  height: clamp(200px, 52vw, 260px);
 }
 
-@media (min-width: 860px) {
+@container mood (min-width: 560px) {
   .mood__charts {
     grid-template-columns: 1fr 1fr;
   }

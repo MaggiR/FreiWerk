@@ -1,8 +1,9 @@
 import { z } from 'zod'
-import { asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { posts, postReactions, users } from '../../../database/schema'
-import { aggregatePostReactions } from '../../../utils/postReactions'
+import { posts, users, elementReferences } from '../../../database/schema'
+import { getUpvoteSummaries } from '../../../utils/upvotes'
+import { getReferencePreviewsForSources } from '../../../utils/references'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
@@ -21,6 +22,7 @@ export default defineEventHandler(async (event) => {
       authorId: posts.authorId,
       authorName: users.displayName,
       authorFn: users.fn,
+      authorRole: users.role,
       authorAvatarUrl: users.avatarUrl,
     })
     .from(posts)
@@ -29,21 +31,32 @@ export default defineEventHandler(async (event) => {
     .orderBy(asc(posts.createdAt))
 
   const postIds = rows.map((r) => r.id)
-  let reactionRows: { postId: string; emoji: string; userId: string }[] = []
+
+  const upvotes = await getUpvoteSummaries('post', postIds, currentUserId)
+
+  // Outgoing references (rendered as inline blocks on each message).
+  const referencesByPost = await getReferencePreviewsForSources('post', postIds)
+
+  // Inbound references whose target is a post in this motion → implicit threads.
+  const inboundCounts = new Map<string, number>()
   if (postIds.length > 0) {
-    reactionRows = await db
-      .select({
-        postId: postReactions.postId,
-        emoji: postReactions.emoji,
-        userId: postReactions.userId,
-      })
-      .from(postReactions)
-      .where(inArray(postReactions.postId, postIds))
+    const inbound = await db
+      .select({ targetId: elementReferences.targetId })
+      .from(elementReferences)
+      .where(
+        and(
+          eq(elementReferences.targetType, 'post'),
+          inArray(elementReferences.targetId, postIds),
+        ),
+      )
+    for (const row of inbound) {
+      inboundCounts.set(row.targetId, (inboundCounts.get(row.targetId) ?? 0) + 1)
+    }
   }
-  const reactionsByPost = aggregatePostReactions(reactionRows, currentUserId)
 
   const sanitized = rows.map((row) => {
     const deleted = Boolean(row.deletedAt)
+    const upvote = upvotes.get(row.id)
     return {
       id: row.id,
       parentId: row.parentId,
@@ -53,8 +66,12 @@ export default defineEventHandler(async (event) => {
       authorId: deleted ? null : row.authorId,
       authorName: deleted ? null : row.authorName,
       authorFn: deleted ? null : row.authorFn,
+      authorRole: deleted ? null : row.authorRole,
       authorAvatarUrl: deleted ? null : row.authorAvatarUrl,
-      reactions: deleted ? [] : (reactionsByPost.get(row.id) ?? []),
+      upvoteCount: deleted ? 0 : (upvote?.count ?? 0),
+      upvotedByMe: deleted ? false : (upvote?.upvotedByMe ?? false),
+      references: referencesByPost.get(row.id) ?? [],
+      referencedByCount: inboundCounts.get(row.id) ?? 0,
     }
   })
 

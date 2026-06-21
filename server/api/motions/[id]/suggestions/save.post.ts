@@ -5,6 +5,7 @@ import { motions, motionVersions, motionWorkingDocs } from '../../../../database
 import { requireAuth } from '../../../../utils/auth'
 import { suggestionSaveSchema } from '../../../../utils/validation'
 import { sanitizeRichText } from '../../../../utils/sanitize'
+import { recordActivity } from '../../../../utils/activity'
 import {
   validateWorkingDoc,
   countOpenSuggestions,
@@ -98,6 +99,15 @@ export default defineEventHandler(async (event) => {
       })
     })
 
+    await recordActivity({
+      motionId: id,
+      actorId: user.id,
+      type: 'motion_version',
+      targetType: 'motion',
+      targetId: id,
+      metadata: { version: newVersion },
+    })
+
     return {
       versionCreated: true,
       currentVersion: newVersion,
@@ -189,6 +199,17 @@ export default defineEventHandler(async (event) => {
       .where(eq(motionWorkingDocs.motionId, id))
     return { newVersion, revision: 0 }
   })
+
+  if (contentChanged || metadataChanged) {
+    await recordActivity({
+      motionId: id,
+      actorId: user.id,
+      type: 'motion_version',
+      targetType: 'motion',
+      targetId: id,
+      metadata: { version: result.newVersion },
+    })
+  }
 
   return {
     versionCreated: contentChanged || metadataChanged,

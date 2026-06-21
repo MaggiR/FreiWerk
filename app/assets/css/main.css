@@ -122,6 +122,10 @@ select:focus {
   margin-top: var(--space-5);
 }
 
+.rich-text > :is(h1, h2, h3):first-child {
+  margin-top: 0;
+}
+
 .rich-text--collapsible .rich-text__section {
   margin: var(--space-3) 0 0;
 }
@@ -192,7 +196,17 @@ select:focus {
 .rich-text ul,
 .rich-text ol {
   padding-left: var(--space-5);
+  margin: var(--space-3) 0;
 }
+
+.rich-text > :is(ul, ol):first-child {
+  margin-top: 0;
+}
+
+.rich-text > :is(ul, ol):last-child {
+  margin-bottom: 0;
+}
+
 .rich-text blockquote {
   margin: var(--space-4) 0;
   padding: var(--space-2) var(--space-4);
@@ -227,20 +241,43 @@ select:focus {
 
 /* Suggestion-mode marks (Google-Docs-style change tracking) */
 .rich-text ins[data-id] {
-  text-decoration: none;
+  position: relative;
+  z-index: 0;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--mood-approve) 85%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none;
   color: var(--mood-approve);
-  background: color-mix(in srgb, var(--mood-approve) 12%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
+}
+.rich-text ins[data-id]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--mood-approve) 32%, transparent);
+  z-index: -1;
 }
 .rich-text del[data-id] {
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--mood-reject) 75%, transparent);
-  background: color-mix(in srgb, var(--mood-reject) 12%, transparent);
-  color: color-mix(in srgb, var(--color-text) 80%, var(--mood-reject));
+  text-decoration-color: var(--mood-reject);
+  text-decoration-thickness: 1.5px;
+  background: color-mix(in srgb, var(--mood-reject) 32%, transparent);
+  color: color-mix(in srgb, var(--color-text) 55%, var(--mood-reject));
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
 }
 .rich-text [data-type='modification'] {
-  background: color-mix(in srgb, var(--color-tertiary) 14%, transparent);
+  background: color-mix(in srgb, var(--color-tertiary) 32%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
 }
 

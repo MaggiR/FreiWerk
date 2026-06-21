@@ -4,6 +4,7 @@ import { db } from '../../../database/client'
 import { motions, motionVersions } from '../../../database/schema'
 import { publishSchema } from '../../../utils/validation'
 import { requireAuth } from '../../../utils/auth'
+import { recordActivity } from '../../../utils/activity'
 import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
@@ -64,6 +65,22 @@ export default defineEventHandler(async (event) => {
     })
 
     return row
+  })
+
+  await recordActivity({
+    motionId: id,
+    actorId: user.id,
+    type: 'motion_published',
+    targetType: 'motion',
+    targetId: id,
+  })
+
+  await recordActivity({
+    motionId: id,
+    actorId: user.id,
+    type: 'debate_started',
+    targetType: 'motion',
+    targetId: id,
   })
 
   return { motion: updated }

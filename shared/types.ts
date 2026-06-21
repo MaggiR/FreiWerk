@@ -2,6 +2,13 @@ import type {
   MotionStatus,
   MotionOutcome,
   UserRole,
+  ArgumentStance,
+  ProposalStatus,
+  ArgumentStatus,
+  QuestionStatus,
+  ResourceKind,
+  ReferenceTargetType,
+  ActivityType,
 } from '../server/database/schema'
 
 export interface UserProfile {
@@ -67,6 +74,7 @@ export interface SuggestionItem {
   type: 'insertion' | 'deletion' | 'modification'
   authorId: string | null
   authorName: string | null
+  authorAvatarUrl?: string | null
   /** ISO timestamp stamped when the suggestion was submitted. */
   createdAt: string | null
   /** Short plain-text preview of the affected content. */
@@ -82,4 +90,110 @@ export interface MotionSuggestionsResponse {
   revision: number
   suggestions: SuggestionItem[]
   openCount: number
+}
+
+// ---------- Phase 6: deliberation ----------
+
+export interface ArgumentItem {
+  id: string
+  stance: ArgumentStance
+  title: string
+  bodyHtml: string
+  status: ProposalStatus
+  deliberationStatus: ArgumentStatus
+  authorId: string | null
+  authorName: string | null
+  createdAt: string
+  upvoteCount: number
+  upvotedByMe: boolean
+  /** True when the current user authored this argument. */
+  isMine: boolean
+}
+
+export interface ArgumentListResponse {
+  arguments: ArgumentItem[]
+  /** Whether the current user may moderate (accept/reject/status) arguments. */
+  canModerate: boolean
+}
+
+export interface AnswerItem {
+  id: string
+  bodyHtml: string
+  authorId: string | null
+  authorName: string | null
+  authorAvatarUrl: string | null
+  createdAt: string
+  upvoteCount: number
+  upvotedByMe: boolean
+  isAccepted: boolean
+  isMine: boolean
+}
+
+export interface QuestionItem {
+  id: string
+  title: string
+  bodyHtml: string
+  status: QuestionStatus
+  authorId: string | null
+  authorName: string | null
+  authorAvatarUrl: string | null
+  createdAt: string
+  upvoteCount: number
+  upvotedByMe: boolean
+  acceptedAnswerId: string | null
+  isMine: boolean
+  /** True when the current user may accept an answer (asker or moderator). */
+  canAccept: boolean
+  answers: AnswerItem[]
+}
+
+export interface QuestionListResponse {
+  questions: QuestionItem[]
+}
+
+export interface ResourceItem {
+  id: string
+  title: string
+  description: string | null
+  kind: ResourceKind
+  url: string
+  status: ProposalStatus
+  authorId: string | null
+  authorName: string | null
+  createdAt: string
+  upvoteCount: number
+  upvotedByMe: boolean
+  isMine: boolean
+}
+
+export interface ResourceListResponse {
+  resources: ResourceItem[]
+  canModerate: boolean
+}
+
+export interface ActivityItem {
+  id: string
+  type: ActivityType
+  actorId: string | null
+  actorName: string | null
+  targetType: string | null
+  targetId: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface ActivityListResponse {
+  events: ActivityItem[]
+  nextCursor: string | null
+}
+
+/** Resolved preview of an inline reference target for rendering as a text block. */
+export interface ReferencePreview {
+  id: string
+  targetType: ReferenceTargetType
+  targetId: string
+  /** Short label/snippet shown in the message (e.g. argument title, excerpt). */
+  label: string
+  /** True if the referenced element still exists / is resolvable. */
+  available: boolean
 }

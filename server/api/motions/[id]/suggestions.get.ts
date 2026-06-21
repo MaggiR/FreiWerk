@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { motionWorkingDocs } from '../../../database/schema'
+import { motionWorkingDocs, users } from '../../../database/schema'
 import { countOpenSuggestions, extractSuggestions } from '../../../utils/suggestions'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
@@ -53,11 +53,35 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const suggestions = extractSuggestions(workingDoc.docJson)
+  const authorIds = [
+    ...new Set(
+      suggestions
+        .map((item) => item.authorId)
+        .filter((authorId): authorId is string => authorId != null),
+    ),
+  ]
+  const avatarByUserId = new Map<string, string | null>()
+  if (authorIds.length > 0) {
+    const rows = await db
+      .select({ id: users.id, avatarUrl: users.avatarUrl })
+      .from(users)
+      .where(inArray(users.id, authorIds))
+    for (const row of rows) {
+      avatarByUserId.set(row.id, row.avatarUrl)
+    }
+  }
+
   return {
     docJson: workingDoc.docJson,
     baseVersion: workingDoc.baseVersion,
     revision: workingDoc.revision,
-    suggestions: extractSuggestions(workingDoc.docJson),
+    suggestions: suggestions.map((item) => ({
+      ...item,
+      authorAvatarUrl: item.authorId
+        ? avatarByUserId.get(item.authorId) ?? null
+        : null,
+    })),
     openCount,
   }
 })

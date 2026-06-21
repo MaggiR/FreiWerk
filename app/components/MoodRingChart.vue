@@ -85,7 +85,12 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
   plugins: {
     legend: {
       position: 'bottom',
-      labels: { color: legendColor.value, padding: 14 },
+      labels: {
+        color: legendColor.value,
+        padding: 10,
+        boxWidth: 12,
+        font: { size: 11 },
+      },
     },
     tooltip: {
       enabled: false,
@@ -133,7 +138,8 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
 <style scoped>
 .ring {
   position: relative;
-  height: 260px;
+  height: clamp(200px, 52vw, 260px);
+  min-width: 0;
 }
 
 .ring__center-value {
@@ -142,7 +148,7 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
   left: 50%;
   z-index: 2;
   transform: translate(-50%, -50%);
-  font-size: 2rem;
+  font-size: clamp(1.35rem, 5vw, 2rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-accent);
@@ -152,11 +158,11 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
 
 .ring__center-label {
   position: absolute;
-  top: calc(40% + 1.35rem);
+  top: calc(40% + 1.1rem);
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--color-text-muted);
   line-height: 1.2;
   pointer-events: none;

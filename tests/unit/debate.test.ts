@@ -16,8 +16,10 @@ function post(partial: Partial<DebatePost> & { id: string }): DebatePost {
     authorId: partial.authorId ?? 'u1',
     authorName: partial.authorName ?? 'Demo',
     authorFn: partial.authorFn ?? null,
+    authorRole: partial.authorRole ?? null,
     authorAvatarUrl: partial.authorAvatarUrl ?? null,
-    reactions: partial.reactions ?? [],
+    upvoteCount: partial.upvoteCount ?? 0,
+    upvotedByMe: partial.upvotedByMe ?? false,
   }
 }
 

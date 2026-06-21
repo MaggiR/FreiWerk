@@ -2,9 +2,11 @@ import {
   TOPIC_LABELS,
   MOTION_STATUS_LABELS,
   MOTION_OUTCOME_LABELS,
+  ROLE_LABELS,
   type Topic,
   type MotionOutcomeValue,
 } from '#shared/constants'
+import { formatSuggestionTimestamp } from './chatDates'
 
 export function topicLabel(topic: string): string {
   return TOPIC_LABELS[topic as Topic] ?? topic
@@ -51,6 +53,24 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   }).format(date)
 }
 
+const MS_DAY = 86_400_000
+
+/**
+ * "Hinzugefügt …" label for resources: relative within 7 days, absolute date otherwise.
+ */
+export function formatAddedAt(value: string | Date, now = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const calendarDays = Math.round((today.getTime() - target.getTime()) / MS_DAY)
+
+  if (calendarDays >= 7 || now.getTime() - date.getTime() < 0) {
+    return `Hinzugefügt am ${formatDate(date)}`
+  }
+
+  return `Hinzugefügt ${formatSuggestionTimestamp(value, now)}`
+}
+
 /**
  * Human-friendly remaining time until a deadline, in German.
  */
@@ -94,6 +114,34 @@ export function formatCompactCount(value: number): string {
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength).trimEnd()}…`
+}
+
+/**
+ * Profile function (`fn`) with platform role as fallback for moderators/admins.
+ * Avoids duplicating the role label when it is already part of `fn`.
+ */
+export function formatAuthorAffiliation(
+  fn: string | null | undefined,
+  role: string | null | undefined,
+): string | null {
+  const parts: string[] = []
+  const trimmedFn = fn?.trim()
+  if (trimmedFn) {
+    parts.push(trimmedFn)
+  }
+
+  if (role && role !== 'member') {
+    const roleLabel = ROLE_LABELS[role]
+    if (roleLabel) {
+      const fnLower = trimmedFn?.toLowerCase() ?? ''
+      const roleToken = roleLabel.toLowerCase().replace(':in', '')
+      if (!fnLower.includes(roleToken)) {
+        parts.push(roleLabel)
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 export interface HighlightPart {

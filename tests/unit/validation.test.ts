@@ -16,7 +16,14 @@ import {
   reportResolveSchema,
   postModerationDeleteSchema,
   userBanSchema,
-  postReactionSchema,
+  upvoteToggleSchema,
+  argumentCreateSchema,
+  argumentUpdateSchema,
+  questionCreateSchema,
+  answerCreateSchema,
+  questionUpdateSchema,
+  resourceCreateSchema,
+  resourceUpdateSchema,
 } from '../../server/utils/validation'
 
 describe('registerSchema', () => {
@@ -265,6 +272,134 @@ describe('postCreateSchema', () => {
     expect(() => postCreateSchema.parse({ bodyHtml: '<p>x</p>', parentId: 'nope' })).toThrow()
     expect(() => postCreateSchema.parse({ bodyHtml: '' })).toThrow()
   })
+
+  it('accepts inline references including a motion excerpt', () => {
+    const parsed = postCreateSchema.parse({
+      bodyHtml: '<p>Hi</p>',
+      references: [
+        { targetType: 'argument', targetId: uuid },
+        { targetType: 'motion_excerpt', targetId: uuid, excerptText: 'Zitat', excerptVersion: 2 },
+      ],
+    })
+    expect(parsed.references).toHaveLength(2)
+  })
+
+  it('rejects references with an unknown target type', () => {
+    expect(() =>
+      postCreateSchema.parse({
+        bodyHtml: '<p>Hi</p>',
+        references: [{ targetType: 'resourceX', targetId: uuid }],
+      }),
+    ).toThrow()
+  })
+})
+
+describe('argumentCreateSchema', () => {
+  it('accepts a pro/con argument with title and body', () => {
+    const parsed = argumentCreateSchema.parse({
+      stance: 'pro',
+      title: 'Stärkt die Teilhabe',
+      bodyHtml: '<p>Begründung</p>',
+    })
+    expect(parsed.stance).toBe('pro')
+  })
+
+  it('rejects an unknown stance or a too-short title', () => {
+    expect(() =>
+      argumentCreateSchema.parse({ stance: 'maybe', title: 'Gültiger Titel', bodyHtml: '<p>x</p>' }),
+    ).toThrow()
+    expect(() =>
+      argumentCreateSchema.parse({ stance: 'pro', title: 'x', bodyHtml: '<p>x</p>' }),
+    ).toThrow()
+  })
+})
+
+describe('argumentUpdateSchema', () => {
+  it('accepts a status or deliberation status update', () => {
+    expect(argumentUpdateSchema.parse({ status: 'accepted' }).status).toBe('accepted')
+    expect(
+      argumentUpdateSchema.parse({ deliberationStatus: 'confirmed' }).deliberationStatus,
+    ).toBe('confirmed')
+  })
+
+  it('rejects an empty update', () => {
+    expect(() => argumentUpdateSchema.parse({})).toThrow()
+  })
+})
+
+describe('questionCreateSchema', () => {
+  it('accepts a valid question', () => {
+    const parsed = questionCreateSchema.parse({
+      title: 'Wie wird das finanziert?',
+      bodyHtml: '<p>Details</p>',
+    })
+    expect(parsed.title).toContain('finanziert')
+  })
+
+  it('accepts a question without optional context', () => {
+    const parsed = questionCreateSchema.parse({
+      title: 'Wie wird das finanziert?',
+    })
+    expect(parsed.bodyHtml).toBe('')
+  })
+
+  it('rejects a too-short title', () => {
+    expect(() => questionCreateSchema.parse({ title: 'kurz', bodyHtml: '<p>x</p>' })).toThrow()
+  })
+})
+
+describe('answerCreateSchema', () => {
+  it('requires a non-empty body', () => {
+    expect(answerCreateSchema.parse({ bodyHtml: '<p>Antwort</p>' }).bodyHtml).toBeTruthy()
+    expect(() => answerCreateSchema.parse({ bodyHtml: '' })).toThrow()
+  })
+})
+
+describe('questionUpdateSchema', () => {
+  it('accepts an answer id or null', () => {
+    expect(questionUpdateSchema.parse({ acceptedAnswerId: uuid }).acceptedAnswerId).toBe(uuid)
+    expect(questionUpdateSchema.parse({ acceptedAnswerId: null }).acceptedAnswerId).toBeNull()
+  })
+
+  it('rejects a non-uuid answer id', () => {
+    expect(() => questionUpdateSchema.parse({ acceptedAnswerId: 'nope' })).toThrow()
+  })
+})
+
+describe('resourceCreateSchema', () => {
+  it('accepts an external link', () => {
+    const parsed = resourceCreateSchema.parse({
+      title: 'Quelle',
+      kind: 'link',
+      url: 'https://example.org/doc',
+    })
+    expect(parsed.kind).toBe('link')
+  })
+
+  it('accepts an uploaded file URL', () => {
+    const parsed = resourceCreateSchema.parse({
+      title: 'PDF',
+      kind: 'file',
+      url: '/uploads/550e8400-e29b-41d4-a716-446655440000.pdf',
+    })
+    expect(parsed.url).toContain('/uploads/')
+  })
+
+  it('rejects a non-http link and a non-upload file URL', () => {
+    expect(() =>
+      resourceCreateSchema.parse({ title: 'Quelle', kind: 'link', url: 'ftp://x' }),
+    ).toThrow()
+    expect(() =>
+      resourceCreateSchema.parse({ title: 'Datei', kind: 'file', url: 'https://evil/a.pdf' }),
+    ).toThrow()
+  })
+})
+
+describe('resourceUpdateSchema', () => {
+  it('only allows accepted/rejected', () => {
+    expect(resourceUpdateSchema.parse({ status: 'accepted' }).status).toBe('accepted')
+    expect(() => resourceUpdateSchema.parse({ status: 'proposed' })).toThrow()
+  })
 })
 
 describe('reportCreateSchema', () => {
@@ -313,13 +448,16 @@ describe('userBanSchema', () => {
   })
 })
 
-describe('postReactionSchema', () => {
-  it('accepts valid emoji characters', () => {
-    expect(postReactionSchema.parse({ emoji: '👍' }).emoji).toBe('👍')
+describe('upvoteToggleSchema', () => {
+  it('accepts a valid target type and uuid', () => {
+    const parsed = upvoteToggleSchema.parse({ targetType: 'argument', targetId: uuid })
+    expect(parsed.targetType).toBe('argument')
+    expect(parsed.targetId).toBe(uuid)
   })
 
-  it('rejects non-emoji strings', () => {
-    expect(() => postReactionSchema.parse({ emoji: 'like' })).toThrow()
+  it('rejects unknown target types and non-uuid ids', () => {
+    expect(() => upvoteToggleSchema.parse({ targetType: 'motion', targetId: uuid })).toThrow()
+    expect(() => upvoteToggleSchema.parse({ targetType: 'post', targetId: 'nope' })).toThrow()
   })
 })
 

@@ -63,6 +63,7 @@ export default defineEventHandler(async (event) => {
 
   let openSuggestionCount = 0
   let olderVersionCount = 0
+  let versionUpdatedAt = motion.updatedAt
   if (motion.status !== 'draft') {
     const [workingDoc] = await db
       .select({ docJson: motionWorkingDocs.docJson })
@@ -77,6 +78,22 @@ export default defineEventHandler(async (event) => {
       .where(eq(motionVersions.motionId, id))
     // Current version is excluded; only prior snapshots count as "older".
     olderVersionCount = Math.max(0, (versionRow?.count ?? 0) - 1)
+
+    if (motion.currentVersion > 0) {
+      const [currentVersionRow] = await db
+        .select({ createdAt: motionVersions.createdAt })
+        .from(motionVersions)
+        .where(
+          and(
+            eq(motionVersions.motionId, id),
+            eq(motionVersions.versionNumber, motion.currentVersion),
+          ),
+        )
+        .limit(1)
+      if (currentVersionRow) {
+        versionUpdatedAt = currentVersionRow.createdAt
+      }
+    }
   }
 
   return {
@@ -89,5 +106,6 @@ export default defineEventHandler(async (event) => {
     isWatched,
     openSuggestionCount,
     olderVersionCount,
+    versionUpdatedAt,
   }
 })

@@ -3,7 +3,6 @@ import postgres from 'postgres'
 import { sql as drizzleSql } from 'drizzle-orm'
 import * as schema from './schema'
 import { hashUserPassword } from '../utils/password'
-import { seedAvatarHue, writeSeedAvatarFile } from '../utils/seedAvatar'
 import {
   SEED_USERS,
   SEED_MOTIONS,
@@ -14,7 +13,9 @@ import {
   assertMotionBodyLength,
   daysAgo,
   daysFromNow,
+  seedProfileAvatarUrl,
 } from './seed-data'
+import { buildDeliberationBundle, SEED_POST_BODIES } from './seed-deliberation'
 
 // Demo seed: clears domain tables, then inserts demo data.
 // Pass --if-empty to skip when the database already has rows (Docker default).
@@ -40,7 +41,9 @@ async function main() {
   console.log('[seed] Resetting tables...')
   await db.execute(
     drizzleSql`TRUNCATE TABLE
-      "moderation_actions", "reports", "post_reactions", "ballots", "ballot_participants",
+      "moderation_actions", "reports", "ballots", "ballot_participants",
+      "element_upvotes", "element_references", "activity_events",
+      "answers", "questions", "arguments", "resources",
       "motion_working_docs", "motion_versions", "motion_watches",
       "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
       RESTART IDENTITY CASCADE`,
@@ -73,14 +76,14 @@ async function main() {
   const insertedUsers = await db
     .insert(schema.users)
     .values(
-      SEED_USERS.map((user, index) => ({
+      SEED_USERS.map((user) => ({
         email: user.email,
         passwordHash: password,
         displayName: user.displayName,
         role: user.role,
         fn: user.fn,
         divisionId: divisionIdBySlug[user.divisionSlug],
-        avatarUrl: writeSeedAvatarFile(user.email, seedAvatarHue(index)),
+        avatarUrl: seedProfileAvatarUrl(user),
       })),
     )
     .returning()
@@ -174,31 +177,101 @@ async function main() {
   }
 
   console.log('[seed] Inserting debate posts...')
-  // Posts and mood histories apply to every published motion (debate onward).
   const debateMotions = insertedMotions.filter((m) => m.status !== 'draft')
-  const postBodies = [
-    '<p>Starke Idee. Wie verhindern wir Missbrauch und sichern gleichzeitig schnelle Verfahren?</p>',
-    '<p>Durch nachgelagerte Prüfungen, klare Haftung und transparente Dokumentation aller Schritte.</p>',
-    '<p>Ich sehe noch Lücken bei der Finanzierung. Gibt es belastbare Zahlen für die ersten fünf Jahre?</p>',
-    '<p>Die Umsetzung sollte modular erfolgen, damit Kommunen schrittweise starten können.</p>',
-    '<p>Aus meiner Sicht brauchen wir mehr Bürgerbeteiligung, bevor wir verbindliche Regeln beschließen.</p>',
-    '<p>Grundsätzlich überzeugt mich der Ansatz, aber die Datenschutzfragen müssen vorab geklärt werden.</p>',
-  ]
+  const motionMetaByTitle = Object.fromEntries(SEED_MOTIONS.map((m) => [m.title, m]))
+  const postsByMotionId = new Map<string, string[]>()
 
-  const posts: (typeof schema.posts.$inferInsert)[] = []
+  const postRows: (typeof schema.posts.$inferInsert)[] = []
   for (const motion of debateMotions) {
     const authorPool = insertedUsers.filter((u) => u.id !== motion.authorId)
-    for (let i = 0; i < 3; i++) {
+    const postCount = motion.title.includes('Europäische Digitale Identität') ? 8 : 5
+    for (let i = 0; i < postCount; i++) {
       const author = authorPool[i % authorPool.length]!
-      posts.push({
+      postRows.push({
         motionId: motion.id,
         authorId: author.id,
-        bodyHtml: postBodies[(i + debateMotions.indexOf(motion)) % postBodies.length]!,
-        createdAt: daysAgo(now, Math.max(0, 3 - i)),
+        bodyHtml: SEED_POST_BODIES[(i + debateMotions.indexOf(motion)) % SEED_POST_BODIES.length]!,
+        createdAt: daysAgo(now, Math.max(0, postCount - i)),
       })
     }
   }
-  await db.insert(schema.posts).values(posts)
+
+  const insertedPosts = await db.insert(schema.posts).values(postRows).returning()
+  for (const post of insertedPosts) {
+    const list = postsByMotionId.get(post.motionId) ?? []
+    list.push(post.id)
+    postsByMotionId.set(post.motionId, list)
+  }
+
+  const euMotion = debateMotions.find(
+    (m) => m.title === 'Europäische Digitale Identität für Deutschland',
+  )
+  if (euMotion) {
+    const euPosts = postsByMotionId.get(euMotion.id) ?? []
+    const rootId = euPosts[0]
+    if (rootId) {
+      const [reply] = await db
+        .insert(schema.posts)
+        .values({
+          motionId: euMotion.id,
+          authorId: userIdByEmail['admin@freiwerk.local']!,
+          parentId: rootId,
+          bodyHtml:
+            '<p>Datenschutz muss vorab geklärt werden — siehe auch das Contra-Argument oben.</p>',
+          createdAt: daysAgo(now, 0),
+        })
+        .returning()
+      if (reply) {
+        euPosts.push(reply.id)
+        postsByMotionId.set(euMotion.id, euPosts)
+      }
+    }
+  }
+
+  console.log('[seed] Inserting deliberation elements...')
+  const allArguments: (typeof schema.motionArguments.$inferInsert)[] = []
+  const allQuestions: (typeof schema.questions.$inferInsert)[] = []
+  const allAnswers: (typeof schema.answers.$inferInsert)[] = []
+  const allResources: (typeof schema.resources.$inferInsert)[] = []
+  const allUpvotes: (typeof schema.elementUpvotes.$inferInsert)[] = []
+  const allReferences: (typeof schema.elementReferences.$inferInsert)[] = []
+  const allActivity: (typeof schema.activityEvents.$inferInsert)[] = []
+  const allWorkingDocs: (typeof schema.motionWorkingDocs.$inferInsert)[] = []
+
+  for (const motion of debateMotions) {
+    const meta = motionMetaByTitle[motion.title]
+    if (!meta) continue
+    const bundle = buildDeliberationBundle({
+      motionId: motion.id,
+      motionTitle: motion.title,
+      bodyDemand: meta.bodyDemand,
+      bodyTheme: meta.bodyTheme,
+      authorId: motion.authorId,
+      status: motion.status,
+      publishedAt: motion.publishedAt,
+      userIdByEmail,
+      memberIds: insertedUsers.map((u) => u.id),
+      postIds: postsByMotionId.get(motion.id) ?? [],
+      now,
+    })
+    allArguments.push(...bundle.arguments)
+    allQuestions.push(...bundle.questions)
+    allAnswers.push(...bundle.answers)
+    allResources.push(...bundle.resources)
+    allUpvotes.push(...bundle.upvotes)
+    allReferences.push(...bundle.references)
+    allActivity.push(...bundle.activityEvents)
+    allWorkingDocs.push(...bundle.workingDocs)
+  }
+
+  if (allArguments.length) await db.insert(schema.motionArguments).values(allArguments)
+  if (allQuestions.length) await db.insert(schema.questions).values(allQuestions)
+  if (allAnswers.length) await db.insert(schema.answers).values(allAnswers)
+  if (allResources.length) await db.insert(schema.resources).values(allResources)
+  if (allUpvotes.length) await db.insert(schema.elementUpvotes).values(allUpvotes)
+  if (allReferences.length) await db.insert(schema.elementReferences).values(allReferences)
+  if (allActivity.length) await db.insert(schema.activityEvents).values(allActivity)
+  if (allWorkingDocs.length) await db.insert(schema.motionWorkingDocs).values(allWorkingDocs)
 
   console.log('[seed] Inserting mood votes...')
   const moodVotes: (typeof schema.moodVotes.$inferInsert)[] = []
@@ -231,7 +304,7 @@ async function main() {
   await db.insert(schema.motionWatches).values(watches)
 
   console.log(
-    `[seed] Done. ${insertedUsers.length} users, ${insertedMotions.length} motions, ${posts.length} posts, ${moodVotes.length} mood votes, ${moodEvents.length} mood events, ${ballotRows.length} ballots.`,
+    `[seed] Done. ${insertedUsers.length} users, ${insertedMotions.length} motions, ${insertedPosts.length} posts, ${allArguments.length} arguments, ${allQuestions.length} questions, ${allAnswers.length} answers, ${allResources.length} resources, ${allUpvotes.length} upvotes, ${allWorkingDocs.length} working docs, ${moodVotes.length} mood votes, ${moodEvents.length} mood events, ${ballotRows.length} ballots.`,
   )
   await client.end()
 }

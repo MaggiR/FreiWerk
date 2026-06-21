@@ -1,10 +1,5 @@
 import { chatDayKey, htmlPreview } from '~/utils/chatDates'
-
-export interface PostReactionSummary {
-  emoji: string
-  count: number
-  reactedByMe: boolean
-}
+import type { ReferencePreview } from '#shared/types'
 
 export interface DebatePost {
   id: string
@@ -15,8 +10,12 @@ export interface DebatePost {
   authorId: string | null
   authorName: string | null
   authorFn: string | null
+  authorRole: string | null
   authorAvatarUrl: string | null
-  reactions: PostReactionSummary[]
+  upvoteCount: number
+  upvotedByMe: boolean
+  references: ReferencePreview[]
+  referencedByCount: number
 }
 
 export interface DebateNode {

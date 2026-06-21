@@ -5,6 +5,7 @@ import { posts } from '../../../database/schema'
 import { postCreateSchema } from '../../../utils/validation'
 import { sanitizeRichText } from '../../../utils/sanitize'
 import { requireAuth } from '../../../utils/auth'
+import { persistReferences } from '../../../utils/references'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
@@ -74,6 +75,15 @@ export default defineEventHandler(async (event) => {
       bodyHtml,
     })
     .returning()
+
+  if (body.references && body.references.length > 0) {
+    await persistReferences({
+      motionId: id,
+      sourceType: 'post',
+      sourceId: created!.id,
+      references: body.references,
+    })
+  }
 
   setResponseStatus(event, 201)
   return { post: created }

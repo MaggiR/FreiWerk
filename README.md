@@ -72,21 +72,27 @@ FreiWerk strukturiert Debatten entlang von Argumenten statt entlang chronologisc
   2. **Debatte**: offene Diskussion um den Antrag mit Echtzeit-Stimmungsbild
   3. **Abstimmung**: fest definierte, geheime Abstimmungsphase
   4. **Entschieden**: entweder verabschiedet (und damit Weiterleitung oder Umsetzung) oder abgelehnt
-### 3. Strukturierte Debatten
-- Forumsartige Diskussion unter jedem Antrag, wahlweise linear oder als Themenbaum darstellbar
-- Automatisierte, KI-gestützte Extraktion relevanter Inhalte aus den Beiträgen:
-	- Pro-Argumente
-	- Contra-Argumente
-	- offene Fragen
-	- Ergänzungen
-	- Kompromissvorschläge
-	- Quellen oder Belege
-- Bewertung von Diskussionsbeiträgen und extrahierten Argumenten durch Mitglieder
-- Strukturierte Gegenüberstellung von Pro- und Contra-Argumenten (sortiert nach Popularität) auf der Antragsseite
-	- Argumente verlinken auf die originalen Beiträge
-	- Automatische Bündelung ähnlicher Argumente
-	- Ergänzt durch offene Fragen oder Kompromissvorschläge
-- Sortierungsoption von Argumenten und Beiträgen nach Zustimmung oder Aktualität
+### 3. Strukturierte Debatten und Deliberation
+FreiWerk strukturiert die Auseinandersetzung mit einem Antrag entlang von **Elementen der Entscheidungsfindung** statt entlang chronologischer Nachrichten. Diese Elemente werden in eigenen Ansichten (Reitern) auf der Antragsseite gebündelt:
+- **Argumente (Pro/Contra)**: Mitglieder verfassen bzw. schlagen Argumente vor. Der Antragsteller fungiert als Moderator und nimmt vorgeschlagene Argumente an oder verwirft sie. Jedes Argument trägt einen Status (offen, bestätigt, widerlegt). Eine dedizierte Argumentenansicht stellt Pro- und Contra-Argumente gegenüber, sortiert nach Zustimmung oder Aktualität.
+- **Fragen & Antworten (Q&A)**: Nach dem Stack-Overflow-Prinzip werden Fragen gestellt und beantwortet. Fragen brauchen keine Freigabe und tragen einen Status (offen, teilweise beantwortet, beantwortet); eine Antwort kann als akzeptiert markiert werden.
+- **Ressourcen**: Mitglieder schlagen Belege, Quellen oder Dokumente als Link oder Datei-Upload vor; der Antragsteller nimmt sie an oder verwirft sie.
+- **Debattenbeiträge**: der bestehende, chatartige Diskussionsstrang unter dem Antrag.
+
+**Referenzen und implizite Threads**
+- Auf jedes Element (Argument, Frage, Antwort, Debattenbeitrag oder einen **markierten Textausschnitt im Antrag**) kann im Fließtext einer Nachricht Bezug genommen werden – auch auf mehrere Elemente gleichzeitig.
+- Referenzen erscheinen als Textbausteine innerhalb der Nachricht und verlinken auf das Originalelement.
+- Daraus entstehen implizite Threads, die über UI-Elemente bei Bedarf ein- und ausgeblendet werden können. Nachrichtenketten lassen sich so bidirektional nachverfolgen.
+
+**Upvotes statt Reaktionen**
+- Jedes Element kann mit einem **Upvote** bestärkt werden. Es gibt bewusst **keine Downvotes**, um destruktive Dynamik zu vermeiden.
+- Die Bedeutung eines Upvotes ergibt sich aus dem Kontext (z. B. „stimme zu", „wichtiges Argument", „gut formuliert", „sollte beantwortet werden", „relevant, auch wenn ich anderer Meinung bin").
+- Sortierung von Argumenten, Fragen und Beiträgen nach Zustimmung (Upvotes) oder Aktualität.
+
+**Aktivitätsverlauf**
+- Ein separater Verlauf protokolliert Änderungen am Antrag und an den Deliberationselementen (Antrag geändert, Argument vorgeschlagen/angenommen, Frage gestellt/beantwortet, Ressource hinzugefügt …).
+
+Die automatisierte, KI-gestützte Extraktion und Bündelung von Pro-/Contra-Argumenten, offenen Fragen und Kompromissvorschlägen aus Freitextbeiträgen ist als spätere Ausbaustufe vorgesehen (siehe 4.).
 ### 4. Weitere KI-Unterstützung
 - Zusammenfassung der wichtigsten Änderungen (Changelog) zwischen Antragsversionen
 - Hinweis auf inhaltlich ähnliche bestehende Anträge, ermittelt durch vektorbasierte semantische Suche
@@ -164,7 +170,12 @@ Motion
 MotionVersion
 Suggestion (Änderungsvorschlag im gemeinsamen Arbeitsdokument)
 Post
-Argument
+Argument (Pro/Contra, mit Freigabe- und Deliberationsstatus)
+Question / Answer (Q&A)
+Resource (vorgeschlagene Quelle/Datei/Link)
+ElementReference (Referenz einer Nachricht auf ein oder mehrere Elemente)
+Upvote (generische, kontextunabhängige Bestärkung eines Elements)
+ActivityEvent (Protokoll der Deliberations- und Antragsänderungen)
 Vote
 Ballot
 Topic

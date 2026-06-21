@@ -4,11 +4,12 @@ import { countVisiblePosts, type DebatePost } from '~/utils/debate'
 const props = withDefaults(
   defineProps<{
     motionId: string
+    motionVersion?: number | null
     debateOpen: boolean
     canModerate?: boolean
     currentUserId?: string | null
   }>(),
-  { canModerate: false, currentUserId: null },
+  { motionVersion: null, canModerate: false, currentUserId: null },
 )
 
 const postCount = defineModel<number>('postCount', { default: 0 })
@@ -26,7 +27,10 @@ const { data, refresh, pending } = await useFetch(
 const posts = computed<DebatePost[]>(() =>
   (data.value?.posts ?? []).map((p) => ({
     ...p,
-    reactions: p.reactions ?? [],
+    upvoteCount: p.upvoteCount ?? 0,
+    upvotedByMe: p.upvotedByMe ?? false,
+    references: p.references ?? [],
+    referencedByCount: p.referencedByCount ?? 0,
   })),
 )
 
@@ -85,6 +89,7 @@ async function onRemove(postId: string) {
   <DebateChat
     v-model:post-sort="postSort"
     :motion-id="motionId"
+    :motion-version="motionVersion"
     :posts="posts"
     :debate-open="debateOpen"
     :can-moderate="canModerate"

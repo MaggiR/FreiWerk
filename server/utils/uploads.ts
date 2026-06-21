@@ -44,3 +44,13 @@ const UPLOAD_URL_PATTERN =
 export function isValidUploadUrl(url: string): boolean {
   return UPLOAD_URL_PATTERN.test(url)
 }
+
+// Like UPLOAD_URL_PATTERN but for any allowed upload type (images, PDFs, videos),
+// used for resource file attachments rather than image-only avatars.
+const UPLOAD_FILE_URL_PATTERN =
+  /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpe?g|png|gif|webp|pdf|mp4|webm|mov)$/i
+
+/** Validates an uploaded file URL of any allowed upload type. */
+export function isValidUploadFileUrl(url: string): boolean {
+  return UPLOAD_FILE_URL_PATTERN.test(url)
+}

@@ -19,6 +19,7 @@ import {
 } from '~/editor/suggestions'
 import { handleUndoRedoKeyDown } from '~/editor/undoRedoKeydown'
 import { handleEmojiPickerBeforeInput } from '~/editor/emojiPickerInput'
+import { formatSuggestionTimestamp } from '~/utils/chatDates'
 
 const SUGGESTION_MARK_SELECTOR =
   'ins[data-id], del[data-id], [data-type="modification"][data-id]'
@@ -44,6 +45,8 @@ const props = withDefaults(
     embedded?: boolean
     /** Compact messenger composer: minimal chrome, toolbar only on text selection. */
     variant?: 'default' | 'chat'
+    /** Show H1–H3 controls and allow heading nodes (default: true). */
+    allowHeadings?: boolean
   }>(),
   {
     placeholder: 'Schreibe deinen Text. Empfohlen: Motivation, Forderung, Begründung.',
@@ -53,6 +56,7 @@ const props = withDefaults(
     reviewItems: () => [],
     embedded: false,
     variant: 'default',
+    allowHeadings: true,
   },
 )
 
@@ -123,6 +127,32 @@ function findSuggestionMark(target: EventTarget | null): HTMLElement | null {
   return mark instanceof HTMLElement ? mark : null
 }
 
+function suggestionTypeFromMark(mark: HTMLElement): SuggestionItem['type'] {
+  if (mark.tagName === 'DEL') return 'deletion'
+  if (mark.tagName === 'INS') return 'insertion'
+  return 'modification'
+}
+
+function suggestionItemFromMark(mark: HTMLElement, id: number): SuggestionItem | null {
+  const listed = reviewItemsById.value.get(id)
+  if (listed) return listed
+
+  const authorId = mark.dataset.userId ?? null
+  const authorName = mark.dataset.userName ?? null
+  const createdAt = mark.dataset.createdAt ?? null
+  if (!authorId && !authorName && !createdAt) return null
+
+  return {
+    id,
+    type: suggestionTypeFromMark(mark),
+    authorId,
+    authorName,
+    authorAvatarUrl: null,
+    createdAt,
+    snippet: (mark.textContent ?? '').trim().slice(0, 80),
+  }
+}
+
 function clearHoveredMark() {
   if (hoveredMark) {
     hoveredMark.classList.remove('is-suggestion-hover')
@@ -148,7 +178,7 @@ function scheduleHidePopover() {
 function showReviewPopover(mark: HTMLElement) {
   const id = parseSuggestionId(mark)
   if (id == null) return
-  const item = reviewItemsById.value.get(id)
+  const item = suggestionItemFromMark(mark, id)
   if (!item) return
 
   cancelHidePopover()
@@ -278,7 +308,7 @@ const editor = useEditor({
   immediatelyRender: false,
   extensions: [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3] },
+      heading: props.allowHeadings ? { levels: [1, 2, 3] } : false,
     }),
     Underline,
     Link.configure({ openOnClick: false, autolink: true }),
@@ -634,7 +664,7 @@ const chatBlockTools = computed<ToolItem[]>(() => {
       v-if="!isReadOnly && !isReviewMode && !isChatVariant"
       class="editor__toolbar"
     >
-      <div class="editor__group">
+      <div v-if="allowHeadings" class="editor__group">
         <button
           v-for="tool in headingTools"
           :key="tool.id"
@@ -649,7 +679,7 @@ const chatBlockTools = computed<ToolItem[]>(() => {
         </button>
       </div>
 
-      <span class="editor__divider" aria-hidden="true" />
+      <span v-if="allowHeadings" class="editor__divider" aria-hidden="true" />
 
       <div class="editor__group">
         <button
@@ -760,27 +790,32 @@ const chatBlockTools = computed<ToolItem[]>(() => {
           @mouseleave="onPopoverMouseLeave"
         >
           <div class="editor__review-popover-head">
-            <span v-if="reviewPopover.item.createdAt" class="editor__review-time">
-              <FontAwesomeIcon icon="clock" />
-              {{ formatDateTime(reviewPopover.item.createdAt) }}
-            </span>
             <NuxtLink
               v-if="reviewPopover.item.authorId && reviewPopover.item.authorName"
               :to="`/users/${reviewPopover.item.authorId}`"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="editor__review-author"
+              class="editor__review-user"
               @click.stop
             >
-              <FontAwesomeIcon icon="user" />
-              {{ reviewPopover.item.authorName }}
+              <UserAvatar
+                :avatar-url="reviewPopover.item.authorAvatarUrl ?? null"
+                :name="reviewPopover.item.authorName"
+                size="sm"
+              />
+              <span>{{ reviewPopover.item.authorName }}</span>
             </NuxtLink>
             <span
               v-else-if="reviewPopover.item.authorName"
-              class="editor__review-author"
+              class="editor__review-user"
             >
-              <FontAwesomeIcon icon="user" />
-              {{ reviewPopover.item.authorName }}
+              <UserAvatar
+                :avatar-url="reviewPopover.item.authorAvatarUrl ?? null"
+                :name="reviewPopover.item.authorName"
+                size="sm"
+              />
+              <span>{{ reviewPopover.item.authorName }}</span>
+            </span>
+            <span v-if="reviewPopover.item.createdAt" class="editor__review-time">
+              {{ formatSuggestionTimestamp(reviewPopover.item.createdAt) }}
             </span>
           </div>
           <div v-if="canManageSuggestions" class="editor__review-actions">
@@ -1055,20 +1090,43 @@ const chatBlockTools = computed<ToolItem[]>(() => {
 
 /* Suggestion-mode diff marks (Google-Docs-style review layer). */
 :deep(.editor-surface ins) {
-  text-decoration: none;
+  position: relative;
+  z-index: 0;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--mood-approve) 85%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none;
   color: var(--mood-approve);
-  background: color-mix(in srgb, var(--mood-approve) 12%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
+}
+:deep(.editor-surface ins::before) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--mood-approve) 32%, transparent);
+  z-index: -1;
 }
 :deep(.editor-surface del) {
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--mood-reject) 75%, transparent);
-  background: color-mix(in srgb, var(--mood-reject) 12%, transparent);
-  color: color-mix(in srgb, var(--color-text) 80%, var(--mood-reject));
+  text-decoration-color: var(--mood-reject);
+  text-decoration-thickness: 1.5px;
+  background: color-mix(in srgb, var(--mood-reject) 32%, transparent);
+  color: color-mix(in srgb, var(--color-text) 55%, var(--mood-reject));
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
 }
 :deep(.editor-surface [data-type='modification']) {
-  background: color-mix(in srgb, var(--color-tertiary) 14%, transparent);
+  background: color-mix(in srgb, var(--color-tertiary) 32%, transparent);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.12em;
   border-radius: 4px;
 }
 
@@ -1089,7 +1147,8 @@ const chatBlockTools = computed<ToolItem[]>(() => {
 .editor__review-popover {
   position: fixed;
   z-index: 50;
-  width: min(15rem, calc(100vw - 2rem));
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 2rem));
   padding: var(--space-2) var(--space-3);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -1099,9 +1158,9 @@ const chatBlockTools = computed<ToolItem[]>(() => {
 
 .editor__review-popover-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
   margin-bottom: var(--space-2);
 }
 
@@ -1109,22 +1168,31 @@ const chatBlockTools = computed<ToolItem[]>(() => {
   margin-bottom: 0;
 }
 
-.editor__review-time,
-.editor__review-author {
+.editor__review-user {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  color: var(--color-text-muted);
-  font-size: 0.8rem;
-}
-
-.editor__review-author {
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-weight: 600;
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
-a.editor__review-author:hover {
+.editor__review-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.editor__review-user:hover {
   color: var(--color-accent);
+}
+
+.editor__review-time {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
 }
 
 .editor__review-actions {
@@ -1133,7 +1201,6 @@ a.editor__review-author:hover {
 }
 
 .editor__review-btn {
-  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;

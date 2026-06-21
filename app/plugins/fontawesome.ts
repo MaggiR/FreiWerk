@@ -66,6 +66,8 @@ import {
   faCheckToSlot,
   faCircleCheck,
   faCircleXmark,
+  faCirclePlus,
+  faCircleMinus,
   faLock,
   faUserGroup,
   faHourglassEnd,
@@ -80,7 +82,9 @@ import {
   faClipboardList,
   faGavel,
   faCircleInfo,
-  faFaceSmile,
+  faDiagramProject,
+  faTurnUp,
+  faComment,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -152,6 +156,8 @@ library.add(
   faCheckToSlot,
   faCircleCheck,
   faCircleXmark,
+  faCirclePlus,
+  faCircleMinus,
   faLock,
   faUserGroup,
   faHourglassEnd,
@@ -166,7 +172,9 @@ library.add(
   faClipboardList,
   faGavel,
   faCircleInfo,
-  faFaceSmile,
+  faDiagramProject,
+  faTurnUp,
+  faComment,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

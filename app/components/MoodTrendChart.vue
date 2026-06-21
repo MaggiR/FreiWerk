@@ -97,6 +97,20 @@ const chartData = computed(() => ({
   })),
 }))
 
+const isCompact = ref(false)
+
+function syncCompact() {
+  if (!import.meta.client) return
+  isCompact.value = window.innerWidth < 640
+}
+
+onMounted(() => {
+  syncCompact()
+  window.addEventListener('resize', syncCompact)
+})
+
+onUnmounted(() => window.removeEventListener('resize', syncCompact))
+
 const chartOptions = computed<ChartOptions<'line'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
@@ -104,7 +118,14 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
   scales: {
     x: {
       stacked: true,
-      ticks: { color: axisColor.value },
+      ticks: {
+        color: axisColor.value,
+        maxRotation: isCompact.value ? 0 : 45,
+        minRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: isCompact.value ? 5 : 8,
+        font: { size: isCompact.value ? 10 : 11 },
+      },
       grid: { color: gridColor.value },
     },
     y: {
@@ -120,7 +141,15 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
     },
   },
   plugins: {
-    legend: { position: 'bottom', labels: { color: axisColor.value, padding: 14 } },
+    legend: {
+      position: 'bottom',
+      labels: {
+        color: axisColor.value,
+        padding: 10,
+        boxWidth: 12,
+        font: { size: 11 },
+      },
+    },
     tooltip: {
       callbacks: {
         label: (context) => {
@@ -143,7 +172,8 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
 <style scoped>
 .trend {
   position: relative;
-  height: 260px;
+  height: clamp(200px, 52vw, 260px);
+  min-width: 0;
 }
 .trend__empty {
   color: var(--color-text-muted);

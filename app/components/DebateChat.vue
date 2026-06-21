@@ -4,11 +4,12 @@ import {
   countVisiblePosts,
   type DebatePost,
 } from '~/utils/debate'
-import { formatChatDateLabel } from '~/utils/chatDates'
+import { formatChatDateLabel, htmlPreview } from '~/utils/chatDates'
 
 const props = withDefaults(
   defineProps<{
     motionId: string
+    motionVersion?: number | null
     posts: DebatePost[]
     debateOpen: boolean
     canModerate?: boolean
@@ -17,12 +18,46 @@ const props = withDefaults(
     pending?: boolean
   }>(),
   {
+    motionVersion: null,
     canModerate: false,
     loggedIn: false,
     currentUserId: null,
     pending: false,
   },
 )
+
+const showThreads = ref(true)
+const menuOpen = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
+
+function onMenuClickOutside(event: MouseEvent) {
+  if (!menuOpen.value) return
+  if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
+    menuOpen.value = false
+  }
+}
+
+/** Map post id → the posts that reference it (inbound implicit threads). */
+const inboundByPost = computed(() => {
+  const map = new Map<string, DebatePost[]>()
+  for (const post of props.posts) {
+    for (const ref of post.references) {
+      if (ref.targetType !== 'post') continue
+      const list = map.get(ref.targetId) ?? []
+      list.push(post)
+      map.set(ref.targetId, list)
+    }
+  }
+  return map
+})
+
+function inboundFor(postId: string): { id: string; authorName: string | null; excerpt: string }[] {
+  return (inboundByPost.value.get(postId) ?? []).map((p) => ({
+    id: p.id,
+    authorName: p.authorName,
+    excerpt: htmlPreview(p.bodyHtml, 60),
+  }))
+}
 
 const postSort = defineModel<'recent' | 'oldest'>('postSort', { default: 'oldest' })
 
@@ -112,28 +147,30 @@ function onReply(postId: string) {
   replyTo.value = postById(postId) ?? null
 }
 
+/** Scroll to a referenced message and briefly highlight it (implicit threads). */
+function jumpToPost(postId: string) {
+  const container = scrollRef.value
+  if (!container) return
+  const target = container.querySelector<HTMLElement>(`[data-post-id="${postId}"]`)
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target.classList.add('msg--highlight')
+  window.setTimeout(() => target.classList.remove('msg--highlight'), 1600)
+}
+
 function onSent() {
   replyTo.value = null
   emit('refresh')
   if (postSort.value === 'oldest') scrollToBottom()
 }
 
-async function onReact(postId: string, emoji: string) {
-  try {
-    await $fetch(`/api/posts/${postId}/reactions`, {
-      method: 'POST',
-      body: { emoji },
-    })
-    emit('refresh')
-  } catch {
-    emit('refresh')
-  }
-}
-
 onMounted(() => {
+  document.addEventListener('click', onMenuClickOutside, true)
   scrollToBottom()
   updateStickyDate()
 })
+
+onUnmounted(() => document.removeEventListener('click', onMenuClickOutside, true))
 
 defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
 </script>
@@ -167,18 +204,71 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
           :logged-in="loggedIn"
           :current-user-id="currentUserId"
           :is-own="item.post.authorId === currentUserId"
+          :inbound-refs="showThreads ? inboundFor(item.post.id) : []"
+          :show-references="showThreads"
           @reply="onReply"
           @report="emit('report', $event)"
           @remove="emit('remove', $event)"
-          @react="onReact"
+          @jump="jumpToPost"
         />
       </template>
+    </div>
+
+    <div ref="menuRef" class="chat__menu" @click.stop>
+      <button
+        type="button"
+        class="chat__menu-trigger"
+        aria-label="Chat-Optionen"
+        :aria-expanded="menuOpen"
+        @click.stop="menuOpen = !menuOpen"
+      >
+        <FontAwesomeIcon icon="ellipsis" />
+      </button>
+      <div v-if="menuOpen" class="chat__menu-panel" role="menu">
+        <button
+          type="button"
+          class="chat__menu-item"
+          role="menuitemradio"
+          :aria-checked="postSort === 'oldest'"
+          @click="postSort = 'oldest'; menuOpen = false"
+        >
+          <span class="chat__menu-check">
+            <FontAwesomeIcon v-if="postSort === 'oldest'" icon="check" />
+          </span>
+          Älteste zuerst
+        </button>
+        <button
+          type="button"
+          class="chat__menu-item"
+          role="menuitemradio"
+          :aria-checked="postSort === 'recent'"
+          @click="postSort = 'recent'; menuOpen = false"
+        >
+          <span class="chat__menu-check">
+            <FontAwesomeIcon v-if="postSort === 'recent'" icon="check" />
+          </span>
+          Neueste zuerst
+        </button>
+        <button
+          type="button"
+          class="chat__menu-item"
+          role="menuitemcheckbox"
+          :aria-checked="showThreads"
+          @click="showThreads = !showThreads; menuOpen = false"
+        >
+          <span class="chat__menu-check">
+            <FontAwesomeIcon v-if="showThreads" icon="check" />
+          </span>
+          Bezüge anzeigen
+        </button>
+      </div>
     </div>
 
     <DebateComposer
       v-if="debateOpen"
       class="chat__composer"
       :motion-id="motionId"
+      :motion-version="motionVersion"
       :parent-id="replyTo?.id"
       :reply-to-name="replyTo?.authorName"
       :logged-in="loggedIn"
@@ -225,6 +315,7 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
 }
 .chat__scroll {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   /* Room for sticky date (top) and floating composer (bottom). */
@@ -241,6 +332,71 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
 .chat__composer :deep(.composer) {
   padding-top: var(--space-2);
   background: transparent;
+}
+.chat__menu {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 10;
+}
+.chat__menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.chat__menu-trigger:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--glass-bg) 80%, var(--color-surface) 20%);
+}
+.chat__menu-panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 30;
+  min-width: 11rem;
+  padding: var(--space-1);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.chat__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.chat__menu-item:hover {
+  background: var(--color-bg);
+}
+.chat__menu-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  color: var(--color-accent);
 }
 .chat__loading,
 .chat__empty,

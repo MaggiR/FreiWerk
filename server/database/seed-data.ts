@@ -3,29 +3,44 @@ import type { Topic } from '../../shared/constants'
 export type SeedUser = {
   email: string
   displayName: string
+  gender: 'm' | 'f'
   role: 'member' | 'moderator' | 'admin'
   fn: string
   divisionSlug: 'bund' | 'lv-nrw' | 'lv-bayern'
 }
 
+/** Static demo avatars in `public/imgs/profile_m_1.png` … `profile_m_4.png` and `profile_f_1.png` … `profile_f_4.png`. */
+export const SEED_PROFILE_AVATARS_PER_GENDER = 4
+
+const avatarSlotByGender = { m: 0, f: 0 }
+
+export function seedProfileAvatarUrl(user: Pick<SeedUser, 'gender'>): string {
+  const slot =
+    (avatarSlotByGender[user.gender]++ % SEED_PROFILE_AVATARS_PER_GENDER) + 1
+  return `/imgs/profile_${user.gender}_${slot}.png`
+}
+
 export const SEED_USERS: SeedUser[] = [
   {
     email: 'demo@freiwerk.local',
-    displayName: 'Demo Mitglied',
+    displayName: 'Marc Schmidt',
+    gender: 'm',
     role: 'member',
     fn: 'Mitglied',
     divisionSlug: 'lv-nrw',
   },
   {
     email: 'admin@freiwerk.local',
-    displayName: 'Admin',
+    displayName: 'Stefan Hoffmann',
+    gender: 'm',
     role: 'admin',
     fn: 'Administrator:in',
     divisionSlug: 'bund',
   },
   {
     email: 'mod@freiwerk.local',
-    displayName: 'Mira Moderation',
+    displayName: 'Mira Becker',
+    gender: 'f',
     role: 'moderator',
     fn: 'Moderator:in',
     divisionSlug: 'bund',
@@ -33,6 +48,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'anna.schneider@freiwerk.local',
     displayName: 'Anna Schneider',
+    gender: 'f',
     role: 'member',
     fn: 'Kreisvorsitzende',
     divisionSlug: 'lv-nrw',
@@ -40,6 +56,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'thomas.berger@freiwerk.local',
     displayName: 'Thomas Berger',
+    gender: 'm',
     role: 'member',
     fn: 'Mitglied LFA Wirtschaft',
     divisionSlug: 'lv-bayern',
@@ -47,6 +64,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'lisa.koch@freiwerk.local',
     displayName: 'Lisa Koch',
+    gender: 'f',
     role: 'member',
     fn: 'Mitglied LFA Bildung',
     divisionSlug: 'lv-nrw',
@@ -54,6 +72,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'felix.weber@freiwerk.local',
     displayName: 'Felix Weber',
+    gender: 'm',
     role: 'member',
     fn: 'Mitglied LFA Digitales',
     divisionSlug: 'bund',
@@ -61,6 +80,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'julia.hartmann@freiwerk.local',
     displayName: 'Julia Hartmann',
+    gender: 'f',
     role: 'member',
     fn: 'Mitglied LFA Umwelt',
     divisionSlug: 'lv-bayern',
@@ -68,6 +88,7 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'mark.rothermel@freiwerk.local',
     displayName: 'Mark Rothermel',
+    gender: 'm',
     role: 'member',
     fn: 'Kreisschatzmeister',
     divisionSlug: 'lv-nrw',
@@ -75,11 +96,16 @@ export const SEED_USERS: SeedUser[] = [
   {
     email: 'sarah.mueller@freiwerk.local',
     displayName: 'Sarah Müller',
+    gender: 'f',
     role: 'member',
     fn: 'Mitglied LFA Soziales',
     divisionSlug: 'lv-nrw',
   },
 ]
+
+export const SEED_DISPLAY_NAME_BY_EMAIL = Object.fromEntries(
+  SEED_USERS.map((user) => [user.email, user.displayName]),
+) as Record<string, string>
 
 export type MoodChoice = 'approve' | 'reject' | 'abstain' | 'undecided'
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DebateNode } from '~/utils/debate'
+import { formatAuthorAffiliation } from '~/utils/format'
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +30,9 @@ const indentDepth = computed(() => Math.min(props.depth, MAX_INDENT_DEPTH))
 const replyOpen = ref(false)
 
 const post = computed(() => props.node.post)
+const authorAffiliation = computed(() =>
+  formatAuthorAffiliation(post.value.authorFn, post.value.authorRole),
+)
 const canReplyToThis = computed(
   () => props.debateOpen && !post.value.deleted,
 )
@@ -76,7 +80,7 @@ function onReplyCreated() {
             />
             <span class="post__author-text">
               <span class="post__author-name">{{ post.authorName ?? 'Unbekannt' }}</span>
-              <span v-if="post.authorFn" class="post__author-fn">{{ post.authorFn }}</span>
+              <span v-if="authorAffiliation" class="post__author-fn">{{ authorAffiliation }}</span>
             </span>
           </NuxtLink>
           <span class="post__date">{{ formatDate(post.createdAt) }}</span>
