@@ -23,7 +23,7 @@ watch(
 
 async function toggle() {
   if (!loggedIn.value) {
-    openAuthModal('login')
+    openAuthModal('login', useRoute().fullPath)
     return
   }
   error.value = ''
@@ -47,14 +47,16 @@ async function toggle() {
 
 <template>
   <FwButton
+    class="watch-btn"
     :variant="watched ? 'secondary' : 'ghost'"
     :disabled="pending"
     :aria-pressed="watched"
+    :aria-label="watched ? 'Beobachtung beenden' : 'Antrag beobachten'"
     :title="error || (watched ? 'Beobachtung beenden' : 'Antrag beobachten')"
     @click="toggle"
   >
     <FontAwesomeIcon :icon="watched ? 'star' : 'star-half-stroke'" />
-    {{ watched ? 'Beobachtet' : 'Beobachten' }}
+    <span class="watch__label">{{ watched ? 'Beobachtet' : 'Beobachten' }}</span>
     <span
       v-if="count > 0"
       class="watch__count"
@@ -77,5 +79,21 @@ async function toggle() {
 .watch__count--active {
   background: rgba(255, 255, 255, 0.28);
   color: var(--color-accent-contrast);
+}
+
+@media (max-width: 1023px) {
+  .watch__label {
+    display: none;
+  }
+
+  .watch-btn {
+    padding-inline: var(--space-2);
+    min-width: 2.5rem;
+    justify-content: center;
+  }
+
+  .watch__count {
+    margin-left: 0;
+  }
 }
 </style>

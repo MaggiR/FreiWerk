@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MotionListItem } from '#shared/types'
+import type { MotionListItem, MotionListResponse } from '#shared/types'
 import {
   TOPICS,
   TOPIC_LABELS,
@@ -292,7 +292,7 @@ function formatDateLabel(value: string): string {
   return `${day}.${month}.${year}`
 }
 
-const { data, pending } = await useFetch('/api/motions', {
+const { data, pending } = await useFetch<MotionListResponse>('/api/motions', {
   query: apiQuery,
   key: 'motions-list',
 })
@@ -300,6 +300,7 @@ const { data, pending } = await useFetch('/api/motions', {
 const motions = computed<MotionListItem[]>(
   () => (data.value?.motions ?? []) as MotionListItem[],
 )
+const totalMotions = computed(() => data.value?.total ?? 0)
 
 const hasLoadedOnce = ref(false)
 watch(
@@ -362,12 +363,10 @@ function resetFilters() {
 <template>
   <div class="page">
     <div class="page__head">
-      <h1>Anträge</h1>
-      <NuxtLink to="/motions/new">
-        <FwButton variant="primary">
-          <FontAwesomeIcon icon="plus" /> Antrag stellen
-        </FwButton>
-      </NuxtLink>
+      <h1>
+        Anträge
+        <span v-if="hasLoadedOnce" class="page__count">{{ totalMotions }}</span>
+      </h1>
     </div>
 
     <FwCard class="filters">
@@ -573,6 +572,25 @@ function resetFilters() {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-5);
+}
+.page__head h1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+.page__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.1rem var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .filters {
   margin-bottom: var(--space-5);

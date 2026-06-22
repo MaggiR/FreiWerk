@@ -1,5 +1,6 @@
 import type * as schema from './schema'
 import { validateWorkingDoc } from '../utils/suggestions'
+import { applySuggestionsToDoc, htmlToProseMirrorDoc } from '../utils/htmlToPm'
 import { daysAgo, SEED_DISPLAY_NAME_BY_EMAIL } from './seed-data'
 
 type PmMark = { type: string; attrs?: Record<string, unknown> }
@@ -16,6 +17,7 @@ type UpvoteTargetType = 'argument' | 'question' | 'answer' | 'resource' | 'post'
 export type DeliberationMotionContext = {
   motionId: string
   motionTitle: string
+  bodyHtml: string
   bodyDemand: string
   bodyTheme: string
   authorId: string
@@ -67,6 +69,8 @@ type SuggestionSeed = {
   authorEmail: string
   type: 'insertion' | 'deletion'
   text: string
+  /** For insertions: insert marked text immediately after this substring. */
+  anchor?: string
   daysAgo: number
 }
 
@@ -77,73 +81,31 @@ type MotionDeliberationPack = {
   suggestions?: SuggestionSeed[]
 }
 
-function t(text: string, marks?: PmMark[]): PmNode {
-  const node: PmNode = { type: 'text', text }
-  if (marks?.length) node.marks = marks
-  return node
-}
-
-function p(...content: PmNode[]): PmNode {
-  return { type: 'paragraph', content }
-}
-
-function h2(text: string): PmNode {
-  return { type: 'heading', attrs: { level: 2 }, content: [t(text)] }
-}
-
-function markAttrs(
-  id: number,
-  userId: string,
-  userName: string,
-  createdAt: Date,
-): Record<string, unknown> {
-  return { id, userId, userName, createdAt: createdAt.toISOString() }
-}
-
 function buildWorkingDoc(
-  demand: string,
-  theme: string,
+  bodyHtml: string,
   suggestions: SuggestionSeed[],
   userIdByEmail: Record<string, string>,
   displayNameByEmail: Record<string, string>,
   now: Date,
 ): PmNode {
-  const suggestionNodes: PmNode[] = []
-
-  for (const item of suggestions) {
+  const baseDoc = htmlToProseMirrorDoc(bodyHtml)
+  const suggestionInputs = suggestions.flatMap((item) => {
     const userId = userIdByEmail[item.authorEmail]
-    const userName = displayNameByEmail[item.authorEmail] ?? 'Mitglied'
-    if (!userId) continue
-    const createdAt = daysAgo(now, item.daysAgo)
-    const mark: PmMark = {
-      type: item.type,
-      attrs: markAttrs(item.id, userId, userName, createdAt),
-    }
-    suggestionNodes.push(t(item.text, [mark]))
-  }
+    if (!userId) return []
+    return [
+      {
+        id: item.id,
+        type: item.type,
+        text: item.text,
+        anchor: item.anchor,
+        userId,
+        userName: displayNameByEmail[item.authorEmail] ?? 'Mitglied',
+        createdAt: daysAgo(now, item.daysAgo),
+      },
+    ]
+  })
 
-  const doc: PmNode = {
-    type: 'doc',
-    content: [
-      h2('Motivation'),
-      p(
-        t('Digitale Verfahren sollen Bürgerinnen und Bürgern spürbar entlasten. '),
-        t('Im Kontext von '),
-        t(`${theme} `),
-        ...suggestionNodes.slice(0, 1),
-        t(' brauchen wir klare, überprüfbare Maßnahmen.'),
-      ),
-      h2('Forderungen'),
-      p(t(demand), ...(suggestionNodes.length > 1 ? suggestionNodes.slice(1) : [])),
-      h2('Begründung'),
-      p(
-        t(
-          'Transparente Prozesse und offene Standards stärken Vertrauen und ermöglichen breite Beteiligung an der Ausgestaltung.',
-        ),
-      ),
-    ],
-  }
-
+  const doc = applySuggestionsToDoc(baseDoc, suggestionInputs)
   const validation = validateWorkingDoc(doc)
   if (!validation.ok) {
     throw new Error(`Invalid seed working doc: ${validation.reason}`)
@@ -157,21 +119,23 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
       id: 1,
       authorEmail: 'anna.schneider@freiwerk.local',
       type: 'insertion',
-      text: 'ausschließlich freiwillig und ',
+      anchor: 'auf Basis ',
+      text: 'strikt datenschutzfreundlicher ',
       daysAgo: 3,
     },
     {
       id: 2,
       authorEmail: 'demo@freiwerk.local',
       type: 'deletion',
-      text: 'verbindliche ',
+      text: 'freiwilliger ',
       daysAgo: 2,
     },
     {
       id: 3,
       authorEmail: 'lisa.koch@freiwerk.local',
       type: 'insertion',
-      text: 'quelloffener ',
+      anchor: 'interoperable ',
+      text: 'EU-weit ',
       daysAgo: 1,
     },
   ],
@@ -311,13 +275,21 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
   ],
 }
 
-function defaultPack(theme: string): MotionDeliberationPack {
+function defaultPack(demand: string, theme: string): MotionDeliberationPack {
+  const anchor = demand.includes('Wir fordern ')
+    ? 'Wir fordern '
+    : demand.slice(0, Math.min(12, demand.length))
+  const deletionTarget =
+    demand.match(/\b(messbare|konkrete|verbindliche|einheitliche|nachhaltige)\b/i)?.[0] ??
+    'eine '
+
   return {
     suggestions: [
       {
         id: 1,
         authorEmail: 'demo@freiwerk.local',
         type: 'insertion',
+        anchor,
         text: 'schrittweise und evaluiert ',
         daysAgo: 2,
       },
@@ -325,7 +297,7 @@ function defaultPack(theme: string): MotionDeliberationPack {
         id: 2,
         authorEmail: 'anna.schneider@freiwerk.local',
         type: 'deletion',
-        text: 'sofort ',
+        text: deletionTarget,
         daysAgo: 1,
       },
     ],
@@ -410,8 +382,8 @@ const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
   'Europäische Digitale Identität für Deutschland': EU_DIGITAL_IDENTITY,
 }
 
-function resolvePack(title: string, theme: string): MotionDeliberationPack {
-  return PACK_BY_TITLE[title] ?? defaultPack(theme)
+function resolvePack(title: string, demand: string, theme: string): MotionDeliberationPack {
+  return PACK_BY_TITLE[title] ?? defaultPack(demand, theme)
 }
 
 function pushUpvotes(
@@ -434,7 +406,7 @@ function pushUpvotes(
 export function buildDeliberationBundle(
   ctx: DeliberationMotionContext,
 ): DeliberationSeedBundle {
-  const pack = resolvePack(ctx.motionTitle, ctx.bodyTheme)
+  const pack = resolvePack(ctx.motionTitle, ctx.bodyDemand, ctx.bodyTheme)
   const bundle: DeliberationSeedBundle = {
     arguments: [],
     questions: [],
@@ -629,8 +601,7 @@ export function buildDeliberationBundle(
   // Suggestion working document (debate motions only).
   if (ctx.status === 'debate' && pack.suggestions?.length) {
     const docJson = buildWorkingDoc(
-      ctx.bodyDemand,
-      ctx.bodyTheme,
+      ctx.bodyHtml,
       pack.suggestions,
       ctx.userIdByEmail,
       SEED_DISPLAY_NAME_BY_EMAIL,

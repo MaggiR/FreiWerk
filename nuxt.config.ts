@@ -1,7 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { parseAppMode } from './shared/appMode'
+
+const appMode = parseAppMode(process.env.NUXT_PUBLIC_APP_MODE)
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
-  devtools: { enabled: true },
+  devtools: { enabled: appMode === 'dev' },
 
   modules: [
     '@nuxt/eslint',
@@ -29,6 +33,7 @@ export default defineNuxtConfig({
     },
     public: {
       appName: 'FreiWerk',
+      appMode,
     },
   },
 
@@ -61,6 +66,12 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
     typeCheck: false,
+  },
+
+  vite: {
+    server: {
+      allowedHosts: ['your.domain.com'],
+    },
   },
 
   app: {

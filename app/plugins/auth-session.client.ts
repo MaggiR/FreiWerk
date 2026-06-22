@@ -27,7 +27,7 @@ export default defineNuxtPlugin({
           return
         }
         await clear()
-        openAuthModal('login')
+        openAuthModal('login', useRouter().currentRoute.value.fullPath)
       },
     })
   },

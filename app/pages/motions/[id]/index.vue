@@ -11,9 +11,12 @@ import type { MotionBarAction } from '~/components/MotionActionBar.vue'
 
 const route = useRoute()
 const id = route.params.id as string
+const motionDataKey = `motion-${id}`
 const { user, isModerator, loggedIn } = useAuthUser()
 
-const { data, error } = await useFetch(`/api/motions/${id}`)
+const { data, error } = await useFetch(`/api/motions/${id}`, {
+  key: motionDataKey,
+})
 
 if (error.value) {
   throw createError({ statusCode: 404, statusMessage: 'Antrag nicht gefunden.' })
@@ -51,7 +54,7 @@ async function onArchiveToggle() {
       method: 'POST',
       body: { archived: archive },
     })
-    await refreshNuxtData()
+    await refreshNuxtData(motionDataKey)
   } catch (err: unknown) {
     archiveError.value = extractError(err, 'Aktion fehlgeschlagen.')
   } finally {
@@ -235,6 +238,9 @@ const isStackedDebateView = computed(
 )
 
 const tabsRef = ref<HTMLElement | null>(null)
+const tabsRowRef = ref<HTMLElement | null>(null)
+const tabsFadeLeft = ref(false)
+const tabsFadeRight = ref(false)
 const tabsOffsetPx = ref(0)
 let tabsResizeObserver: ResizeObserver | null = null
 
@@ -248,12 +254,35 @@ function syncTabsOffset() {
   tabsOffsetPx.value = tabsRef.value?.offsetHeight ?? 0
 }
 
+function updateTabsScrollFades() {
+  if (!import.meta.client || isWideLayout.value) {
+    tabsFadeLeft.value = false
+    tabsFadeRight.value = false
+    return
+  }
+  const el = tabsRowRef.value
+  if (!el) return
+  const maxScroll = el.scrollWidth - el.clientWidth
+  if (maxScroll <= 1) {
+    tabsFadeLeft.value = false
+    tabsFadeRight.value = false
+    return
+  }
+  tabsFadeLeft.value = el.scrollLeft > 4
+  tabsFadeRight.value = el.scrollLeft < maxScroll - 4
+}
+
 function setupTabsObserver() {
   if (!import.meta.client) return
   syncTabsOffset()
   tabsResizeObserver?.disconnect()
-  tabsResizeObserver = new ResizeObserver(() => syncTabsOffset())
+  tabsResizeObserver = new ResizeObserver(() => {
+    syncTabsOffset()
+    updateTabsScrollFades()
+  })
   if (tabsRef.value) tabsResizeObserver.observe(tabsRef.value)
+  if (tabsRowRef.value) tabsResizeObserver.observe(tabsRowRef.value)
+  updateTabsScrollFades()
 }
 
 const debateUnreadCount = computed(() => {
@@ -411,7 +440,10 @@ onMounted(() => {
   layoutMedia = window.matchMedia(`(min-width: ${SPLIT_BREAKPOINT}px)`)
   layoutMedia.addEventListener('change', syncLayoutMode)
   syncLayoutMode()
-  window.addEventListener('resize', syncTabsOffset)
+  window.addEventListener('resize', () => {
+    syncTabsOffset()
+    updateTabsScrollFades()
+  })
   nextTick(setupTabsObserver)
 })
 
@@ -425,6 +457,7 @@ onUnmounted(() => {
 
 watch(isStackedDebateView, () => nextTick(syncTabsOffset))
 watch(isDraft, () => nextTick(setupTabsObserver))
+watch(isWideLayout, () => nextTick(updateTabsScrollFades))
 
 async function onPublish() {
   if (!confirm('Antrag jetzt veröffentlichen? Danach ist keine Bearbeitung mehr möglich.')) {
@@ -437,7 +470,7 @@ async function onPublish() {
       method: 'POST',
       body: { debateDays: DEFAULT_DEBATE_DAYS },
     })
-    await refreshNuxtData()
+    await refreshNuxtData(motionDataKey)
   } catch (err: unknown) {
     publishError.value = extractError(err, 'Veröffentlichen fehlgeschlagen.')
   } finally {
@@ -471,7 +504,7 @@ async function onStartBallot() {
   ballotPending.value = true
   try {
     await $fetch(`/api/motions/${id}/ballot/start`, { method: 'POST', body: {} })
-    await refreshNuxtData()
+    await refreshNuxtData(motionDataKey)
   } catch (err: unknown) {
     ballotError.value = extractError(err, 'Abstimmung konnte nicht gestartet werden.')
   } finally {
@@ -708,16 +741,7 @@ function onBarAction(id: string) {
     <header class="motion__head">
       <div class="motion__topbar">
         <div class="motion__badges">
-          <MotionStatusBadge :status="motion.status" />
-          <FwBadge
-            v-if="isDecided && motion.outcome"
-            :tone="motion.outcome === 'accepted' ? 'primary' : 'neutral'"
-          >
-            <FontAwesomeIcon
-              :icon="motion.outcome === 'accepted' ? 'circle-check' : 'circle-xmark'"
-            />
-            {{ outcomeLabel(motion.outcome) }}
-          </FwBadge>
+          <MotionStatusBadge :status="motion.status" :outcome="motion.outcome" />
           <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
           <FwBadge v-if="motion.division?.name" tone="neutral">
             {{ motion.division.name }}
@@ -814,7 +838,7 @@ function onBarAction(id: string) {
         </span>
         <span v-if="motion.status === 'debate' && motion.debateEndsAt">
           <FontAwesomeIcon icon="comments" />
-          Debatte {{ timeRemaining(motion.debateEndsAt) }}
+          Beratung {{ timeRemaining(motion.debateEndsAt) }}
         </span>
         <span v-else-if="isBallot && motion.ballotEndsAt">
           <FontAwesomeIcon icon="check-to-slot" />
@@ -829,7 +853,18 @@ function onBarAction(id: string) {
     </header>
 
     <nav v-if="!isDraft" ref="tabsRef" class="motion__tabs">
-      <div class="motion__tabs-row">
+      <div
+        class="motion__tabs-scroll"
+        :class="{
+          'motion__tabs-scroll--fade-left': tabsFadeLeft,
+          'motion__tabs-scroll--fade-right': tabsFadeRight,
+        }"
+      >
+        <div
+          ref="tabsRowRef"
+          class="motion__tabs-row"
+          @scroll.passive="updateTabsScrollFades"
+        >
         <button
           v-for="tab in mainTabs"
           :key="tab.id"
@@ -855,6 +890,7 @@ function onBarAction(id: string) {
             class="motion__tab-count"
           >{{ debateUnreadCount }}</span>
         </button>
+        </div>
       </div>
     </nav>
 
@@ -960,7 +996,7 @@ function onBarAction(id: string) {
                 :title-draft="isAuthorEditing ? editTitle : undefined"
                 :summary-draft="isAuthorEditing ? editSummary : undefined"
                 :header-baseline="headerBaseline"
-                @saved="refreshNuxtData()"
+                @saved="refreshNuxtData(motionDataKey)"
               />
               <div
                 v-if="versionUpdatedAt && !isSuggestionEditing"
@@ -988,7 +1024,7 @@ function onBarAction(id: string) {
               <MotionBallot
                 :motion-id="motion.id"
                 :can-manage="canManageBallot"
-                @changed="refreshNuxtData()"
+                @changed="refreshNuxtData(motionDataKey)"
               />
             </section>
           </div>
@@ -1065,7 +1101,7 @@ function onBarAction(id: string) {
               :title-draft="isAuthorEditing ? editTitle : undefined"
               :summary-draft="isAuthorEditing ? editSummary : undefined"
               :header-baseline="headerBaseline"
-              @saved="refreshNuxtData()"
+              @saved="refreshNuxtData(motionDataKey)"
             />
 
             <div
@@ -1096,7 +1132,7 @@ function onBarAction(id: string) {
             <MotionBallot
               :motion-id="motion.id"
               :can-manage="canManageBallot"
-              @changed="refreshNuxtData()"
+              @changed="refreshNuxtData(motionDataKey)"
             />
           </section>
         </div>
@@ -1187,7 +1223,10 @@ function onBarAction(id: string) {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  /* Tab chips have horizontal padding; pull row left so icons align with meta row. */
+}
+.motion__tabs-scroll {
+  position: relative;
+  /* Pull row left so tab icons align with the meta row above. */
   width: calc(100% + var(--space-3));
   margin-left: calc(-1 * var(--space-3));
 }
@@ -1197,6 +1236,51 @@ function onBarAction(id: string) {
 }
 @media (max-width: 1023px) {
   .motion__tabs-spacer {
+    display: none;
+  }
+
+  .motion__tabs-scroll::before,
+  .motion__tabs-scroll::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2.25rem;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .motion__tabs-scroll::before {
+    left: 0;
+    background: linear-gradient(to right, var(--color-bg) 15%, transparent);
+  }
+
+  .motion__tabs-scroll::after {
+    right: 0;
+    background: linear-gradient(to left, var(--color-bg) 15%, transparent);
+  }
+
+  .motion__tabs-scroll--fade-left::before {
+    opacity: 1;
+  }
+
+  .motion__tabs-scroll--fade-right::after {
+    opacity: 1;
+  }
+
+  .motion__tabs-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: var(--space-2);
+  }
+
+  .motion__tabs-row::-webkit-scrollbar {
     display: none;
   }
 }
@@ -1238,6 +1322,28 @@ function onBarAction(id: string) {
   font-size: 0.74rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1023px) {
+  .motion__tab {
+    flex-shrink: 0;
+    min-height: 2.3rem;
+    padding: var(--space-2) var(--space-4);
+    gap: var(--space-2);
+    font-size: 0.92rem;
+    line-height: 1.2;
+  }
+
+  .motion__tab :deep(svg) {
+    width: 0.92em;
+    height: 0.92em;
+  }
+
+  .motion__tab-count {
+    min-width: 1.2rem;
+    padding: 0.08rem var(--space-2);
+    font-size: 0.7rem;
+  }
 }
 
 /* Stacked layout: debate chat docks under tabs and fills the viewport. */

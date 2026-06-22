@@ -16,16 +16,7 @@ const emit = defineEmits<{
     <FwCard class="motion-card">
       <div class="motion-card__top">
         <div class="motion-card__head">
-          <MotionStatusBadge :status="motion.status" />
-          <FwBadge
-            v-if="motion.status === 'decided' && motion.outcome"
-            :tone="motion.outcome === 'accepted' ? 'primary' : 'neutral'"
-          >
-            <FontAwesomeIcon
-              :icon="motion.outcome === 'accepted' ? 'circle-check' : 'circle-xmark'"
-            />
-            {{ outcomeLabel(motion.outcome) }}
-          </FwBadge>
+          <MotionStatusBadge :status="motion.status" :outcome="motion.outcome" />
           <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
           <FwBadge v-if="motion.archivedAt" tone="neutral">
             <FontAwesomeIcon icon="box-archive" /> Archiviert

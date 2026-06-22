@@ -111,6 +111,8 @@ export type MoodChoice = 'approve' | 'reject' | 'abstain' | 'undecided'
 
 export type BallotTally = { approve: number; reject: number; abstain: number }
 
+export type MotionBodyStyle = 'standard' | 'compact' | 'rich'
+
 export type SeedMotion = {
   authorEmail: string
   title: string
@@ -120,6 +122,7 @@ export type SeedMotion = {
   divisionSlug: 'bund' | 'lv-nrw' | 'lv-bayern'
   bodyTheme: string
   bodyDemand: string
+  bodyStyle?: MotionBodyStyle
   /** Days from now when debate ends (published motions only). */
   debateDays?: number
   /** Days ago when published (published motions only). */
@@ -174,6 +177,7 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyTheme: 'Open Data und kommunale Transparenz',
     bodyDemand:
       'Wir fordern eine Open-Data-Strategie mit verpflichtenden Maschinenlesbarkeitsstandards für alle Kommunen.',
+    bodyStyle: 'compact',
     debateDays: 21,
     publishedDaysAgo: 0,
   },
@@ -202,6 +206,7 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyTheme: 'Soziale Sicherung und Erwerbsanreize',
     bodyDemand:
       'Wir fordern höhere Freibeträge, eine einfache Zuverdienstregel und digitale Meldewege ohne Medienbrüche.',
+    bodyStyle: 'compact',
     debateDays: 3,
     publishedDaysAgo: 1,
   },
@@ -258,6 +263,7 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyTheme: 'europäische Handelspolitik und Marktzugang',
     bodyDemand:
       'Wir fordern Freihandelsabkommen mit verbindlichen Nachhaltigkeits- und Transparenzstandards sowie KMU-Quoten.',
+    bodyStyle: 'rich',
     debateDays: 28,
     publishedDaysAgo: 12,
   },
@@ -286,6 +292,7 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyTheme: 'digitale Souveränität und Open Source in der Verwaltung',
     bodyDemand:
       'Wir fordern eine verbindliche Open-Source-Strategie mit dem Grundsatz "Public Money, Public Code" für neue Behördensoftware.',
+    bodyStyle: 'rich',
     debateDays: 14,
     publishedDaysAgo: 24,
     ballotDays: 7,
@@ -334,8 +341,52 @@ function countWords(html: string): number {
     .filter(Boolean).length
 }
 
-/** Builds sanitized TipTap-style HTML with at least 500 words. */
-export function buildMotionBody(theme: string, demand: string): string {
+/** Builds sanitized TipTap-style HTML; length and structure vary by style. */
+export function buildMotionBody(
+  theme: string,
+  demand: string,
+  style: MotionBodyStyle = 'standard',
+): string {
+  if (style === 'compact') {
+    return [
+      `<h2>Kurzfassung</h2>`,
+      `<p><strong>${demand}</strong></p>`,
+      `<p>${BODY_SENTENCES[0]} Im Kontext von ${theme} brauchen wir pragmatische Schritte statt weiterer Symbolpolitik.</p>`,
+      `<h2>Nächste Schritte</h2>`,
+      `<ul>`,
+      `<li>Verantwortlichkeiten zwischen Bund, Ländern und Kommunen klären</li>`,
+      `<li>Ergebnisse nach zwei Jahren evaluieren</li>`,
+      `<li>Bürgerinnen und Bürger frühzeitig einbinden</li>`,
+      `</ul>`,
+    ].join('')
+  }
+
+  if (style === 'rich') {
+    let html = [
+      `<h2>Einleitung</h2>`,
+      `<blockquote><p>${demand}</p></blockquote>`,
+      `<p>${BODY_SENTENCES[1]} Für ${theme} gilt das in besonderem Maße.</p>`,
+      `<h2>Kernpunkte</h2>`,
+      `<ol>`,
+      `<li><strong>Transparenz:</strong> Verfahren und Daten öffnen, ohne Sicherheit zu gefährden.</li>`,
+      `<li><strong>Pragmatismus:</strong> Pilotprojekte zuerst, flächendeckende Pflichten erst nach Evaluation.</li>`,
+      `<li><strong>Subsidiarität:</strong> Lokal entscheiden, wo es sinnvoller ist als zentral zu regulieren.</li>`,
+      `</ol>`,
+      `<h2>Forderungen</h2>`,
+      `<p>${demand}</p>`,
+      `<h2>Begründung</h2>`,
+    ].join('')
+
+    let sentenceIndex = 2
+    for (let i = 0; i < 4; i++) {
+      const sentence = BODY_SENTENCES[sentenceIndex % BODY_SENTENCES.length]
+      html += `<p>${sentence} Im Kontext von ${theme} brauchen wir deshalb <em>konkrete</em>, überprüfbare Maßnahmen.</p>`
+      sentenceIndex++
+    }
+    html += `<hr><p><strong>Fazit:</strong> ${theme} erfordert Mut, Kompromisse und messbare Wirkung.</p>`
+    return html
+  }
+
   const headings = [
     'Motivation',
     'Ausgangslage',
@@ -554,8 +605,19 @@ export function buildBallotRows(
   return { participants, ballots }
 }
 
-/** Verify all motion bodies meet the minimum word count during seeding. */
-export function assertMotionBodyLength(html: string, title: string, minWords = 500): void {
+const MIN_WORDS_BY_STYLE: Record<MotionBodyStyle, number> = {
+  compact: 40,
+  standard: 500,
+  rich: 120,
+}
+
+/** Verify motion bodies meet the minimum word count for their style during seeding. */
+export function assertMotionBodyLength(
+  html: string,
+  title: string,
+  style: MotionBodyStyle = 'standard',
+): void {
+  const minWords = MIN_WORDS_BY_STYLE[style]
   const words = countWords(html)
   if (words < minWords) {
     throw new Error(`Motion "${title}" body has only ${words} words (min ${minWords}).`)

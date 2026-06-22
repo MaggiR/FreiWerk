@@ -72,7 +72,7 @@ export function moodColorsForScheme(
 
 export const MOTION_STATUS_LABELS: Record<string, string> = {
   draft: 'Entwurf',
-  debate: 'Debatte',
+  debate: 'Beratung',
   ballot: 'Abstimmung',
   decided: 'Entschieden',
 }
@@ -182,14 +182,14 @@ export const MOTION_VIEW_META: Record<
   questions: { label: 'Fragen', icon: 'circle-question' },
   mood: { label: 'Stimmungsbild', icon: 'chart-pie' },
   resources: { label: 'Ressourcen', icon: 'paperclip' },
-  debate: { label: 'Debatte', icon: 'comments' },
+  debate: { label: 'Beratung', icon: 'comments' },
   activity: { label: 'Aktivität', icon: 'list-ul' },
 }
 
 // Human-readable labels for the per-motion activity feed.
 export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   motion_published: 'Antrag veröffentlicht',
-  debate_started: 'Debattenphase begonnen',
+  debate_started: 'Beratungsphase begonnen',
   motion_version: 'Neue Antragsversion',
   argument_proposed: 'Argument vorgeschlagen',
   argument_accepted: 'Argument angenommen',

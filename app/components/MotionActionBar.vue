@@ -462,8 +462,7 @@ onUnmounted(() => {
   width: max-content;
   min-width: 15rem;
   max-width: min(22rem, calc(100vw - 2 * var(--space-4)));
-  max-height: min(26rem, 60vh);
-  overflow-y: auto;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -507,6 +506,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  white-space: nowrap;
 }
 
 .action-fab__divider {
@@ -569,6 +569,7 @@ onUnmounted(() => {
 
 .action-fab__item-label {
   flex: 1;
+  white-space: nowrap;
 }
 
 .action-bar__count {
@@ -602,6 +603,15 @@ onUnmounted(() => {
 }
 
 @media (max-width: 600px) {
+  .action-fab__dock {
+    right: var(--space-1);
+  }
+
+  .action-fab__panel {
+    min-width: 18rem;
+    max-width: calc(100vw - 2 * var(--space-4));
+  }
+
   .action-fab__pinned :deep(.fw-btn) {
     padding-inline: var(--space-4);
     font-size: 0.9rem;

@@ -12,12 +12,17 @@ echo "[entrypoint] Database is ready."
 echo "[entrypoint] Running migrations..."
 npm run db:migrate
 
-if [ "${FORCE_SEED:-0}" = "1" ]; then
-  echo "[entrypoint] Force-seeding database (FORCE_SEED=1)..."
-  npm run db:seed
+APP_MODE="${NUXT_PUBLIC_APP_MODE:-production}"
+if [ "$APP_MODE" = "dev" ] || [ "$APP_MODE" = "demo" ]; then
+  if [ "${FORCE_SEED:-0}" = "1" ]; then
+    echo "[entrypoint] Force-seeding database (FORCE_SEED=1, mode=$APP_MODE)..."
+    npm run db:seed
+  else
+    echo "[entrypoint] Seeding database if empty (mode=$APP_MODE)..."
+    npm run db:seed:if-empty
+  fi
 else
-  echo "[entrypoint] Seeding database if empty..."
-  npm run db:seed:if-empty
+  echo "[entrypoint] Skipping demo seed (NUXT_PUBLIC_APP_MODE=$APP_MODE)."
 fi
 
 echo "[entrypoint] Starting Nuxt server..."

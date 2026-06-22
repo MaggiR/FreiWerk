@@ -27,6 +27,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: development
+      NUXT_PUBLIC_APP_MODE: dev
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: dev-only-session-password-change-me-please-32
       POSTGRES_HOST: db
@@ -53,6 +54,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      NUXT_PUBLIC_APP_MODE: production
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: prod-change-me-to-a-long-random-secret-32chars
       POSTGRES_HOST: db

@@ -1,18 +1,26 @@
 <script setup lang="ts">
 const { loggedIn, user, logout, isModerator } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
+const route = useRoute()
 const menuOpen = ref(false)
+const motionsSubmenuOpen = ref(false)
 
 const myMotionsTo = computed(() => ({
   path: '/motions',
   query: user.value?.id ? { authorId: user.value.id } : {},
 }))
 
-const route = useRoute()
+const MOTIONS_STATUS_LINKS = [
+  { label: 'In Beratung', status: 'debate', icon: 'comments' },
+  { label: 'In Abstimmung', status: 'ballot', icon: 'check-to-slot' },
+  { label: 'Entschlossen', status: 'decided', icon: 'circle-check' },
+] as const
+
 watch(
   () => route.fullPath,
   () => {
     menuOpen.value = false
+    motionsSubmenuOpen.value = false
   },
 )
 </script>
@@ -44,10 +52,33 @@ watch(
           aria-label="Hauptnavigation"
         >
           <div class="nav-links">
-            <NuxtLink to="/motions" class="nav__link nav__link--primary">
-              Anträge
-            </NuxtLink>
-            <div v-if="loggedIn" class="nav-links__sub" role="menu">
+            <div class="nav-links__head">
+              <NuxtLink to="/motions" class="nav__link nav__link--primary">
+                <FontAwesomeIcon icon="file-lines" aria-hidden="true" />
+                Anträge
+              </NuxtLink>
+              <button
+                v-if="loggedIn"
+                type="button"
+                class="nav-links__toggle"
+                :aria-expanded="motionsSubmenuOpen"
+                aria-controls="motions-submenu"
+                aria-label="Anträge-Untermenü umschalten"
+                @click="motionsSubmenuOpen = !motionsSubmenuOpen"
+              >
+                <FontAwesomeIcon
+                  :icon="motionsSubmenuOpen ? 'chevron-up' : 'chevron-down'"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+            <div
+              v-if="loggedIn"
+              id="motions-submenu"
+              class="nav-links__sub"
+              :class="{ 'nav-links__sub--open': motionsSubmenuOpen }"
+              role="menu"
+            >
               <NuxtLink
                 :to="myMotionsTo"
                 class="nav__link nav__link--sub"
@@ -55,6 +86,16 @@ watch(
               >
                 <FontAwesomeIcon icon="seedling" aria-hidden="true" />
                 Meine Anträge
+              </NuxtLink>
+              <NuxtLink
+                v-for="item in MOTIONS_STATUS_LINKS"
+                :key="item.status"
+                :to="{ path: '/motions', query: { status: item.status } }"
+                class="nav__link nav__link--sub"
+                role="menuitem"
+              >
+                <FontAwesomeIcon :icon="item.icon" aria-hidden="true" />
+                {{ item.label }}
               </NuxtLink>
               <NuxtLink
                 to="/motions/new"
@@ -113,7 +154,7 @@ watch(
               v-else
               class="nav-actions__login"
               type="button"
-              @click="openAuthModal('login')"
+              @click="openAuthModal('login', route.fullPath)"
             >
               <FontAwesomeIcon icon="right-to-bracket" aria-hidden="true" />
               Anmelden
@@ -209,6 +250,16 @@ watch(
   align-items: stretch;
 }
 
+.nav-links__head {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.nav-links__toggle {
+  display: none;
+}
+
 .nav__link--primary {
   height: 100%;
   padding: 0 var(--space-3);
@@ -243,6 +294,10 @@ watch(
 }
 
 @media (min-width: 761px) {
+  .nav-links__head {
+    display: contents;
+  }
+
   .nav-links:hover .nav-links__sub,
   .nav-links:focus-within .nav-links__sub {
     opacity: 1;
@@ -427,6 +482,33 @@ watch(
     width: 100%;
   }
 
+  .nav-links__head {
+    align-items: center;
+  }
+
+  .nav-links__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-left: auto;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+
+  .nav-links__toggle:hover {
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .nav__link--primary {
+    flex: 1;
+  }
+
   .nav__link--primary,
   .nav__link--sub {
     width: 100%;
@@ -440,13 +522,21 @@ watch(
     width: 100%;
     min-width: 0;
     opacity: 1;
-    pointer-events: auto;
+    pointer-events: none;
     padding: 0;
     margin: 0;
     background: transparent;
     border: none;
     box-shadow: none;
     gap: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+  }
+
+  .nav-links__sub--open {
+    pointer-events: auto;
+    max-height: 20rem;
   }
 
   .nav-links__sub::before {
@@ -527,6 +617,24 @@ watch(
   .nav-actions__logout:hover,
   .nav-actions__login:hover {
     transform: none;
+  }
+
+  .nav {
+    font-size: 0.92rem;
+  }
+
+  .nav__link--primary,
+  .nav__link--sub {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .brand {
+    font-size: 1.1rem;
+  }
+
+  .brand__mark {
+    width: 32px;
+    height: 32px;
   }
 }
 </style>

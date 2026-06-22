@@ -5,9 +5,10 @@ export function useAuthModal() {
   const mode = useState<AuthModalMode>('auth-modal-mode', () => 'login')
   const redirectPath = useState<string | null>('auth-modal-redirect', () => null)
 
-  function open(authMode: AuthModalMode = 'login', redirect?: string) {
+  function open(authMode: AuthModalMode = 'login', redirect?: string | null) {
     mode.value = authMode
-    redirectPath.value = redirect ?? null
+    const route = useRoute()
+    redirectPath.value = redirect !== undefined ? redirect : route.fullPath
     isOpen.value = true
   }
 

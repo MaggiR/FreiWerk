@@ -75,7 +75,7 @@ describe('highlightParts', () => {
 describe('labels', () => {
   it('maps known topics and statuses to German labels', () => {
     expect(topicLabel('wirtschaft')).toBe('Wirtschaft')
-    expect(statusLabel('debate')).toBe('Debatte')
+    expect(statusLabel('debate')).toBe('Beratung')
   })
 
   it('falls back to the raw value for unknown keys', () => {

@@ -43,14 +43,18 @@ function onKeydown(event: KeyboardEvent) {
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
+const route = useRoute()
+
 async function onLoginSubmit() {
   error.value = ''
   pending.value = true
   try {
     await login({ email: email.value, password: password.value })
-    const target = redirectPath.value || '/'
+    const target = redirectPath.value ?? route.fullPath
     close()
-    await navigateTo(target)
+    if (target !== route.fullPath) {
+      await navigateTo(target)
+    }
   } catch (err: unknown) {
     error.value = extractError(err, 'Anmeldung fehlgeschlagen.')
   } finally {
@@ -67,9 +71,11 @@ async function onRegisterSubmit() {
       email: email.value,
       password: password.value,
     })
-    const target = redirectPath.value || '/'
+    const target = redirectPath.value ?? route.fullPath
     close()
-    await navigateTo(target)
+    if (target !== route.fullPath) {
+      await navigateTo(target)
+    }
   } catch (err: unknown) {
     error.value = extractError(err, 'Registrierung fehlgeschlagen.')
   } finally {

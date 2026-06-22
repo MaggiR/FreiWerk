@@ -98,8 +98,12 @@ async function main() {
   const ballotRows: (typeof schema.ballots.$inferInsert)[] = []
   const voterIds = insertedUsers.map((u) => u.id)
   for (const motion of SEED_MOTIONS) {
-    const bodyHtml = buildMotionBody(motion.bodyTheme, motion.bodyDemand)
-    assertMotionBodyLength(bodyHtml, motion.title)
+    const bodyHtml = buildMotionBody(
+      motion.bodyTheme,
+      motion.bodyDemand,
+      motion.bodyStyle ?? 'standard',
+    )
+    assertMotionBodyLength(bodyHtml, motion.title, motion.bodyStyle ?? 'standard')
 
     // Drafts stay at version 0; every published stage carries a v1 snapshot.
     const isPublished = motion.status !== 'draft'
@@ -244,6 +248,7 @@ async function main() {
     const bundle = buildDeliberationBundle({
       motionId: motion.id,
       motionTitle: motion.title,
+      bodyHtml: motion.bodyHtml,
       bodyDemand: meta.bodyDemand,
       bodyTheme: meta.bodyTheme,
       authorId: motion.authorId,

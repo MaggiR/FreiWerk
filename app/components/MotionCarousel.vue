@@ -233,7 +233,7 @@ const canScrollNext = computed(() => currentPage.value < pageCount.value - 1)
   display: none;
 }
 
-@media (hover: hover) and (min-width: 860px) {
+@media (min-width: 1024px) {
   .motion-carousel__arrow {
     position: absolute;
     top: calc(50% - var(--space-3));

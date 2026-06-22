@@ -194,6 +194,13 @@ export default defineEventHandler(async (event) => {
       )`
     : sql<boolean>`false`
 
+  const whereClause = conditions.length ? and(...conditions) : undefined
+
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(motions)
+    .where(whereClause)
+
   const rows = await db
     .select({
       id: motions.id,
@@ -220,11 +227,12 @@ export default defineEventHandler(async (event) => {
     .from(motions)
     .leftJoin(users, eq(users.id, motions.authorId))
     .leftJoin(divisions, eq(divisions.id, motions.divisionId))
-    .where(conditions.length ? and(...conditions) : undefined)
+    .where(whereClause)
     .orderBy(...orderBy)
     .limit(60)
 
   return {
     motions: rows.map((row) => redactMotionAuthor(row, currentUserId)),
+    total: countRow?.count ?? 0,
   }
 })

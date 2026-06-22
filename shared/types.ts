@@ -33,6 +33,11 @@ export interface UserProfilePageData {
   watched: MotionListItem[]
 }
 
+export interface MotionListResponse {
+  motions: MotionListItem[]
+  total: number
+}
+
 export interface MotionListItem {
   id: string
   title: string

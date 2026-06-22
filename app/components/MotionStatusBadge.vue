@@ -1,5 +1,8 @@
 <script setup lang="ts">
-const props = defineProps<{ status: string }>()
+const props = defineProps<{
+  status: string
+  outcome?: string | null
+}>()
 
 const STATUS_TONE: Record<string, 'neutral' | 'primary' | 'tertiary'> = {
   draft: 'neutral',
@@ -8,10 +11,30 @@ const STATUS_TONE: Record<string, 'neutral' | 'primary' | 'tertiary'> = {
   decided: 'neutral',
 }
 
-const tone = computed(() => STATUS_TONE[props.status] ?? 'neutral')
+const showOutcome = computed(
+  () => props.status === 'decided' && Boolean(props.outcome),
+)
 
-const icon = computed(() => statusIcon(props.status))
-const label = computed(() => statusLabel(props.status))
+const tone = computed(() => {
+  if (showOutcome.value) {
+    return props.outcome === 'accepted' ? 'success' : 'danger'
+  }
+  return STATUS_TONE[props.status] ?? 'neutral'
+})
+
+const icon = computed(() => {
+  if (showOutcome.value) {
+    return props.outcome === 'accepted' ? 'circle-check' : 'circle-xmark'
+  }
+  return statusIcon(props.status)
+})
+
+const label = computed(() => {
+  if (showOutcome.value) {
+    return outcomeLabel(props.outcome)
+  }
+  return statusLabel(props.status)
+})
 </script>
 
 <template>

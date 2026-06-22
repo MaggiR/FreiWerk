@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    tone?: 'neutral' | 'primary' | 'secondary' | 'tertiary' | 'success'
+    tone?: 'neutral' | 'primary' | 'secondary' | 'tertiary' | 'success' | 'danger'
   }>(),
   { tone: 'neutral' },
 )
@@ -46,6 +46,11 @@ withDefaults(
   background: rgba(30, 142, 90, 0.15);
   color: var(--color-success);
   border-color: rgba(30, 142, 90, 0.4);
+}
+.fw-badge--danger {
+  background: rgba(192, 57, 43, 0.12);
+  color: var(--color-danger);
+  border-color: rgba(192, 57, 43, 0.4);
 }
 .dark .fw-badge--primary {
   color: var(--brand-yellow);
