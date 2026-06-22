@@ -28,6 +28,7 @@ services:
     environment:
       NODE_ENV: development
       NUXT_PUBLIC_APP_MODE: dev
+      NUXT_DEV_ALLOWED_HOSTS: ${NUXT_DEV_ALLOWED_HOSTS:-}
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: dev-only-session-password-change-me-please-32
       POSTGRES_HOST: db

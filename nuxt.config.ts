@@ -3,6 +3,11 @@ import { parseAppMode } from './shared/appMode'
 
 const appMode = parseAppMode(process.env.NUXT_PUBLIC_APP_MODE)
 
+const allowedHosts = process.env.NUXT_DEV_ALLOWED_HOSTS
+  ?.split(',')
+  .map((host) => host.trim())
+  .filter(Boolean)
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: appMode === 'dev' },
@@ -70,7 +75,7 @@ export default defineNuxtConfig({
 
   vite: {
     server: {
-      allowedHosts: ['your.domain.com'],
+      ...(allowedHosts?.length ? { allowedHosts } : {}),
     },
   },
 

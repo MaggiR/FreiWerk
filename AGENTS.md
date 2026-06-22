@@ -256,6 +256,7 @@ Inside Docker Compose these are set automatically. For custom setups, copy `.env
 ```dotenv
 DATABASE_URL="postgresql://freiwerk:freiwerk@localhost:5432/freiwerk"
 NUXT_SESSION_PASSWORD="replace-with-a-long-random-secret"
+NUXT_DEV_ALLOWED_HOSTS="freiwerk.example.org"
 ```
 
 AI provider keys (`OLLAMA_*`, `OPENAI_*`, etc.) are optional and not used in MVP.
