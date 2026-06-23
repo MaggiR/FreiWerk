@@ -35,6 +35,9 @@ export default defineNuxtConfig({
       // Overridden at runtime via NUXT_SESSION_PASSWORD
       password: '',
       maxAge: 60 * 60 * 24 * 7, // 7 days
+      cookie: {
+        sameSite: 'lax',
+      },
     },
     public: {
       appName: 'FreiWerk',
@@ -71,6 +74,16 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
     typeCheck: false,
+  },
+
+  nitro: {
+    routeRules: {
+      '/api/**': {
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    },
   },
 
   vite: {

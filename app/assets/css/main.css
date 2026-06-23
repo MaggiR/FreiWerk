@@ -103,11 +103,21 @@ select:focus {
 /* Rendered rich text (sanitized HTML) */
 .rich-text {
   font-family: var(--font-sans), var(--font-emoji);
-  font-variant-emoji: emoji;
+  /* unicode: color emoji where Unicode expects it, without upgrading 0–9 to emoji fonts. */
+  font-variant-emoji: unicode;
   line-height: 1.7;
   hyphens: auto;
   -webkit-hyphens: auto;
   overflow-wrap: break-word;
+}
+
+/* Bold marks must use the sans bold face only — emoji fallback fonts lack matching weights. */
+.rich-text :is(strong, b),
+.editor-surface :is(strong, b) {
+  font-weight: 700;
+  font-family: var(--font-sans);
+  font-variant-emoji: text;
+  font-synthesis: none;
 }
 
 /* Hyphenation is for read-only display only, not while typing in the editor. */

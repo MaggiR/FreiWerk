@@ -205,7 +205,7 @@ defineExpose({
       </label>
 
       <label class="field">
-        <span>Zuständige Gliederungsebene</span>
+        <span>Geltungsbereich</span>
         <select v-model="form.divisionId">
           <option :value="null">Keine Angabe</option>
           <option

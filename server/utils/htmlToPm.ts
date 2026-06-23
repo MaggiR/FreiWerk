@@ -27,24 +27,97 @@ function stripTags(html: string): string {
   return decodeEntities(html.replace(/<[^>]+>/g, ''))
 }
 
+function parseAnchorAttrs(raw: string): {
+  href: string
+  target?: string
+  rel?: string
+} {
+  const hrefMatch = /href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(raw)
+  const href = hrefMatch?.[1] ?? hrefMatch?.[2] ?? hrefMatch?.[3] ?? ''
+  const targetMatch = /target\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(raw)
+  const relMatch = /rel\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(raw)
+  return {
+    href,
+    target: targetMatch?.[1] ?? targetMatch?.[2] ?? targetMatch?.[3],
+    rel: relMatch?.[1] ?? relMatch?.[2] ?? relMatch?.[3],
+  }
+}
+
+function mergeMarks(base: PmMark[] | undefined, extra: PmMark): PmMark[] {
+  return [...(base ?? []), extra]
+}
+
 function parseInline(html: string): PmNode[] {
   const nodes: PmNode[] = []
-  const pattern =
-    /<(strong|em|b|i)>([\s\S]*?)<\/\1>|([^<]+)/gi
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(html)) !== null) {
-    const tag = match[1]?.toLowerCase()
-    const inner = match[2]
-    const plain = match[3]
-    if (tag && inner !== undefined) {
-      const markType = tag === 'strong' || tag === 'b' ? 'bold' : 'italic'
-      const text = stripTags(inner)
-      if (text) nodes.push({ type: 'text', text, marks: [{ type: markType }] })
-    } else if (plain) {
-      const text = decodeEntities(plain)
-      if (text) nodes.push({ type: 'text', text })
+  let pos = 0
+
+  while (pos < html.length) {
+    if (html[pos] === '<') {
+      const rest = html.slice(pos)
+      const anchorMatch = /^<a\s+([^>]*?)>([\s\S]*?)<\/a>/i.exec(rest)
+      if (anchorMatch) {
+        const { href, target, rel } = parseAnchorAttrs(anchorMatch[1] ?? '')
+        const innerNodes = parseInline(anchorMatch[2] ?? '')
+        const linkMark: PmMark = {
+          type: 'link',
+          attrs: {
+            href,
+            target: target ?? '_blank',
+            rel: rel ?? 'noopener noreferrer nofollow',
+          },
+        }
+        if (!innerNodes.length) {
+          const text = stripTags(anchorMatch[2] ?? '')
+          if (text) nodes.push({ type: 'text', text, marks: [linkMark] })
+        } else {
+          for (const node of innerNodes) {
+            if (node.type === 'text' && node.text) {
+              nodes.push({
+                type: 'text',
+                text: node.text,
+                marks: mergeMarks(node.marks, linkMark),
+              })
+            }
+          }
+        }
+        pos += anchorMatch[0].length
+        continue
+      }
+
+      const formatMatch = /^<(strong|em|b|i)>([\s\S]*?)<\/\1>/i.exec(rest)
+      if (formatMatch) {
+        const markType =
+          formatMatch[1]!.toLowerCase() === 'strong' ||
+          formatMatch[1]!.toLowerCase() === 'b'
+            ? 'bold'
+            : 'italic'
+        const innerNodes = parseInline(formatMatch[2] ?? '')
+        for (const node of innerNodes) {
+          if (node.type === 'text' && node.text) {
+            nodes.push({
+              type: 'text',
+              text: node.text,
+              marks: mergeMarks(node.marks, { type: markType }),
+            })
+          }
+        }
+        pos += formatMatch[0].length
+        continue
+      }
+
+      const close = html.indexOf('>', pos)
+      if (close === -1) break
+      pos = close + 1
+      continue
     }
+
+    const nextTag = html.indexOf('<', pos)
+    const end = nextTag === -1 ? html.length : nextTag
+    const text = decodeEntities(html.slice(pos, end))
+    if (text) nodes.push({ type: 'text', text })
+    pos = end
   }
+
   return nodes.length ? nodes : [{ type: 'text', text: stripTags(html) }]
 }
 

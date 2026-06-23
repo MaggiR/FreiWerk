@@ -11,11 +11,13 @@ import {
   buildMoodRows,
   buildBallotRows,
   assertMotionBodyLength,
+  defaultPostCount,
   daysAgo,
   daysFromNow,
   seedProfileAvatarUrl,
 } from './seed-data'
 import { buildDeliberationBundle, SEED_POST_BODIES } from './seed-deliberation'
+import { FEDERAL_DIVISIONS } from '../../shared/divisions'
 
 // Demo seed: clears domain tables, then inserts demo data.
 // Pass --if-empty to skip when the database already has rows (Docker default).
@@ -50,25 +52,20 @@ async function main() {
   )
 
   console.log('[seed] Inserting divisions...')
-  const [bund] = await db
-    .insert(schema.divisions)
-    .values({ name: 'Bund', slug: 'bund' })
-    .returning()
-
-  const [nrw] = await db
-    .insert(schema.divisions)
-    .values({ name: 'Landesverband NRW', slug: 'lv-nrw', parentId: bund!.id })
-    .returning()
-
-  const [bayern] = await db
-    .insert(schema.divisions)
-    .values({ name: 'Landesverband Bayern', slug: 'lv-bayern', parentId: bund!.id })
-    .returning()
-
-  const divisionIdBySlug = {
-    bund: bund!.id,
-    'lv-nrw': nrw!.id,
-    'lv-bayern': bayern!.id,
+  const divisionIdBySlug: Record<string, string> = {}
+  for (const division of FEDERAL_DIVISIONS) {
+    const parentId = division.parentSlug
+      ? divisionIdBySlug[division.parentSlug]
+      : null
+    const [row] = await db
+      .insert(schema.divisions)
+      .values({
+        name: division.name,
+        slug: division.slug,
+        parentId: parentId ?? null,
+      })
+      .returning()
+    divisionIdBySlug[division.slug] = row!.id
   }
 
   console.log('[seed] Inserting users...')
@@ -98,12 +95,18 @@ async function main() {
   const ballotRows: (typeof schema.ballots.$inferInsert)[] = []
   const voterIds = insertedUsers.map((u) => u.id)
   for (const motion of SEED_MOTIONS) {
-    const bodyHtml = buildMotionBody(
-      motion.bodyTheme,
-      motion.bodyDemand,
-      motion.bodyStyle ?? 'standard',
+    const bodyHtml =
+      motion.bodyHtml ??
+      buildMotionBody(
+        motion.bodyTheme,
+        motion.bodyDemand,
+        motion.bodyStyle ?? 'standard',
+      )
+    assertMotionBodyLength(
+      bodyHtml,
+      motion.title,
+      motion.bodyHtml ? 'custom' : (motion.bodyStyle ?? 'standard'),
     )
-    assertMotionBodyLength(bodyHtml, motion.title, motion.bodyStyle ?? 'standard')
 
     // Drafts stay at version 0; every published stage carries a v1 snapshot.
     const isPublished = motion.status !== 'draft'
@@ -187,8 +190,9 @@ async function main() {
 
   const postRows: (typeof schema.posts.$inferInsert)[] = []
   for (const motion of debateMotions) {
+    const meta = motionMetaByTitle[motion.title]
     const authorPool = insertedUsers.filter((u) => u.id !== motion.authorId)
-    const postCount = motion.title.includes('Europäische Digitale Identität') ? 8 : 5
+    const postCount = meta ? defaultPostCount(meta) : 3
     for (let i = 0; i < postCount; i++) {
       const author = authorPool[i % authorPool.length]!
       postRows.push({
@@ -207,9 +211,7 @@ async function main() {
     postsByMotionId.set(post.motionId, list)
   }
 
-  const euMotion = debateMotions.find(
-    (m) => m.title === 'Europäische Digitale Identität für Deutschland',
-  )
+  const euMotion = debateMotions.find((m) => m.title === 'Europäische Digitale Identität')
   if (euMotion) {
     const euPosts = postsByMotionId.get(euMotion.id) ?? []
     const rootId = euPosts[0]
@@ -254,6 +256,7 @@ async function main() {
       authorId: motion.authorId,
       status: motion.status,
       publishedAt: motion.publishedAt,
+      deliberationLevel: meta.deliberationLevel,
       userIdByEmail,
       memberIds: insertedUsers.map((u) => u.id),
       postIds: postsByMotionId.get(motion.id) ?? [],

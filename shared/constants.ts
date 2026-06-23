@@ -166,6 +166,7 @@ export const RESOURCE_KIND_LABELS: Record<string, string> = {
 /** Tab ids on the motion detail page (main + side panel). */
 export type MotionViewId =
   | 'antrag'
+  | 'ballot'
   | 'arguments'
   | 'questions'
   | 'mood'
@@ -178,6 +179,7 @@ export const MOTION_VIEW_META: Record<
   { label: string; icon: string }
 > = {
   antrag: { label: 'Antrag', icon: 'file-lines' },
+  ballot: { label: 'Abstimmung', icon: 'check-to-slot' },
   arguments: { label: 'Argumente', icon: 'scale-balanced' },
   questions: { label: 'Fragen', icon: 'circle-question' },
   mood: { label: 'Stimmungsbild', icon: 'chart-pie' },

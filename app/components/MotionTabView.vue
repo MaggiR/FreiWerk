@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MotionViewId } from '#shared/constants'
 
-type ViewTab = Exclude<MotionViewId, 'antrag'>
+type ViewTab = Exclude<MotionViewId, 'antrag' | 'ballot'>
 
 const props = withDefaults(
   defineProps<{
@@ -134,10 +134,22 @@ watch(
 
 <style scoped>
 .tab-view {
+  container-type: inline-size;
+  container-name: tab-view;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: min(32rem, 70vh);
+}
+.tab-view--debate-dock {
+  min-height: 0;
+}
+.tab-view--debate-dock .tab-view__head {
+  flex-shrink: 0;
+}
+.tab-view--debate-dock .tab-view__panel {
+  flex: 1;
+  min-height: 0;
 }
 .tab-view__head {
   display: flex;
@@ -178,16 +190,34 @@ watch(
   flex: 1;
   min-height: 0;
 }
-@media (max-width: 1023px) {
-  .tab-view--debate-dock {
-    min-height: 0;
+/* Match deliberation lists (args/mood): react to pane width, not viewport. */
+@container tab-view (max-width: 559px) {
+  .tab-view__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
   }
-  .tab-view--debate-dock .tab-view__head {
-    flex-shrink: 0;
+  .tab-view__head :deep(.motion-view-heading) {
+    flex: none;
+    width: 100%;
+    font-size: 1.25rem;
+    line-height: 1.2;
   }
-  .tab-view--debate-dock .tab-view__panel {
-    flex: 1;
-    min-height: 0;
+  .tab-view__head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+    gap: var(--space-2);
+  }
+  .tab-view__head-actions :deep(.tab-view-head-btn) {
+    padding: 0.4rem var(--space-3);
+    font-size: 0.78rem;
+    max-width: 100%;
+  }
+  .tab-view__head-actions :deep(.tab-view-head-btn span) {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 @media (min-width: 1024px) {

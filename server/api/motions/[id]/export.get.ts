@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
   lines.push(`- **Status:** ${MOTION_STATUS_LABELS[motion.status] ?? motion.status}`)
   lines.push(`- **Thema:** ${TOPIC_LABELS[motion.topic as Topic] ?? motion.topic}`)
   if (motion.division?.name) {
-    lines.push(`- **Gliederung:** ${motion.division.name}`)
+    lines.push(`- **Geltungsbereich:** ${motion.division.name}`)
   }
   lines.push(`- **Eingereicht von:** ${authorName}`)
   if (motion.publishedAt) {

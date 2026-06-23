@@ -158,7 +158,7 @@ export const divisions = pgTable('divisions', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
-  // Self-referencing hierarchy (Bund -> Landesverband -> Kreis-/Bezirksverband).
+  // Self-referencing hierarchy (Bund → Bundesland → Kreis-/Bezirksverband).
   parentId: uuid('parent_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
