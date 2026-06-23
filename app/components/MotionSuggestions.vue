@@ -42,7 +42,7 @@ const reviewPendingCount = defineModel<number>('reviewPendingCount', { default: 
 const { user } = useAuthUser()
 const toast = useToast()
 
-const { data } = await useFetch<MotionSuggestionsResponse>(
+const { data } = useFetch<MotionSuggestionsResponse>(
   () => `/api/motions/${props.motionId}/suggestions`,
   { key: computed(() => `suggestions-${props.motionId}`) },
 )
@@ -52,7 +52,6 @@ const suggestions = computed<SuggestionItem[]>(() => data.value?.suggestions ?? 
 const docJson = computed<JSONContent | null>(
   () => (data.value?.docJson as JSONContent | null) ?? null,
 )
-const revision = computed(() => data.value?.revision ?? 0)
 const sessionRevision = ref(0)
 
 const suggestionConfig = computed(() => ({

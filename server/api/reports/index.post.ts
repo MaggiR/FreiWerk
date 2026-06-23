@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '../../database/client'
-import { reports, motions, posts } from '../../database/schema'
+import { reports, posts } from '../../database/schema'
 import { reportCreateSchema } from '../../utils/validation'
 import { requireAuth } from '../../utils/auth'
 

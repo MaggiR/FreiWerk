@@ -15,7 +15,7 @@ const { loggedIn, SESSION_EXPIRED_MESSAGE } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 const toast = useToast()
 
-const { data, refresh, pending } = await useFetch<ResourceListResponse>(
+const { data, refresh, pending } = useFetch<ResourceListResponse>(
   () => `/api/motions/${props.motionId}/resources`,
   { key: computed(() => `resources-${props.motionId}`) },
 )

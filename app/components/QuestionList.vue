@@ -14,7 +14,7 @@ const { loggedIn, SESSION_EXPIRED_MESSAGE } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 const toast = useToast()
 
-const { data, refresh, pending } = await useFetch<QuestionListResponse>(
+const { data, refresh, pending } = useFetch<QuestionListResponse>(
   () => `/api/motions/${props.motionId}/questions`,
   { key: computed(() => `questions-${props.motionId}`) },
 )

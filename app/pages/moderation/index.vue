@@ -36,7 +36,7 @@ async function act(reportId: string, action: 'resolve' | 'dismiss') {
       method: 'POST',
       body: { action, resolutionNote },
     })
-    delete notes[reportId]
+    Reflect.deleteProperty(notes, reportId)
     toast.success(action === 'resolve' ? 'Meldung bearbeitet.' : 'Meldung abgewiesen.')
     await refresh()
   } catch (err: unknown) {

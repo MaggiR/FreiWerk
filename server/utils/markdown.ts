@@ -44,7 +44,7 @@ function inline(html: string): string {
 function listItems(html: string, ordered: boolean): string {
   const items = [...html.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map((m, i) => {
     const prefix = ordered ? `${i + 1}. ` : '- '
-    return `${prefix}${inline(m[1])}`
+    return `${prefix}${inline(m[1] ?? '')}`
   })
   return items.join('\n')
 }

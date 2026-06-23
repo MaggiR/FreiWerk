@@ -1,9 +1,12 @@
 import { Extension, Mark, mergeAttributes } from '@tiptap/core'
 import type { Editor } from '@tiptap/vue-3'
 import { EditorState, Plugin, PluginKey } from '@tiptap/pm/state'
-import type { Mark as PMMark, MarkType } from '@tiptap/pm/model'
-import type { ResolvedPos } from '@tiptap/pm/model'
-import { DOMSerializer } from '@tiptap/pm/model'
+import {
+  DOMSerializer,
+  type Mark as PMMark,
+  type MarkType,
+  type ResolvedPos,
+} from '@tiptap/pm/model'
 import type { EditorView } from '@tiptap/pm/view'
 import type { Transaction } from '@tiptap/pm/state'
 import {
@@ -136,7 +139,7 @@ export function installSuggestChanges(editor: Editor) {
   // Always forward to TipTap's dispatch — never view.props.dispatchTransaction,
   // or composition bypass and suggest wrapping recurse into each other.
   const applyTransaction = (tr: Transaction) => {
-    editor.dispatchTransaction(tr)
+    ;(editor as unknown as { dispatchTransaction(tr: Transaction): void }).dispatchTransaction(tr)
   }
 
   const suggestDispatch = withSuggestChanges(applyTransaction)

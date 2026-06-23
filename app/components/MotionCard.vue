@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MotionListItem } from '#shared/types'
 
-const props = defineProps<{
+defineProps<{
   motion: MotionListItem
   highlightQuery?: string
 }>()

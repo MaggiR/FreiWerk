@@ -52,7 +52,7 @@ const emit = defineEmits<{
   change: []
 }>()
 
-const { data: divisionData } = await useFetch('/api/divisions')
+const { data: divisionData } = useFetch('/api/divisions')
 
 const form = reactive<MotionFormValues>({
   title: props.initial?.title ?? '',
