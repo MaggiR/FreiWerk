@@ -733,6 +733,7 @@ export function buildMotionBody(
     return [
       `<blockquote><p>${demand}</p></blockquote>`,
       `<p>${BODY_SENTENCES[1]} Für ${theme} gilt das besonders.</p>`,
+      `<p>Im Kontext von ${theme} brauchen wir pragmatische Schritte mit messbarer Wirkung.</p>`,
       `<ol><li>Transparenz</li><li>Pragmatismus</li><li>Subsidiarität</li></ol>`,
       `<p>${demand}</p>`,
     ].join('')
