@@ -40,6 +40,23 @@ export const Attachment = Node.create({
   parseHTML() {
     return [
       {
+        tag: 'div[data-attachment]',
+        getAttrs: (element) => {
+          if (!(element instanceof HTMLElement)) return false
+          const link = element.querySelector('a[href]')
+          if (!(link instanceof HTMLAnchorElement)) return false
+          return {
+            href: link.getAttribute('href'),
+            label:
+              link.getAttribute('data-label')
+              || link.querySelector('.attachment-chip__label')?.textContent
+              || link.textContent
+              || 'Anhang',
+            mimeType: link.getAttribute('data-mime'),
+          }
+        },
+      },
+      {
         tag: 'a[data-attachment]',
         getAttrs: (element) => {
           if (!(element instanceof HTMLElement)) return false
@@ -73,18 +90,28 @@ export const Attachment = Node.create({
 
   renderHTML({ HTMLAttributes }) {
     const label = normalizeAttachmentLabel(String(HTMLAttributes.label ?? 'Anhang'))
+    const href = HTMLAttributes.href
+    const mimeType = HTMLAttributes.mimeType ?? undefined
     return [
-      'a',
-      mergeAttributes(HTMLAttributes, {
-        'data-attachment': '',
-        'data-label': label,
-        'data-mime': HTMLAttributes.mimeType ?? undefined,
-        class: 'attachment-chip',
-        target: '_blank',
-        rel: 'noopener noreferrer nofollow',
-      }),
-      ['span', { class: 'attachment-chip__icon', 'aria-hidden': 'true' }],
-      ['span', { class: 'attachment-chip__label' }, label],
+      'div',
+      { class: 'attachment-chip-wrapper' },
+      [
+        'div',
+        { class: 'attachment-chip', 'data-attachment': '' },
+        [
+          'a',
+          mergeAttributes(HTMLAttributes, {
+            href,
+            'data-label': label,
+            'data-mime': mimeType,
+            class: 'attachment-chip__link',
+            target: '_blank',
+            rel: 'noopener noreferrer nofollow',
+          }),
+          ['span', { class: 'attachment-chip__icon', 'aria-hidden': 'true' }],
+          ['span', { class: 'attachment-chip__label' }, label],
+        ],
+      ],
     ]
   },
 

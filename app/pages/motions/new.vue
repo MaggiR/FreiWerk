@@ -16,7 +16,7 @@ async function onSubmit(values: MotionFormValues) {
   pending.value = true
   try {
     const res = await saveDraft(values)
-    await navigateTo(`/motions/${res.motion!.id}/edit`)
+    await navigateTo(`/motions/${res.motion!.id}`)
   } catch (err: unknown) {
     error.value = extractError(err, 'Antrag konnte nicht gespeichert werden.')
   } finally {

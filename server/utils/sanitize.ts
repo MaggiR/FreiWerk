@@ -26,16 +26,19 @@ const OPTIONS: sanitizeHtml.IOptions = {
     'img',
     'video',
     'span',
+    'div',
   ],
   allowedAttributes: {
     a: ['href', 'target', 'rel', 'class', 'data-attachment', 'data-label', 'data-mime'],
     img: ['src', 'alt', 'title'],
     video: ['src', 'controls', 'preload'],
     span: ['class', 'aria-hidden'],
+    div: ['class', 'data-attachment'],
   },
   allowedClasses: {
     a: ['attachment-chip', 'attachment-chip__link'],
     span: ['attachment-chip__icon', 'attachment-chip__label'],
+    div: ['attachment-chip-wrapper', 'attachment-chip'],
   },
   allowedSchemes: ['http', 'https', 'mailto'],
   // Images may also use data/blob URIs (pasted/embedded media in MVP).

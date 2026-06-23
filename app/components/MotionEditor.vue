@@ -364,14 +364,19 @@ watch(
   { immediate: true },
 )
 
-watch(model, (value) => {
-  if (isSuggesting.value) return
-  if (editor.value && value !== editor.value.getHTML()) {
+watch(
+  model,
+  (value) => {
+    if (isSuggesting.value || !editor.value) return
+    const current = editor.value.getHTML()
+    if (value === current) return
+    if (!value && (!current || current === '<p></p>')) return
     setSuggesting(editor.value, false)
     editor.value.commands.setContent(value, false)
     initializedContent.value = true
-  }
-})
+  },
+  { immediate: true },
+)
 
 // Suggestion editors are mounted with HTML fallback when no working doc exists yet.
 // Ensure initial body text is applied once the client-side editor instance exists.

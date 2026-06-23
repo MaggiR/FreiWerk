@@ -45,6 +45,12 @@ describe('sanitizeRichText', () => {
     expect(clean).toContain('src="/uploads/clip.mp4"')
     expect(clean).toContain('controls')
   })
+
+  it('keeps blockquotes with nested paragraphs', () => {
+    const clean = sanitizeRichText('<blockquote><p>Zitat</p></blockquote>')
+    expect(clean).toContain('<blockquote>')
+    expect(clean).toContain('<p>Zitat</p>')
+  })
 })
 
 describe('htmlToText', () => {

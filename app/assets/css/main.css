@@ -213,6 +213,24 @@ select:focus {
   border-left: 3px solid var(--color-accent);
   color: var(--color-text-muted);
 }
+
+.rich-text blockquote > :first-child {
+  margin-top: 0;
+}
+
+.rich-text blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.rich-text a:not(.attachment-chip):not(.attachment-chip__link) {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.rich-text a:not(.attachment-chip):not(.attachment-chip__link):hover {
+  text-decoration: underline;
+}
 .rich-text pre {
   background: var(--color-bg);
   padding: var(--space-3);
@@ -288,6 +306,7 @@ select:focus {
 }
 
 .attachment-chip,
+.rich-text .attachment-chip,
 .rich-text a.attachment-chip {
   display: inline-flex;
   align-items: flex-start;
@@ -351,7 +370,8 @@ select:focus {
   color: var(--color-text);
 }
 
-.rich-text a.attachment-chip .attachment-chip__icon:empty::before {
+.rich-text a.attachment-chip .attachment-chip__icon:empty::before,
+.rich-text .attachment-chip__icon:empty::before {
   content: '\1F4CE';
 }
 

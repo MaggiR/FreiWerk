@@ -19,6 +19,16 @@ describe('normalizeAttachmentLabel', () => {
 describe('sanitizeRichText attachment chips', () => {
   it('keeps attachment chip markup', () => {
     const clean = sanitizeRichText(
+      '<div class="attachment-chip-wrapper"><div class="attachment-chip" data-attachment><a href="/uploads/file.pdf" class="attachment-chip__link" data-label="Studie" data-mime="application/pdf" target="_blank" rel="noopener noreferrer nofollow"><span class="attachment-chip__icon" aria-hidden="true"></span><span class="attachment-chip__label">Studie</span></a></div></div>',
+    )
+    expect(clean).toContain('class="attachment-chip-wrapper"')
+    expect(clean).toContain('class="attachment-chip__link"')
+    expect(clean).toContain('data-label="Studie"')
+    expect(clean).toContain('attachment-chip__label')
+  })
+
+  it('keeps legacy flat attachment chip markup', () => {
+    const clean = sanitizeRichText(
       '<a href="/uploads/file.pdf" class="attachment-chip" data-attachment data-label="Studie" data-mime="application/pdf" target="_blank" rel="noopener noreferrer nofollow"><span class="attachment-chip__icon" aria-hidden="true"></span><span class="attachment-chip__label">Studie</span></a>',
     )
     expect(clean).toContain('class="attachment-chip"')

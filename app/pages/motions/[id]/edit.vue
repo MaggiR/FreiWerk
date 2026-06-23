@@ -21,8 +21,10 @@ const motion = computed(() => data.value?.motion)
 
 watchEffect(() => {
   const m = motion.value
-  if (!m) return
-  if (m.status !== 'draft' || m.authorId !== user.value?.id) {
+  const uid = user.value?.id
+  // Wait until the session is loaded before redirecting non-authors away.
+  if (!m || !uid) return
+  if (m.status !== 'draft' || m.authorId !== uid) {
     navigateTo(`/motions/${id}`)
   }
 })

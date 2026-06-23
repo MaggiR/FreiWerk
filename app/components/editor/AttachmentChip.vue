@@ -5,6 +5,7 @@ import { ATTACHMENT_LABEL_MAX, normalizeAttachmentLabel } from '~/editor/attachm
 const props = defineProps(nodeViewProps)
 
 const label = computed(() => normalizeAttachmentLabel(props.node.attrs.label ?? 'Anhang'))
+const canRename = computed(() => props.editor.isEditable)
 
 function rename() {
   const next = window.prompt('Anhang umbenennen:', label.value)
@@ -30,6 +31,7 @@ function rename() {
         <span class="attachment-chip__label">{{ label }}</span>
       </a>
       <button
+        v-if="canRename"
         type="button"
         class="attachment-chip__rename"
         title="Anhang umbenennen"

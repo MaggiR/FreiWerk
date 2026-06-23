@@ -125,6 +125,7 @@ function onStartEdit() {
   editSignal.value += 1
 }
 const publishError = ref('')
+const publishPending = ref(false)
 const deletePending = ref(false)
 const deleteError = ref('')
 const draftBusy = computed(() => publishPending.value || deletePending.value)
