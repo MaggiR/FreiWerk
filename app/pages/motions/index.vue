@@ -476,7 +476,7 @@ function resetFilters() {
           </label>
 
           <label class="field">
-            <span>Gliederungsebene</span>
+            <span>Geltungsbereich</span>
             <select v-model="filters.divisionId">
               <option value="">Alle</option>
               <option v-for="d in divisionData?.divisions ?? []" :key="d.id" :value="d.id">

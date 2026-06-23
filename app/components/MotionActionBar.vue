@@ -607,14 +607,40 @@ onUnmounted(() => {
     right: var(--space-1);
   }
 
+  .action-fab__trigger {
+    width: 2.85rem;
+    height: 2.85rem;
+    font-size: 1.05rem;
+  }
+
   .action-fab__panel {
-    min-width: 18rem;
-    max-width: calc(100vw - 2 * var(--space-4));
+    min-width: 14rem;
+    max-width: min(17rem, calc(100vw - 2 * var(--space-3)));
+    padding: var(--space-1);
+    gap: 0;
+  }
+
+  .action-fab__item,
+  .action-fab__check {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.82rem;
+    gap: var(--space-2);
+  }
+
+  .action-fab__item-icon {
+    width: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .action-fab__badge {
+    min-width: 1.2rem;
+    height: 1.2rem;
+    font-size: 0.72rem;
   }
 
   .action-fab__pinned :deep(.fw-btn) {
-    padding-inline: var(--space-4);
-    font-size: 0.9rem;
+    padding-inline: var(--space-3);
+    font-size: 0.82rem;
   }
 }
 

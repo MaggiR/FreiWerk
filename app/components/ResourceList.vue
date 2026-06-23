@@ -332,6 +332,11 @@ defineExpose({
 </template>
 
 <style scoped>
+.res {
+  container-type: inline-size;
+  container-name: res;
+  min-width: 0;
+}
 .res__list {
   display: flex;
   flex-direction: column;
@@ -465,12 +470,25 @@ a.res__author-link:hover {
   background: color-mix(in srgb, var(--color-tertiary) 18%, var(--color-bg));
   color: var(--color-tertiary);
 }
-@media (max-width: 640px) {
+@container res (max-width: 559px) {
   .res__item {
     flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .res__votes {
+    width: auto;
+  }
+  .res__body {
+    flex: 1 1 calc(100% - 3.5rem);
+    min-width: min(100%, 12rem);
   }
   .res__action {
     margin-left: auto;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .res__action-icon {
+    font-size: 1.2rem;
   }
 }
 .res__mod {

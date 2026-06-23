@@ -24,13 +24,31 @@ export function useAuthUser() {
   )
 
   async function login(credentials: Credentials) {
-    await $fetch('/api/auth/login', { method: 'POST', body: credentials })
+    await $fetch('/api/auth/login', {
+      method: 'POST',
+      body: credentials,
+      credentials: 'include',
+    })
     await refreshSession()
+    if (!loggedIn.value) {
+      throw new Error(
+        'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
+      )
+    }
   }
 
   async function register(input: RegisterInput) {
-    await $fetch('/api/auth/register', { method: 'POST', body: input })
+    await $fetch('/api/auth/register', {
+      method: 'POST',
+      body: input,
+      credentials: 'include',
+    })
     await refreshSession()
+    if (!loggedIn.value) {
+      throw new Error(
+        'Registrierung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
+      )
+    }
   }
 
   async function logout() {

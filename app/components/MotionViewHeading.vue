@@ -11,7 +11,10 @@ const meta = computed(() => MOTION_VIEW_META[props.view])
 </script>
 
 <template>
-  <h2 class="motion-view-heading">
+  <h2
+    class="motion-view-heading"
+    :class="{ 'motion-view-heading--ballot': view === 'ballot' }"
+  >
     <FontAwesomeIcon :icon="meta.icon" />
     {{ meta.label }}
     <span v-if="count != null" class="motion-view-heading__count">{{ count }}</span>
@@ -32,6 +35,12 @@ const meta = computed(() => MOTION_VIEW_META[props.view])
 .motion-view-heading svg {
   flex-shrink: 0;
   color: currentColor;
+}
+.motion-view-heading--ballot {
+  color: color-mix(in srgb, var(--color-secondary) 88%, var(--color-text));
+}
+.motion-view-heading--ballot svg {
+  color: color-mix(in srgb, var(--color-secondary) 75%, var(--color-primary));
 }
 .motion-view-heading__count {
   display: inline-flex;

@@ -1,7 +1,7 @@
 import type * as schema from './schema'
 import { validateWorkingDoc } from '../utils/suggestions'
 import { applySuggestionsToDoc, htmlToProseMirrorDoc } from '../utils/htmlToPm'
-import { daysAgo, SEED_DISPLAY_NAME_BY_EMAIL } from './seed-data'
+import { daysAgo, SEED_DISPLAY_NAME_BY_EMAIL, type DeliberationLevel } from './seed-data'
 
 type PmMark = { type: string; attrs?: Record<string, unknown> }
 type PmNode = {
@@ -23,6 +23,7 @@ export type DeliberationMotionContext = {
   authorId: string
   status: string
   publishedAt: Date | null
+  deliberationLevel?: DeliberationLevel
   userIdByEmail: Record<string, string>
   memberIds: string[]
   postIds: string[]
@@ -113,13 +114,82 @@ function buildWorkingDoc(
   return doc
 }
 
-const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
-  suggestions: [
+const SUGGESTIONS_BY_TITLE: Record<string, SuggestionSeed[]> = {
+  'Gründung in 24 Stunden': [
     {
       id: 1,
       authorEmail: 'anna.schneider@freiwerk.local',
       type: 'insertion',
-      anchor: 'auf Basis ',
+      anchor: 'digitales ',
+      text: 'bundesweit einheitliches ',
+      daysAgo: 3,
+    },
+    {
+      id: 2,
+      authorEmail: 'demo@freiwerk.local',
+      type: 'deletion',
+      text: '24 Stunden',
+      daysAgo: 2,
+    },
+  ],
+  'Digitalpakt verstetigen': [
+    {
+      id: 1,
+      authorEmail: 'lisa.koch@freiwerk.local',
+      type: 'insertion',
+      anchor: 'verbindliche ',
+      text: 'mindestens halbjährliche ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'admin@freiwerk.local',
+      type: 'deletion',
+      text: 'verbindliche ',
+      daysAgo: 1,
+    },
+  ],
+  'Klimaneutrale Verwaltung 2030': [
+    {
+      id: 1,
+      authorEmail: 'julia.hartmann@freiwerk.local',
+      type: 'insertion',
+      anchor: '2030 ',
+      text: '(Scope 1–3) ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'felix.weber@freiwerk.local',
+      type: 'insertion',
+      anchor: 'Green Procurement ',
+      text: 'als verbindliche Vergabekriterien ',
+      daysAgo: 1,
+    },
+  ],
+  'Mehr Zuverdienst beim Bürgergeld': [
+    {
+      id: 1,
+      authorEmail: 'sarah.mueller@freiwerk.local',
+      type: 'insertion',
+      anchor: 'höhere ',
+      text: 'deutlich ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'demo@freiwerk.local',
+      type: 'deletion',
+      text: 'ohne Medienbrüche',
+      daysAgo: 1,
+    },
+  ],
+  'Europäische Digitale Identität': [
+    {
+      id: 1,
+      authorEmail: 'anna.schneider@freiwerk.local',
+      type: 'insertion',
+      anchor: 'offener ',
       text: 'strikt datenschutzfreundlicher ',
       daysAgo: 3,
     },
@@ -139,6 +209,80 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
       daysAgo: 1,
     },
   ],
+  'Forschungszulage für KMU': [
+    {
+      id: 1,
+      authorEmail: 'thomas.berger@freiwerk.local',
+      type: 'insertion',
+      anchor: 'automatisierte ',
+      text: 'pauschale ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'felix.weber@freiwerk.local',
+      type: 'deletion',
+      text: 'vereinfachte ',
+      daysAgo: 1,
+    },
+  ],
+  'Kommunale Bürgerforen': [
+    {
+      id: 1,
+      authorEmail: 'anna.schneider@freiwerk.local',
+      type: 'insertion',
+      anchor: 'digitale ',
+      text: 'verbindliche ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'mark.rothermel@freiwerk.local',
+      type: 'insertion',
+      anchor: 'klare ',
+      text: 'schriftlich fixierte ',
+      daysAgo: 1,
+    },
+  ],
+  'Fairer Freihandel mit Nachhaltigkeit': [
+    {
+      id: 1,
+      authorEmail: 'lisa.koch@freiwerk.local',
+      type: 'insertion',
+      anchor: 'verbindlichen ',
+      text: 'justiziablen ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'demo@freiwerk.local',
+      type: 'deletion',
+      text: 'Freihandelsabkommen ',
+      daysAgo: 1,
+    },
+  ],
+  'Prävention digital ausbauen': [
+    {
+      id: 1,
+      authorEmail: 'mark.rothermel@freiwerk.local',
+      type: 'insertion',
+      anchor: 'bundesweites ',
+      text: 'zusätzliches ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'sarah.mueller@freiwerk.local',
+      type: 'insertion',
+      anchor: 'patientenkontrollierte ',
+      text: 'streng ',
+      daysAgo: 1,
+    },
+  ],
+}
+
+const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
+  suggestions: SUGGESTIONS_BY_TITLE['Europäische Digitale Identität'],
   arguments: [
     {
       authorEmail: 'felix.weber@freiwerk.local',
@@ -275,32 +419,49 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
   ],
 }
 
-function defaultPack(demand: string, theme: string): MotionDeliberationPack {
-  const anchor = demand.includes('Wir fordern ')
-    ? 'Wir fordern '
-    : demand.slice(0, Math.min(12, demand.length))
-  const deletionTarget =
-    demand.match(/\b(messbare|konkrete|verbindliche|einheitliche|nachhaltige)\b/i)?.[0] ??
-    'eine '
+function emptyPack(): MotionDeliberationPack {
+  return { arguments: [], questions: [], resources: [], suggestions: [] }
+}
 
+function minimalPack(theme: string): MotionDeliberationPack {
   return {
-    suggestions: [
+    suggestions: [],
+    arguments: [
       {
-        id: 1,
         authorEmail: 'demo@freiwerk.local',
-        type: 'insertion',
-        anchor,
-        text: 'schrittweise und evaluiert ',
-        daysAgo: 2,
-      },
-      {
-        id: 2,
-        authorEmail: 'anna.schneider@freiwerk.local',
-        type: 'deletion',
-        text: deletionTarget,
+        stance: 'pro',
+        title: 'Grundsätzlich richtiger Ansatz',
+        bodyHtml: `<p>Der Antrag adressiert ein echtes Problem im Bereich ${theme}.</p>`,
+        status: 'proposed',
         daysAgo: 1,
       },
     ],
+    questions: [],
+    resources: [],
+  }
+}
+
+function defaultPack(title: string, demand: string, theme: string): MotionDeliberationPack {
+  const suggestions = SUGGESTIONS_BY_TITLE[title] ?? [
+    {
+      id: 1,
+      authorEmail: 'demo@freiwerk.local',
+      type: 'insertion' as const,
+      anchor: 'Wir fordern ',
+      text: 'schrittweise ',
+      daysAgo: 2,
+    },
+    {
+      id: 2,
+      authorEmail: 'anna.schneider@freiwerk.local',
+      type: 'deletion' as const,
+      text: demand.includes('verbindliche') ? 'verbindliche ' : 'ein ',
+      daysAgo: 1,
+    },
+  ]
+
+  return {
+    suggestions,
     arguments: [
       {
         authorEmail: 'demo@freiwerk.local',
@@ -379,11 +540,208 @@ function defaultPack(demand: string, theme: string): MotionDeliberationPack {
 }
 
 const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
-  'Europäische Digitale Identität für Deutschland': EU_DIGITAL_IDENTITY,
+  'Europäische Digitale Identität': EU_DIGITAL_IDENTITY,
+  'Windenergie-Abstände modernisieren': {
+    suggestions: [
+      {
+        id: 1,
+        authorEmail: 'julia.hartmann@freiwerk.local',
+        type: 'insertion',
+        anchor: 'kommunaler ',
+        text: 'verbindlicher ',
+        daysAgo: 3,
+      },
+      {
+        id: 2,
+        authorEmail: 'demo@freiwerk.local',
+        type: 'deletion',
+        text: 'schnelleren ',
+        daysAgo: 2,
+      },
+    ],
+    arguments: [
+      {
+        authorEmail: 'julia.hartmann@freiwerk.local',
+        stance: 'pro',
+        title: 'Klimaziele erfordern mehr Tempo',
+        bodyHtml: '<p>Ohne Anpassung der Abstände verfehlen wir Ausbauziele deutlich.</p>',
+        status: 'accepted',
+        deliberationStatus: 'confirmed',
+        daysAgo: 5,
+      },
+      {
+        authorEmail: 'thomas.berger@freiwerk.local',
+        stance: 'con',
+        title: 'Lärmschutz für Anwohner',
+        bodyHtml: '<p>Kürzere Abstände dürfen nicht zu Lasten der Betroffenen gehen.</p>',
+        status: 'accepted',
+        deliberationStatus: 'open',
+        daysAgo: 4,
+      },
+      {
+        authorEmail: 'demo@freiwerk.local',
+        stance: 'pro',
+        title: 'Kommunale Paketlösungen',
+        bodyHtml: '<p>Flächenpakete erhöhen Akzeptanz vor Ort.</p>',
+        status: 'proposed',
+        daysAgo: 2,
+      },
+    ],
+    questions: [
+      {
+        authorEmail: 'anna.schneider@freiwerk.local',
+        title: 'Wie werden Ausgleichszahlungen geregelt?',
+        bodyHtml: '<p>Gibt es ein Modell für Gemeinden mit vielen Anlagen?</p>',
+        status: 'partially_answered',
+        daysAgo: 3,
+        answers: [
+          {
+            authorEmail: 'julia.hartmann@freiwerk.local',
+            bodyHtml: '<p>Ein Fonds pro Landkreis wird im Antrag skizziert.</p>',
+            daysAgo: 2,
+          },
+        ],
+      },
+    ],
+    resources: [
+      {
+        authorEmail: 'felix.weber@freiwerk.local',
+        title: 'Lärmgutachten Muster',
+        kind: 'file',
+        url: '/uploads/seed-feasibility-study.pdf',
+        status: 'accepted',
+        daysAgo: 4,
+      },
+    ],
+  },
+  'KRITIS-Schutz stärken': {
+    suggestions: [
+      {
+        id: 1,
+        authorEmail: 'admin@freiwerk.local',
+        type: 'insertion',
+        anchor: 'unabhängigen ',
+        text: ' jährlichen ',
+        daysAgo: 2,
+      },
+    ],
+    arguments: [
+      {
+        authorEmail: 'admin@freiwerk.local',
+        stance: 'pro',
+        title: 'Kritische Infrastruktur ist Angriffsziel',
+        bodyHtml: '<p>Verbindliche Standards schließen bekannte Lücken.</p>',
+        status: 'accepted',
+        deliberationStatus: 'confirmed',
+        daysAgo: 6,
+      },
+      {
+        authorEmail: 'felix.weber@freiwerk.local',
+        stance: 'con',
+        title: 'Kosten für Mittelstand',
+        bodyHtml: '<p>Audits müssen förderfähig und staffelbar sein.</p>',
+        status: 'accepted',
+        daysAgo: 5,
+      },
+    ],
+    questions: [
+      {
+        authorEmail: 'demo@freiwerk.local',
+        title: 'Welche Betreiber sind betroffen?',
+        bodyHtml: '<p>Gilt der Antrag auch für kommunale Versorger?</p>',
+        status: 'answered',
+        daysAgo: 4,
+        answers: [
+          {
+            authorEmail: 'admin@freiwerk.local',
+            bodyHtml: '<p>Ja, kommunale KRITIS-Betreiber sind ausdrücklich einbezogen.</p>',
+            daysAgo: 3,
+            accepted: true,
+          },
+        ],
+      },
+      {
+        authorEmail: 'lisa.koch@freiwerk.local',
+        title: 'Meldefrist 24 Stunden realistisch?',
+        bodyHtml: '<p>Reicht das für komplexe Vorfälle?</p>',
+        status: 'open',
+        daysAgo: 1,
+        answers: [],
+      },
+    ],
+    resources: [
+      {
+        authorEmail: 'felix.weber@freiwerk.local',
+        title: 'BSI-Grundschutz',
+        kind: 'link',
+        url: 'https://www.bsi.bund.de/',
+        status: 'accepted',
+        daysAgo: 5,
+      },
+    ],
+  },
+  'Wasserstoffkernnetz ausbauen': {
+    suggestions: [],
+    arguments: [
+      {
+        authorEmail: 'anna.schneider@freiwerk.local',
+        stance: 'pro',
+        title: 'Industriestandort sichern',
+        bodyHtml: '<p>H2-Infrastruktur hält Wertschöpfung in der Region.</p>',
+        status: 'accepted',
+        deliberationStatus: 'confirmed',
+        daysAgo: 40,
+      },
+      {
+        authorEmail: 'thomas.berger@freiwerk.local',
+        stance: 'con',
+        title: 'Technologieoffenheit wahren',
+        bodyHtml: '<p>Elektrifizierung darf nicht verdrängt werden.</p>',
+        status: 'accepted',
+        daysAgo: 35,
+      },
+    ],
+    questions: [
+      {
+        authorEmail: 'mark.rothermel@freiwerk.local',
+        title: 'Finanzierung geklärt?',
+        bodyHtml: '<p>Wie hoch sind die erwarteten Netzkosten?</p>',
+        status: 'answered',
+        daysAgo: 30,
+        answers: [
+          {
+            authorEmail: 'anna.schneider@freiwerk.local',
+            bodyHtml: '<p>Erste Schätzungen liegen dem Wirtschaftsministerium vor.</p>',
+            daysAgo: 28,
+            accepted: true,
+          },
+        ],
+      },
+    ],
+    resources: [
+      {
+        authorEmail: 'mark.rothermel@freiwerk.local',
+        title: 'Infrastrukturkarte H2',
+        kind: 'file',
+        url: '/uploads/seed-lfa-digital-position.pdf',
+        status: 'accepted',
+        daysAgo: 38,
+      },
+    ],
+  },
 }
 
-function resolvePack(title: string, demand: string, theme: string): MotionDeliberationPack {
-  return PACK_BY_TITLE[title] ?? defaultPack(demand, theme)
+function resolvePack(
+  title: string,
+  demand: string,
+  theme: string,
+  level: DeliberationLevel,
+): MotionDeliberationPack {
+  if (level === 'none') return emptyPack()
+  if (level === 'minimal') return minimalPack(theme)
+  if (PACK_BY_TITLE[title]) return PACK_BY_TITLE[title]!
+  if (level === 'rich') return defaultPack(title, demand, theme)
+  return defaultPack(title, demand, theme)
 }
 
 function pushUpvotes(
@@ -406,7 +764,10 @@ function pushUpvotes(
 export function buildDeliberationBundle(
   ctx: DeliberationMotionContext,
 ): DeliberationSeedBundle {
-  const pack = resolvePack(ctx.motionTitle, ctx.bodyDemand, ctx.bodyTheme)
+  const level =
+    ctx.deliberationLevel ??
+    (ctx.status === 'draft' ? 'none' : ctx.status === 'debate' ? 'moderate' : 'moderate')
+  const pack = resolvePack(ctx.motionTitle, ctx.bodyDemand, ctx.bodyTheme, level)
   const bundle: DeliberationSeedBundle = {
     arguments: [],
     questions: [],
@@ -628,4 +989,8 @@ export const SEED_POST_BODIES = [
   '<p>Die Umsetzung sollte modular erfolgen, damit Kommunen schrittweise starten können.</p>',
   '<p>Wichtig wäre mir eine klare Evaluierung nach zwei Jahren mit öffentlichem Bericht.</p>',
   '<p>Bitte den Bezug zu bestehenden EU-Vorgaben deutlicher herausarbeiten.</p>',
+  '<p>Als Kommunalpolitikerin sehe ich viel Umsetzungsaufwand – brauchen wir Begleitfinanzierung?</p>',
+  '<p>Der Vorschlag geht in die richtige Richtung, aber Fristen sollten realistisch bleiben.</p>',
+  '<p>Würde gern verstehen, wie das mit dem Datenschutz bei digitalen Nachweisen zusammenpasst.</p>',
+  '<p>Positiv finde ich die Technologieoffenheit – genau so sollten wir planen.</p>',
 ] as const

@@ -136,7 +136,7 @@ const debateLastSeenCount = ref<number | null>(null)
 const reportOpen = ref(false)
 
 // ---- Tabs ----
-type MainTab = 'antrag' | 'arguments' | 'mood' | 'questions' | 'resources'
+type MainTab = 'antrag' | 'ballot' | 'arguments' | 'mood' | 'questions' | 'resources'
 type PanelTab = 'debate' | 'activity'
 type ViewTab = MainTab | PanelTab
 
@@ -155,6 +155,9 @@ const panelVisible = ref(true)
 const mainTabs = computed(() => {
   const ids: MainTab[] = ['antrag']
   if (!isDraft.value) {
+    if (isBallot.value || isDecided.value) {
+      ids.push('ballot')
+    }
     ids.push('arguments', 'questions', 'mood', 'resources')
   }
   return ids.map((id) => ({ id, ...MOTION_VIEW_META[id] }))
@@ -313,6 +316,20 @@ watch(isDebateViewActive, (active) => {
 watch(debatePostCount, () => {
   if (isDebateViewActive.value) markDebateSeen()
 })
+
+watch(
+  () => motion.value?.status,
+  (status, oldStatus) => {
+    if (
+      status === 'ballot'
+      && (oldStatus === undefined || oldStatus === 'debate')
+    ) {
+      activeMainTab.value = 'ballot'
+      mobileActiveView.value = 'ballot'
+    }
+  },
+  { immediate: true },
+)
 
 let layoutMedia: MediaQueryList | null = null
 
@@ -505,6 +522,9 @@ async function onStartBallot() {
   try {
     await $fetch(`/api/motions/${id}/ballot/start`, { method: 'POST', body: {} })
     await refreshNuxtData(motionDataKey)
+    activeMainTab.value = 'ballot'
+    mobileActiveView.value = 'ballot'
+    mainVisible.value = true
   } catch (err: unknown) {
     ballotError.value = extractError(err, 'Abstimmung konnte nicht gestartet werden.')
   } finally {
@@ -870,7 +890,10 @@ function onBarAction(id: string) {
           :key="tab.id"
           type="button"
           class="motion__tab"
-          :class="{ 'is-active': isTabActive(tab.id) }"
+          :class="{
+            'is-active': isTabActive(tab.id),
+            'motion__tab--ballot': tab.id === 'ballot',
+          }"
           @click="onTabClick(tab.id)"
         >
           <FontAwesomeIcon :icon="tab.icon" /> {{ tab.label }}
@@ -1016,17 +1039,14 @@ function onBarAction(id: string) {
                 @action="onBarAction"
               />
             </FwCard>
-            <section v-if="isBallot || isDecided" class="motion__section">
-              <h2>
-                <FontAwesomeIcon icon="check-to-slot" />
-                {{ isDecided ? 'Ergebnis der Abstimmung' : 'Geheime Abstimmung' }}
-              </h2>
-              <MotionBallot
-                :motion-id="motion.id"
-                :can-manage="canManageBallot"
-                @changed="refreshNuxtData(motionDataKey)"
-              />
-            </section>
+          </div>
+          <div v-else-if="mobileActiveView === 'ballot'" class="motion__tabpanel">
+            <MotionViewHeading view="ballot" />
+            <MotionBallot
+              :motion-id="motion.id"
+              :can-manage="canManageBallot"
+              @changed="refreshNuxtData(motionDataKey)"
+            />
           </div>
           <MotionTabView
             v-else
@@ -1123,23 +1143,23 @@ function onBarAction(id: string) {
               @action="onBarAction"
             />
           </FwCard>
+        </div>
 
-          <section v-if="isBallot || isDecided" class="motion__section">
-            <h2>
-              <FontAwesomeIcon icon="check-to-slot" />
-              {{ isDecided ? 'Ergebnis der Abstimmung' : 'Geheime Abstimmung' }}
-            </h2>
-            <MotionBallot
-              :motion-id="motion.id"
-              :can-manage="canManageBallot"
-              @changed="refreshNuxtData(motionDataKey)"
-            />
-          </section>
+        <div
+          v-show="visibleMainTab === 'ballot'"
+          class="motion__tabpanel motion__tabpanel--ballot"
+        >
+          <MotionViewHeading view="ballot" />
+          <MotionBallot
+            :motion-id="motion.id"
+            :can-manage="canManageBallot"
+            @changed="refreshNuxtData(motionDataKey)"
+          />
         </div>
 
         <Transition name="tab-panel" mode="out-in">
           <div
-            v-if="visibleMainTab !== 'antrag'"
+            v-if="visibleMainTab !== 'antrag' && visibleMainTab !== 'ballot'"
             :key="visibleMainTab"
             class="motion__tabpanel"
           >
@@ -1277,7 +1297,7 @@ function onBarAction(id: string) {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    gap: var(--space-2);
+    gap: 0.2rem;
   }
 
   .motion__tabs-row::-webkit-scrollbar {
@@ -1311,6 +1331,23 @@ function onBarAction(id: string) {
   background: color-mix(in srgb, var(--color-tertiary) 14%, var(--color-surface));
   color: var(--color-tertiary);
 }
+.motion__tab--ballot {
+  color: color-mix(in srgb, var(--color-secondary) 70%, var(--color-text-muted));
+}
+.motion__tab--ballot:hover:not(.is-active) {
+  color: color-mix(in srgb, var(--color-secondary) 85%, var(--color-text));
+}
+.motion__tab--ballot.is-active {
+  background: color-mix(in srgb, var(--color-primary) 38%, var(--color-surface));
+  color: var(--color-secondary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+.motion__tab--ballot.is-active :deep(svg) {
+  color: color-mix(in srgb, var(--color-secondary) 80%, var(--color-primary));
+}
+.motion__tabpanel--ballot {
+  min-width: 0;
+}
 .motion__tab-count {
   display: inline-flex;
   align-items: center;
@@ -1328,21 +1365,21 @@ function onBarAction(id: string) {
   .motion__tab {
     flex-shrink: 0;
     min-height: 2.3rem;
-    padding: var(--space-2) var(--space-4);
-    gap: var(--space-2);
-    font-size: 0.92rem;
+    padding: var(--space-2) var(--space-3);
+    gap: 0.35rem;
+    font-size: 1.1rem;
     line-height: 1.2;
   }
 
   .motion__tab :deep(svg) {
-    width: 0.92em;
-    height: 0.92em;
+    width: 1em;
+    height: 1em;
   }
 
   .motion__tab-count {
     min-width: 1.2rem;
     padding: 0.08rem var(--space-2);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
 }
 

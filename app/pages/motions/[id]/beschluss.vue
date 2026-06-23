@@ -70,7 +70,7 @@ useHead({
             <dd>{{ topicLabel(motion.topic) }}</dd>
           </div>
           <div v-if="motion.division?.name">
-            <dt>Gliederung</dt>
+            <dt>Geltungsbereich</dt>
             <dd>{{ motion.division.name }}</dd>
           </div>
           <div>

@@ -75,10 +75,20 @@ const isChatVariant = computed(() => props.variant === 'chat')
 const hasTextSelection = ref(false)
 const chatToolbarPos = ref<{ top: number; left: number } | null>(null)
 const canManageSuggestions = computed(() => isReviewMode.value || isEditMode.value)
+const isEditableSurface = computed(
+  () =>
+    !props.suggestion ||
+    props.suggestion.mode === 'propose' ||
+    props.suggestion.mode === 'edit',
+)
 const isSuggestionHoverMode = computed(
   () =>
     props.reviewItems.length > 0 &&
     (isReviewMode.value || isViewMode.value || isEditMode.value),
+)
+/** Read-only diff/review: default arrow; edit/propose keep the text beam. */
+const isSuggestionHoverCursor = computed(
+  () => isSuggestionHoverMode.value && !isEditableSurface.value,
 )
 
 const reviewItemsById = computed(
@@ -311,7 +321,14 @@ const editor = useEditor({
       heading: props.allowHeadings ? { levels: [1, 2, 3] } : false,
     }),
     Underline,
-    Link.configure({ openOnClick: false, autolink: true }),
+    Link.configure({
+      openOnClick: false,
+      autolink: true,
+      HTMLAttributes: {
+        target: '_blank',
+        rel: 'noopener noreferrer nofollow',
+      },
+    }),
     Image,
     Video,
     Attachment,
@@ -764,7 +781,7 @@ const chatBlockTools = computed<ToolItem[]>(() => {
     <div
       class="editor__content"
       :class="{
-        'editor__content--suggestion-hover': isSuggestionHoverMode,
+        'editor__content--suggestion-hover': isSuggestionHoverCursor,
         'editor__content--chat': isChatVariant,
       }"
       @mouseover="onReviewMouseOver"
@@ -1071,6 +1088,16 @@ const chatBlockTools = computed<ToolItem[]>(() => {
   font-weight: 400;
 }
 
+:deep(.editor-surface[contenteditable='true']) {
+  cursor: text;
+}
+
+:deep(.editor-surface ins[data-id]),
+:deep(.editor-surface del[data-id]),
+:deep(.editor-surface [data-type='modification'][data-id]) {
+  cursor: pointer;
+}
+
 :deep(.editor-surface video) {
   display: block;
   max-width: 100%;
@@ -1134,12 +1161,6 @@ const chatBlockTools = computed<ToolItem[]>(() => {
   outline: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
   outline-offset: 2px;
   border-radius: 4px;
-}
-
-:deep(.editor-surface--suggestion-hover ins[data-id]),
-:deep(.editor-surface--suggestion-hover del[data-id]),
-:deep(.editor-surface--suggestion-hover [data-type='modification'][data-id]) {
-  cursor: pointer;
 }
 </style>
 

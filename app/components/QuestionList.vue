@@ -494,6 +494,11 @@ defineExpose({
 </template>
 
 <style scoped>
+.qa {
+  container-type: inline-size;
+  container-name: qa;
+  min-width: 0;
+}
 .qa__list {
   display: flex;
   flex-direction: column;
@@ -546,6 +551,7 @@ defineExpose({
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .q__body {
   margin: 0 0 var(--space-2);
@@ -827,5 +833,29 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+@container qa (max-width: 559px) {
+  .q__answers,
+  .q__footer,
+  .q__answer-form {
+    margin-left: 0;
+  }
+  .q__main,
+  .answer {
+    flex-wrap: wrap;
+  }
+  .q__votes,
+  .answer__votes {
+    width: auto;
+  }
+  .q__content,
+  .answer__content {
+    flex: 1 1 calc(100% - 3.5rem);
+    min-width: min(100%, 12rem);
+  }
+  .answer__accept {
+    top: var(--space-2);
+    right: var(--space-2);
+  }
 }
 </style>
