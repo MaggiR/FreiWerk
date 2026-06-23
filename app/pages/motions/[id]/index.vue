@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import {
   DEFAULT_DEBATE_DAYS,
-  MOTION_TITLE_MIN,
-  MOTION_TITLE_MAX,
-  MOTION_SUMMARY_MIN,
-  MOTION_SUMMARY_MAX,
   MOTION_VIEW_META,
 } from '#shared/constants'
 import type { MotionBarAction } from '~/components/MotionActionBar.vue'
@@ -92,8 +88,6 @@ const isAuthorEditing = computed(() => suggestionMode.value === 'edit')
 const editTitle = ref('')
 const editSummary = ref('')
 const headerBaseline = ref<{ title: string; summary: string } | null>(null)
-const titleDraftLength = computed(() => editTitle.value.length)
-const summaryDraftLength = computed(() => editSummary.value.length)
 
 watch(suggestionMode, (mode) => {
   if (mode === 'edit' && motion.value) {
@@ -128,6 +122,8 @@ const publishError = ref('')
 const publishPending = ref(false)
 const deletePending = ref(false)
 const deleteError = ref('')
+const deleteModalOpen = ref(false)
+const deleteHasContent = ref(false)
 const draftBusy = computed(() => publishPending.value || deletePending.value)
 const ballotPending = ref(false)
 const ballotError = ref('')
@@ -242,11 +238,19 @@ const isStackedDebateView = computed(
 )
 
 const tabsRef = ref<HTMLElement | null>(null)
-const tabsRowRef = ref<HTMLElement | null>(null)
 const tabsFadeLeft = ref(false)
 const tabsFadeRight = ref(false)
 const tabsOffsetPx = ref(0)
 let tabsResizeObserver: ResizeObserver | null = null
+
+const {
+  scrollEl: tabsRowRef,
+  isDragging: tabsDragging,
+  onPointerDown: onTabsPointerDown,
+  onPointerMove: onTabsPointerMove,
+  onPointerUp: onTabsPointerUp,
+  onClickCapture: onTabsClickCapture,
+} = useHorizontalDragScroll({ onScroll: updateTabsScrollFades })
 
 const stackedDebateDockStyle = computed(() => {
   if (!isStackedDebateView.value || tabsOffsetPx.value <= 0) return undefined
@@ -497,17 +501,42 @@ async function onPublish() {
 }
 
 async function onDeleteDraft() {
+  if (!motion.value) return
+
+  deleteHasContent.value = !isMotionDraftEmpty({
+    title: motion.value.title,
+    summary: motion.value.summary,
+    bodyHtml: motion.value.bodyHtml,
+    topic: motion.value.topic,
+    divisionId: motion.value.divisionId,
+  })
+
+  if (deleteHasContent.value) {
+    deleteError.value = ''
+    deleteModalOpen.value = true
+    return
+  }
+
   if (!confirm('Diesen Entwurf endgültig löschen?')) return
+  await executeDeleteDraft()
+}
+
+async function executeDeleteDraft() {
   deleteError.value = ''
   deletePending.value = true
   try {
     await $fetch(`/api/motions/${id}`, { method: 'DELETE' })
+    deleteModalOpen.value = false
     await navigateTo('/motions')
   } catch (err: unknown) {
     deleteError.value = extractError(err, 'Löschen fehlgeschlagen.')
   } finally {
     deletePending.value = false
   }
+}
+
+async function confirmDeleteDraft() {
+  await executeDeleteDraft()
 }
 
 async function onStartBallot() {
@@ -781,66 +810,13 @@ function onBarAction(id: string) {
       </div>
 
       <h1 v-if="!isAuthorEditing" class="motion__title">{{ motion.title }}</h1>
-      <div v-else class="motion__header-field motion__title-edit">
-        <div class="motion__header-field__layer">
-          <div class="motion__header-field__mirror" aria-hidden="true">
-            {{ editTitle }}<FontAwesomeIcon
-              icon="pen-to-square"
-              class="motion__header-field__icon"
-            />
-          </div>
-          <textarea
-            v-model="editTitle"
-            class="motion__title"
-            rows="1"
-            :maxlength="MOTION_TITLE_MAX"
-            autocomplete="off"
-            aria-label="Titel"
-          />
-        </div>
-        <span
-          class="motion__field-counter"
-          :class="{
-            'motion__field-counter--low':
-              titleDraftLength > 0 && titleDraftLength < MOTION_TITLE_MIN,
-            'motion__field-counter--max': titleDraftLength >= MOTION_TITLE_MAX,
-          }"
-          aria-live="polite"
-        >
-          {{ titleDraftLength }} / {{ MOTION_TITLE_MAX }}
-        </span>
-      </div>
+      <MotionHeaderEditFields
+        v-else
+        v-model:title="editTitle"
+        v-model:summary="editSummary"
+      />
 
       <p v-if="!isAuthorEditing" class="motion__summary">{{ motion.summary }}</p>
-      <div v-else class="motion__header-field motion__summary-edit">
-        <div class="motion__header-field__layer">
-          <div class="motion__header-field__mirror" aria-hidden="true">
-            {{ editSummary }}<FontAwesomeIcon
-              icon="pen-to-square"
-              class="motion__header-field__icon"
-            />
-          </div>
-          <textarea
-            id="motion-summary-edit"
-            v-model="editSummary"
-            class="motion__summary"
-            rows="1"
-            :maxlength="MOTION_SUMMARY_MAX"
-            aria-label="Kurzbeschreibung"
-          />
-        </div>
-        <span
-          class="motion__field-counter"
-          :class="{
-            'motion__field-counter--low':
-              summaryDraftLength > 0 && summaryDraftLength < MOTION_SUMMARY_MIN,
-            'motion__field-counter--max': summaryDraftLength >= MOTION_SUMMARY_MAX,
-          }"
-          aria-live="polite"
-        >
-          {{ summaryDraftLength }} / {{ MOTION_SUMMARY_MAX }}
-        </span>
-      </div>
 
       <div class="motion__meta">
         <NuxtLink
@@ -884,7 +860,14 @@ function onBarAction(id: string) {
         <div
           ref="tabsRowRef"
           class="motion__tabs-row"
+          :class="{ 'is-dragging': tabsDragging }"
           @scroll.passive="updateTabsScrollFades"
+          @pointerdown="onTabsPointerDown"
+          @pointermove="onTabsPointerMove"
+          @pointerup="onTabsPointerUp"
+          @pointercancel="onTabsPointerUp"
+          @dragstart.prevent
+          @click.capture="onTabsClickCapture"
         >
         <button
           v-for="tab in mainTabs"
@@ -1220,6 +1203,14 @@ function onBarAction(id: string) {
       :target-id="motion.id"
       @reported="reportOpen = false"
     />
+
+    <MotionDraftDeleteModal
+      v-model:open="deleteModalOpen"
+      :has-content="deleteHasContent"
+      :pending="deletePending"
+      :error="deleteError"
+      @confirm="confirmDeleteDraft"
+    />
   </article>
 </template>
 
@@ -1304,6 +1295,17 @@ function onBarAction(id: string) {
   .motion__tabs-row::-webkit-scrollbar {
     display: none;
   }
+
+  @media (hover: hover) and (pointer: fine) {
+    .motion__tabs-row {
+      cursor: grab;
+    }
+
+    .motion__tabs-row.is-dragging {
+      cursor: grabbing;
+      user-select: none;
+    }
+  }
 }
 .motion__tab {
   display: inline-flex;
@@ -1332,19 +1334,26 @@ function onBarAction(id: string) {
   background: color-mix(in srgb, var(--color-tertiary) 14%, var(--color-surface));
   color: var(--color-tertiary);
 }
-.motion__tab--ballot {
-  color: color-mix(in srgb, var(--color-secondary) 70%, var(--color-text-muted));
+.motion__tab--ballot:not(.is-active) {
+  color: var(--color-primary);
 }
 .motion__tab--ballot:hover:not(.is-active) {
-  color: color-mix(in srgb, var(--color-secondary) 85%, var(--color-text));
+  color: var(--color-primary);
+  filter: brightness(1.08);
 }
 .motion__tab--ballot.is-active {
   background: color-mix(in srgb, var(--color-primary) 38%, var(--color-surface));
   color: var(--color-secondary);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent);
 }
+.dark .motion__tab--ballot.is-active {
+  color: var(--color-text);
+}
 .motion__tab--ballot.is-active :deep(svg) {
   color: color-mix(in srgb, var(--color-secondary) 80%, var(--color-primary));
+}
+.dark .motion__tab--ballot.is-active :deep(svg) {
+  color: var(--color-primary);
 }
 .motion__tabpanel--ballot {
   min-width: 0;
@@ -1814,37 +1823,21 @@ textarea.motion__summary:focus-visible {
   flex-direction: column;
 }
 
-.motion__box--editing {
-  --motion-editing-bar-reserve: 6.5rem;
-}
-
-.motion__body-version-bar {
-  margin-top: auto;
-  padding-top: var(--space-1);
-  align-self: stretch;
-}
-
-.motion__box--fab-menu .motion__body-version-bar {
-  padding-inline-end: calc(3.5rem + var(--space-4));
-}
-
 @media (min-width: 1024px) {
   .motion__tabpanel--persistent {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - var(--header-total-height) - var(--space-8));
   }
-
-  .motion__tabpanel--persistent > .motion__box {
-    flex: 1;
-  }
 }
 
-/* Keep bottom content clear of sticky pinned action bar / FAB. */
-.motion__box--editing :deep(.suggestions__editor),
-.motion__box--editing .motion__body-area,
-.motion__box--fab-menu .motion__body-area {
-  padding-bottom: var(--motion-editing-bar-reserve, calc(0.875rem + var(--space-1)));
+.motion__body-version-bar {
+  padding-top: var(--space-1);
+  align-self: stretch;
+}
+
+.motion__box--fab-menu:not(.motion__box--editing) .motion__body-version-bar {
+  padding-inline-end: calc(3.5rem + var(--space-4));
 }
 
 .motion__box--fab-menu:not(.motion__box--editing) :deep(.suggestions__lead),

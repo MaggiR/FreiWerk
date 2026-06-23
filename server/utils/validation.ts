@@ -38,6 +38,18 @@ export const motionCreateSchema = z.object({
   isAnonymous: z.boolean().optional().default(false),
 })
 
+/** Relaxed schema for draft autosave (create + patch). Publish uses motionCreateSchema. */
+export const motionDraftSaveSchema = z.object({
+  title: z.string().trim().max(MOTION_TITLE_MAX).optional().default(''),
+  summary: z.string().trim().max(MOTION_SUMMARY_MAX).optional().default(''),
+  bodyHtml: z.string().max(100_000).optional().default(''),
+  topic: z.union([z.enum(TOPICS), z.literal('')]).optional(),
+  divisionId: z.string().uuid().nullable().optional(),
+  isAnonymous: z.boolean().optional(),
+})
+
+export const motionDraftUpdateSchema = motionDraftSaveSchema.partial()
+
 export const motionUpdateSchema = motionCreateSchema.partial()
 
 export const publishSchema = z.object({
@@ -130,6 +142,8 @@ export const motionListQuerySchema = z.object({
   ballotPending: booleanFlagSchema,
   // Show archived instead of active motions.
   archived: booleanFlagSchema,
+  // Exclude drafts even for the current author (e.g. public homepage lists).
+  publishedOnly: booleanFlagSchema,
 })
 
 export const postListQuerySchema = z.object({

@@ -1,0 +1,282 @@
+/*
+ * Shared motion page layout (detail view + draft edit).
+ * Matches the inline author editing surface on /motions/[id].
+ */
+
+.motion {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.motion__head {
+  margin-bottom: var(--space-4);
+}
+
+.motion__topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.motion__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.motion__title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+textarea.motion__title {
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  appearance: none;
+  box-shadow: none;
+  field-sizing: content;
+  min-height: 0;
+  white-space: pre-wrap;
+}
+
+textarea.motion__title:focus,
+textarea.motion__title:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.motion__header-field {
+  position: relative;
+}
+
+.motion__header-field__layer {
+  display: grid;
+  max-width: 100%;
+}
+
+.motion__header-field__mirror,
+.motion__header-field__layer .motion__title,
+.motion__header-field__layer .motion__summary {
+  grid-area: 1 / 1;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.motion__header-field__mirror {
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+.motion__header-field__placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.65;
+}
+
+.motion__header-field--empty .motion__header-field__icon {
+  opacity: 0.35;
+}
+
+.motion__title-edit {
+  margin: 0 0 var(--space-3);
+}
+
+.motion__title-edit .motion__header-field__mirror,
+.motion__title-edit .motion__header-field__layer .motion__title {
+  font-family: var(--font-sans);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.motion__summary-edit {
+  margin: 0 0 var(--space-4);
+}
+
+.motion__summary-edit .motion__header-field__mirror,
+.motion__summary-edit .motion__header-field__layer .motion__summary {
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: var(--line-height-base);
+}
+
+.motion__header-field__layer .motion__title,
+.motion__header-field__layer .motion__summary {
+  position: relative;
+  z-index: 1;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  field-sizing: content;
+  min-height: 0;
+}
+
+.motion__header-field__icon {
+  display: inline-block;
+  margin-left: 0.35em;
+  font-size: 0.9em;
+  color: var(--color-text-muted);
+  opacity: 0;
+  vertical-align: baseline;
+  transition: opacity 0.15s ease;
+}
+
+.motion__header-field:hover .motion__header-field__icon,
+.motion__header-field:focus-within .motion__header-field__icon {
+  opacity: 0.55;
+}
+
+.motion__field-counter {
+  display: none;
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.motion__header-field:focus-within .motion__field-counter {
+  display: block;
+}
+
+.motion__field-counter--low {
+  color: var(--color-danger);
+}
+
+.motion__field-counter--max {
+  color: var(--color-accent);
+}
+
+.motion__summary {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 1.15rem;
+  font-weight: 400;
+  line-height: var(--line-height-base);
+  box-sizing: border-box;
+}
+
+textarea.motion__summary {
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  appearance: none;
+  box-shadow: none;
+  field-sizing: content;
+  min-height: 0;
+}
+
+textarea.motion__summary:focus,
+textarea.motion__summary:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.motion__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.motion__meta--fields {
+  align-items: flex-end;
+}
+
+.motion__meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+.motion__meta-field > span {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.motion__box {
+  display: flex;
+  flex-direction: column;
+}
+
+.motion__box--editing {
+  --motion-editing-bar-reserve: 5.5rem;
+}
+
+.motion__body-area {
+  flex: 0 0 auto;
+}
+
+/* Reserve space for the sticky pinned action bar — only once at the card bottom. */
+.motion__box--editing:not(.motion__box--flow-bar)
+  .motion__body-area:not(:has(+ .motion__body-version-bar)) {
+  padding-bottom: var(--motion-editing-bar-reserve);
+}
+
+.motion__box--flow-bar .motion-form__anon-hint--motion {
+  margin-bottom: 0;
+}
+
+.motion__box--editing .motion__body-version-bar {
+  padding-bottom: var(--motion-editing-bar-reserve);
+}
+
+.motion__box--editing :deep(.suggestions__editor) {
+  padding-bottom: var(--motion-editing-bar-reserve);
+}
+
+.motion__body-content {
+  outline: none;
+  width: 100%;
+}
+
+.motion__body-area .editor-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.motion__body-area .editor-status--saved {
+  color: var(--color-success);
+}
+
+.motion__body-area .editor-status--error {
+  color: var(--color-danger);
+}

@@ -15,7 +15,7 @@ const { data: controversial } = await useFetch('/api/motions', {
   key: 'home-controversial',
 })
 const { data: recent } = await useFetch('/api/motions', {
-  query: { sort: 'recent' },
+  query: { sort: 'recent', publishedOnly: 'true' },
   key: 'home-recent',
 })
 

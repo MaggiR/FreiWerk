@@ -1,13 +1,15 @@
 <script setup lang="ts">
 const open = defineModel<boolean>('open', { default: false })
-const debateDays = defineModel<number>('debateDays', { default: 14 })
 
 const props = withDefaults(
   defineProps<{
+    /** Draft contains title, text, or other saved content. */
+    hasContent?: boolean
     pending?: boolean
     error?: string
   }>(),
   {
+    hasContent: false,
     pending: false,
     error: '',
   },
@@ -50,16 +52,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   <Teleport to="body">
     <div
       v-if="open"
-      class="publish-modal"
+      class="delete-modal"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="publish-modal-title"
+      aria-labelledby="delete-modal-title"
       @mousedown="onBackdropMouseDown"
       @click="onBackdropClick"
     >
-      <FwCard class="publish-modal__card" glass pad>
+      <FwCard class="delete-modal__card" glass pad>
         <button
-          class="publish-modal__close"
+          class="delete-modal__close"
           type="button"
           aria-label="Schließen"
           :disabled="pending"
@@ -68,34 +70,26 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           <FontAwesomeIcon icon="xmark" />
         </button>
 
-        <h2 id="publish-modal-title" class="publish-modal__title">Antrag veröffentlichen</h2>
-        <p class="publish-modal__lead">
-          Mit der Veröffentlichung startet die Debattenphase. Der Antrag ist danach
-          schreibgeschützt und kann nur noch über Änderungsvorschläge bearbeitet werden.
+        <h2 id="delete-modal-title" class="delete-modal__title">
+          {{ hasContent ? 'Entwurf mit Inhalt löschen?' : 'Entwurf löschen?' }}
+        </h2>
+        <p v-if="hasContent" class="delete-modal__lead delete-modal__lead--warn">
+          Dieser Entwurf enthält bereits Text oder Angaben. Beim Löschen gehen Titel,
+          Kurzbeschreibung und Antragstext unwiderruflich verloren.
         </p>
-
-        <div class="publish-modal__fields">
-          <label class="field publish-modal__field">
-            <span>Dauer der Debatte (Tage)</span>
-            <input
-              v-model.number="debateDays"
-              type="number"
-              min="1"
-              max="90"
-              :disabled="pending"
-            >
-          </label>
-        </div>
+        <p v-else class="delete-modal__lead">
+          Der leere Entwurf wird endgültig entfernt.
+        </p>
 
         <p v-if="error" class="form-error">{{ error }}</p>
 
-        <div class="publish-modal__actions">
+        <div class="delete-modal__actions">
           <FwButton variant="ghost" type="button" :disabled="pending" @click="close">
             Abbrechen
           </FwButton>
-          <FwButton variant="primary" type="button" :disabled="pending" @click="onConfirm">
-            <FontAwesomeIcon icon="paper-plane" />
-            {{ pending ? 'Veröffentlichen …' : 'Jetzt veröffentlichen' }}
+          <FwButton variant="danger" type="button" :disabled="pending" @click="onConfirm">
+            <FontAwesomeIcon icon="trash" />
+            {{ pending ? 'Löschen …' : 'Endgültig löschen' }}
           </FwButton>
         </div>
       </FwCard>
@@ -104,7 +98,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
-.publish-modal {
+.delete-modal {
   position: fixed;
   inset: 0;
   z-index: 100;
@@ -117,23 +111,21 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   -webkit-backdrop-filter: blur(4px);
 }
 
-.dark .publish-modal {
+.dark .delete-modal {
   background: rgba(0, 0, 0, 0.55);
 }
 
-.publish-modal__card {
+.delete-modal__card {
   position: relative;
   width: 100%;
   max-width: 440px;
-  max-height: calc(100vh - var(--space-8));
-  overflow-y: auto;
 }
 
-.publish-modal__close {
+.delete-modal__close {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 2rem;
@@ -146,40 +138,27 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
   cursor: pointer;
 }
 
-.publish-modal__close:hover:not(:disabled) {
+.delete-modal__close:hover:not(:disabled) {
   color: var(--color-text);
-  background: var(--color-bg);
+  background: color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
-.publish-modal__close:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.delete-modal__title {
+  margin: 0 0 var(--space-3);
+  padding-right: 2rem;
 }
 
-.publish-modal__title {
-  margin: 0 0 var(--space-2);
-  padding-right: var(--space-6);
-}
-
-.publish-modal__lead {
-  margin: 0 0 var(--space-5);
+.delete-modal__lead {
+  margin: 0;
   color: var(--color-text-muted);
-  font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.publish-modal__fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+.delete-modal__lead--warn {
+  color: var(--color-text);
 }
 
-.publish-modal__field {
-  max-width: 220px;
-  margin: 0;
-}
-
-.publish-modal__actions {
+.delete-modal__actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);

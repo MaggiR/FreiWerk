@@ -9,7 +9,6 @@ const emit = defineEmits<{
 
 const GAP_PX = 16
 
-const track = ref<HTMLElement | null>(null)
 const visibleCount = ref(3)
 const currentPage = ref(0)
 
@@ -49,9 +48,20 @@ function goToPage(index: number) {
   el.scrollTo({ left: clamped * pageWidth(), behavior: 'smooth' })
 }
 
-function onScroll() {
-  updateCurrentPage()
-}
+const {
+  scrollEl: track,
+  isDragging,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onClickCapture,
+} = useHorizontalDragScroll({
+  onScroll: updateCurrentPage,
+  onDragEnd: (el) => {
+    const pw = pageWidth()
+    if (pw > 0) goToPage(Math.round(el.scrollLeft / pw))
+  },
+})
 
 let resizeObserver: ResizeObserver | null = null
 
@@ -72,60 +82,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
-
-const DRAG_THRESHOLD_PX = 4
-
-const isDragging = ref(false)
-let dragStartX = 0
-let dragStartScroll = 0
-let hasDragged = false
-let activePointerId: number | null = null
-
-function onPointerDown(event: PointerEvent) {
-  if (event.pointerType !== 'mouse' || event.button !== 0) return
-  const el = track.value
-  if (!el) return
-  activePointerId = event.pointerId
-  hasDragged = false
-  dragStartX = event.clientX
-  dragStartScroll = el.scrollLeft
-}
-
-function onPointerMove(event: PointerEvent) {
-  if (activePointerId !== event.pointerId) return
-  const el = track.value
-  if (!el) return
-  const delta = event.clientX - dragStartX
-  if (!isDragging.value) {
-    if (Math.abs(delta) <= DRAG_THRESHOLD_PX) return
-    isDragging.value = true
-    hasDragged = true
-    el.setPointerCapture(event.pointerId)
-  }
-  el.scrollLeft = dragStartScroll - delta
-}
-
-function onPointerUp(event: PointerEvent) {
-  if (activePointerId !== event.pointerId) return
-  const el = track.value
-  if (isDragging.value) {
-    el?.releasePointerCapture(event.pointerId)
-    const pw = pageWidth()
-    if (el && pw > 0) {
-      goToPage(Math.round(el.scrollLeft / pw))
-    }
-  }
-  isDragging.value = false
-  activePointerId = null
-}
-
-function onClickCapture(event: MouseEvent) {
-  if (hasDragged) {
-    event.preventDefault()
-    event.stopPropagation()
-  }
-  hasDragged = false
-}
 
 const canScrollPrev = computed(() => currentPage.value > 0)
 const canScrollNext = computed(() => currentPage.value < pageCount.value - 1)
@@ -150,7 +106,7 @@ const canScrollNext = computed(() => currentPage.value < pageCount.value - 1)
       class="motion-carousel__track"
       :class="{ 'is-dragging': isDragging }"
       :style="{ '--cols': visibleCount }"
-      @scroll="onScroll"
+      @scroll="updateCurrentPage"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"

@@ -42,6 +42,12 @@ const meta = computed(() => MOTION_VIEW_META[props.view])
 .motion-view-heading--ballot svg {
   color: color-mix(in srgb, var(--color-secondary) 75%, var(--color-primary));
 }
+.dark .motion-view-heading--ballot {
+  color: var(--color-text);
+}
+.dark .motion-view-heading--ballot svg {
+  color: var(--color-primary);
+}
 .motion-view-heading__count {
   display: inline-flex;
   align-items: center;

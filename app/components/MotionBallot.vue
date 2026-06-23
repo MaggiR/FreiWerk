@@ -685,4 +685,40 @@ async function onFinalize() {
     padding: var(--space-4);
   }
 }
+
+.dark .ballot__phase {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+.dark .ballot__kicker {
+  color: var(--color-text-muted);
+}
+
+.dark .ballot__metric-icon,
+.dark .ballot__metric-value {
+  color: var(--color-primary);
+}
+
+.dark .ballot__metric--deadline {
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+}
+
+.dark .ballot__secrecy {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.dark .ballot__verdict {
+  color: var(--color-text);
+}
+
+.dark .ballot__stage--accepted .ballot__verdict {
+  color: var(--mood-approve);
+}
+
+.dark .ballot__stage--rejected .ballot__verdict {
+  color: var(--mood-reject);
+}
 </style>

@@ -20,11 +20,14 @@ const props = withDefaults(
     actions?: MotionBarAction[]
     showDiffToggle?: boolean
     diffCount?: number
+    /** Pinned bar in normal document flow (below form fields) instead of sticky overlay. */
+    flow?: boolean
   }>(),
   {
     actions: () => [],
     showDiffToggle: false,
     diffCount: 0,
+    flow: false,
   },
 )
 
@@ -129,7 +132,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="action-fab" :class="{ 'is-editing': isEditing }">
+  <div class="action-fab" :class="{ 'is-editing': isEditing, 'is-flow': flow && isEditing }">
     <div ref="fabRef" class="action-fab__dock">
       <div
         v-if="pinnedActions.length"
@@ -258,6 +261,10 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+.action-fab:not(.is-editing) {
+  margin-top: 0;
+}
+
 .action-fab__dock {
   position: absolute;
   right: var(--space-2);
@@ -273,10 +280,9 @@ onUnmounted(() => {
   left: var(--space-2);
   right: var(--space-2);
   flex-direction: row;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: center;
   gap: var(--space-4);
-  position: absolute;
 }
 
 .action-fab.is-editing .action-fab__menu {
@@ -285,10 +291,30 @@ onUnmounted(() => {
   bottom: 0;
 }
 
+.action-fab.is-editing.is-flow {
+  position: static;
+  height: auto;
+  margin-top: var(--space-4);
+  pointer-events: auto;
+}
+
+.action-fab.is-editing.is-flow .action-fab__dock {
+  position: static;
+  left: auto;
+  right: auto;
+  width: 100%;
+}
+
+.action-fab.is-editing.is-flow .action-fab__menu {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
 .action-fab__pinned {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2);
@@ -298,6 +324,13 @@ onUnmounted(() => {
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   box-shadow: var(--shadow-md);
+}
+
+.action-fab__pinned-btn,
+.action-fab__pinned :deep(.fw-btn) {
+  min-height: 2.875rem;
+  box-sizing: border-box;
+  line-height: 1.25;
 }
 
 .action-fab__pinned :deep(.action-fab__pinned-btn--delete:hover:not(:disabled)) {

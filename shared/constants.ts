@@ -248,3 +248,7 @@ export const MOTION_TITLE_MIN = 10
 export const MOTION_TITLE_MAX = 150
 export const MOTION_SUMMARY_MIN = 50
 export const MOTION_SUMMARY_MAX = 200
+
+/** Placeholders for inline title/summary fields while editing. */
+export const MOTION_TITLE_PLACEHOLDER = 'Antragstitel eingeben …'
+export const MOTION_SUMMARY_PLACEHOLDER = 'Kurzbeschreibung eingeben …'

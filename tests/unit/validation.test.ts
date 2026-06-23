@@ -3,6 +3,7 @@ import {
   registerSchema,
   loginSchema,
   motionCreateSchema,
+  motionDraftSaveSchema,
   moodVoteSchema,
   motionListQuerySchema,
   archiveSchema,
@@ -124,6 +125,34 @@ describe('motionCreateSchema', () => {
   })
 })
 
+describe('motionDraftSaveSchema', () => {
+  it('accepts empty draft fields for autosave', () => {
+    const parsed = motionDraftSaveSchema.parse({})
+    expect(parsed.title).toBe('')
+    expect(parsed.summary).toBe('')
+    expect(parsed.bodyHtml).toBe('')
+  })
+
+  it('accepts partial title and summary below publish minimums', () => {
+    const parsed = motionDraftSaveSchema.parse({
+      title: 'Kurz',
+      summary: 'Zu kurz.',
+      bodyHtml: '<p></p>',
+      topic: '',
+    })
+    expect(parsed.title).toBe('Kurz')
+    expect(parsed.summary).toBe('Zu kurz.')
+  })
+
+  it('still rejects titles longer than the maximum', () => {
+    expect(() =>
+      motionDraftSaveSchema.parse({
+        title: 'T'.repeat(151),
+      }),
+    ).toThrow()
+  })
+})
+
 describe('suggestionSubmitSchema', () => {
   const doc = { type: 'doc', content: [{ type: 'paragraph' }] }
 
@@ -239,12 +268,14 @@ describe('motionListQuerySchema', () => {
     expect(parsed.minSupport).toBe(50)
   })
 
-  it('parses watched/archived/ballotPending flags only when literally "true"', () => {
+  it('parses watched/archived/ballotPending/publishedOnly flags only when literally "true"', () => {
     expect(motionListQuerySchema.parse({ watched: 'true' }).watched).toBe(true)
     expect(motionListQuerySchema.parse({ archived: 'false' }).archived).toBe(false)
     expect(motionListQuerySchema.parse({ ballotPending: 'true' }).ballotPending).toBe(true)
+    expect(motionListQuerySchema.parse({ publishedOnly: 'true' }).publishedOnly).toBe(true)
     expect(motionListQuerySchema.parse({}).watched).toBe(false)
     expect(motionListQuerySchema.parse({}).ballotPending).toBe(false)
+    expect(motionListQuerySchema.parse({}).publishedOnly).toBe(false)
   })
 })
 

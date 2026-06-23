@@ -45,6 +45,8 @@ const props = withDefaults(
     embedded?: boolean
     /** Compact messenger composer: minimal chrome, toolbar only on text selection. */
     variant?: 'default' | 'chat'
+    /** Motion form layout: content-driven height, no resize handle. */
+    compact?: boolean
     /** Show H1–H3 controls and allow heading nodes (default: true). */
     allowHeadings?: boolean
   }>(),
@@ -56,6 +58,7 @@ const props = withDefaults(
     reviewItems: () => [],
     embedded: false,
     variant: 'default',
+    compact: false,
     allowHeadings: true,
   },
 )
@@ -672,6 +675,7 @@ const chatBlockTools = computed<ToolItem[]>(() => {
     :class="{
       'editor--embedded': embedded,
       'editor--chat': isChatVariant,
+      'editor--compact': compact,
     }"
   >
     <input
@@ -869,6 +873,17 @@ const chatBlockTools = computed<ToolItem[]>(() => {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
+}
+
+.editor--compact .editor__content {
+  min-height: 8rem;
+  max-height: none;
+  resize: none;
+  overflow: visible;
+}
+
+.editor--compact :deep(.editor-surface) {
+  min-height: 0;
 }
 
 .editor--embedded {

@@ -41,6 +41,8 @@ export default defineEventHandler(async (event) => {
       // Anonymous motions must not appear on another user's profile/list filter.
       conditions.push(eq(motions.isAnonymous, false))
     }
+  } else if (query.publishedOnly) {
+    conditions.push(ne(motions.status, 'draft'))
   } else if (currentUserId) {
     // Default list: all published motions plus the current user's drafts.
     const visibility = or(

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../database/client'
 import { motions, motionVersions } from '../../../database/schema'
-import { publishSchema } from '../../../utils/validation'
+import { motionCreateSchema, publishSchema } from '../../../utils/validation'
 import { requireAuth } from '../../../utils/auth'
 import { recordActivity } from '../../../utils/activity'
 import { DEFAULT_DEBATE_DAYS } from '../../../../shared/constants'
@@ -27,6 +27,22 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 409,
       statusMessage: 'Nur Entwürfe können veröffentlicht werden.',
+    })
+  }
+
+  const publishCheck = motionCreateSchema.safeParse({
+    title: existing.title,
+    summary: existing.summary,
+    bodyHtml: existing.bodyHtml,
+    topic: existing.topic,
+    divisionId: existing.divisionId,
+    isAnonymous: existing.isAnonymous,
+  })
+  if (!publishCheck.success) {
+    throw createError({
+      statusCode: 422,
+      statusMessage:
+        'Der Antrag ist noch unvollständig. Bitte Titel, Kurzbeschreibung, Themengebiet und Antragstext ausfüllen.',
     })
   }
 

@@ -33,6 +33,12 @@ const props = withDefaults(
     hideActions?: boolean
     /** Hides anonymous submit option (e.g. shown in publish modal instead). */
     hideAnonymous?: boolean
+    /** Form fields vs. motion page editing layout (header outside card). */
+    layout?: 'form' | 'motion'
+    /** Reserves card bottom space for a sticky pinned MotionActionBar. */
+    pinnedActionBar?: boolean
+    /** Pinned bar below checkbox/hint in document flow (draft editor). */
+    pinnedActionBarFlow?: boolean
     pending?: boolean
   }>(),
   {
@@ -42,6 +48,9 @@ const props = withDefaults(
     hideSubmit: false,
     hideActions: false,
     hideAnonymous: false,
+    layout: 'form',
+    pinnedActionBar: false,
+    pinnedActionBarFlow: false,
     pending: false,
   },
 )
@@ -94,58 +103,157 @@ function markSaved(): void {
   savedSnapshot.value = JSON.stringify(formSnapshot())
 }
 
-function validateForm(silent = false): MotionFormValues | null {
-  if (!silent) error.value = ''
+function getDraftValues(): MotionFormValues {
+  return formSnapshot()
+}
+
+function validateForPublish(): MotionFormValues | null {
   if (form.title.trim().length < MOTION_TITLE_MIN) {
-    if (!silent) {
-      error.value = `Der Titel muss mindestens ${MOTION_TITLE_MIN} Zeichen haben.`
-    }
+    error.value = `Der Titel muss mindestens ${MOTION_TITLE_MIN} Zeichen haben.`
     return null
   }
   if (form.title.trim().length > MOTION_TITLE_MAX) {
-    if (!silent) error.value = 'Der Titel darf höchstens 150 Zeichen haben.'
+    error.value = 'Der Titel darf höchstens 150 Zeichen haben.'
     return null
   }
   if (form.summary.trim().length < MOTION_SUMMARY_MIN) {
-    if (!silent) error.value = 'Die Kurzbeschreibung muss mindestens 50 Zeichen haben.'
+    error.value = 'Die Kurzbeschreibung muss mindestens 50 Zeichen haben.'
     return null
   }
   if (form.summary.trim().length > MOTION_SUMMARY_MAX) {
-    if (!silent) error.value = 'Die Kurzbeschreibung darf höchstens 200 Zeichen haben.'
+    error.value = 'Die Kurzbeschreibung darf höchstens 200 Zeichen haben.'
     return null
   }
   if (!isTopic(form.topic)) {
-    if (!silent) error.value = 'Bitte wähle ein Themengebiet.'
+    error.value = 'Bitte wähle ein Themengebiet.'
     return null
   }
   const text = form.bodyHtml.replace(/<[^>]*>/g, '').trim()
   if (text.length === 0) {
-    if (!silent) error.value = 'Der Antragstext darf nicht leer sein.'
+    error.value = 'Der Antragstext darf nicht leer sein.'
     return null
   }
+  error.value = ''
   return formSnapshot()
 }
 
 function onSubmit() {
-  const values = validateForm()
+  const values = validateForPublish()
   if (values) emit('submit', values)
 }
 
 function onPublish() {
-  const values = validateForm()
+  const values = validateForPublish()
   if (values) emit('publish', values)
 }
 
 defineExpose({
   getValues: formSnapshot,
-  validateForm,
+  getDraftValues,
+  validateForPublish,
+  validateForm: validateForPublish,
   isDirty,
   markSaved,
 })
 </script>
 
 <template>
-  <form class="motion-form" @submit.prevent="onSubmit">
+  <form
+    class="motion-form"
+    :class="{ 'motion-form--motion': layout === 'motion' }"
+    @submit.prevent="onSubmit"
+  >
+    <template v-if="layout === 'motion'">
+      <header class="motion__head">
+        <div class="motion__topbar">
+          <div class="motion__badges">
+            <MotionStatusBadge status="draft" />
+          </div>
+        </div>
+
+        <MotionHeaderEditFields v-model:title="form.title" v-model:summary="form.summary" />
+
+        <div class="motion__meta motion__meta--fields">
+          <label class="motion__meta-field">
+            <span>Themengebiet</span>
+            <select v-model="form.topic">
+              <option value="">Bitte wählen …</option>
+              <option v-for="t in TOPICS" :key="t" :value="t">
+                {{ TOPIC_LABELS[t] }}
+              </option>
+            </select>
+          </label>
+
+          <label class="motion__meta-field">
+            <span>Geltungsbereich</span>
+            <select v-model="form.divisionId">
+              <option :value="null">Keine Angabe</option>
+              <option
+                v-for="d in divisionData?.divisions ?? []"
+                :key="d.id"
+                :value="d.id"
+              >
+                {{ d.name }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <p v-if="error" class="form-error">{{ error }}</p>
+      </header>
+
+      <div class="motion__pane motion__pane--left">
+        <div class="motion__tabpanel">
+          <MotionViewHeading view="antrag" />
+          <FwCard
+            class="motion__box"
+            :class="{
+              'motion__box--editing': pinnedActionBar && !pinnedActionBarFlow,
+              'motion__box--flow-bar': pinnedActionBarFlow,
+            }"
+          >
+            <div class="motion__body-area">
+              <div class="motion__body-content">
+                <ClientOnly>
+                  <MotionEditor v-model="form.bodyHtml" compact />
+                  <template #fallback>
+                    <div class="editor-loading">Editor wird geladen …</div>
+                  </template>
+                </ClientOnly>
+              </div>
+              <slot name="editor-status" />
+            </div>
+            <label v-if="!hideAnonymous" class="motion-form__check motion-form__check--motion">
+              <input v-model="form.isAnonymous" type="checkbox">
+              <span>Anonym einreichen</span>
+            </label>
+            <p v-if="!hideAnonymous" class="form-hint motion-form__anon-hint motion-form__anon-hint--motion">
+              Dein Name wird öffentlich nicht angezeigt. Die Zuordnung bleibt intern für die Verwaltung des Antrags erhalten.
+            </p>
+            <slot name="footer" />
+            <div v-if="!hideActions" class="motion-form__actions motion-form__actions--motion">
+              <FwButton v-if="!hideSubmit" type="submit" :disabled="pending">
+                <FontAwesomeIcon icon="floppy-disk" />
+                {{ pending ? 'Speichern …' : submitLabel }}
+              </FwButton>
+              <FwButton
+                v-if="showPublish"
+                type="button"
+                variant="secondary"
+                :disabled="pending"
+                @click="onPublish"
+              >
+                <FontAwesomeIcon icon="paper-plane" />
+                {{ pending ? 'Veröffentlichen …' : publishLabel }}
+              </FwButton>
+              <slot name="actions" />
+            </div>
+          </FwCard>
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
     <label class="field">
       <span>Titel</span>
       <input v-model="form.title" type="text" required :maxlength="MOTION_TITLE_MAX" >
@@ -238,8 +346,6 @@ defineExpose({
       Dein Name wird öffentlich nicht angezeigt. Die Zuordnung bleibt intern für die Verwaltung des Antrags erhalten.
     </p>
 
-    <p v-if="error" class="form-error">{{ error }}</p>
-
     <div v-if="!hideActions" class="motion-form__actions">
       <FwButton v-if="!hideSubmit" type="submit" :disabled="pending">
         <FontAwesomeIcon icon="floppy-disk" />
@@ -257,6 +363,9 @@ defineExpose({
       </FwButton>
       <slot name="actions" />
     </div>
+    </template>
+
+    <p v-if="error && layout !== 'motion'" class="form-error">{{ error }}</p>
   </form>
 </template>
 
@@ -328,16 +437,39 @@ defineExpose({
 }
 
 .motion-form__editor-field :deep(.editor-status) {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
   margin-top: var(--space-2);
-  text-align: right;
   font-size: 0.8rem;
   color: var(--color-text-muted);
+}
+
+.motion-form__editor-field :deep(.editor-status--saved) {
+  color: var(--color-success);
 }
 
 .motion-form__editor-field :deep(.editor-status--error) {
   color: var(--color-danger);
 }
+
+.motion-form--motion {
+  gap: 0;
+}
+
+.motion-form__check--motion {
+  margin-top: var(--space-4);
+}
+
+.motion-form__anon-hint--motion {
+  margin: var(--space-2) 0 0;
+}
+
+.motion-form__actions--motion {
+  margin-top: var(--space-4);
+}
+
 @media (max-width: 640px) {
   .motion-form__row {
     grid-template-columns: 1fr;

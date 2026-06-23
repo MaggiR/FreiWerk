@@ -20,7 +20,7 @@ export default defineNuxtConfig({
     '@nuxt/test-utils/module',
   ],
 
-  css: ['~/assets/css/tokens.css', '~/assets/css/main.css'],
+  css: ['~/assets/css/tokens.css', '~/assets/css/main.css', '~/assets/css/motion-view.css'],
 
   colorMode: {
     classSuffix: '',
