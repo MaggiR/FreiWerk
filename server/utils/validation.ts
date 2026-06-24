@@ -73,6 +73,12 @@ export const postCreateSchema = z.object({
   parentId: z.string().uuid().optional(),
   // Optional inline references to one or more deliberation elements.
   references: z.array(referenceInputSchema).max(20).optional(),
+  // Optional URL to unfurl as a link preview card (must appear in bodyHtml).
+  linkPreviewUrl: z.string().url().max(2000).optional(),
+})
+
+export const postUpdateSchema = z.object({
+  bodyHtml: z.string().min(1).max(50_000),
 })
 
 // A ProseMirror document node (top-level). Structural allow-list validation of

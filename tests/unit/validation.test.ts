@@ -13,6 +13,7 @@ import {
   ballotStartSchema,
   ballotVoteSchema,
   postCreateSchema,
+  postUpdateSchema,
   reportCreateSchema,
   reportResolveSchema,
   postModerationDeleteSchema,
@@ -315,6 +316,14 @@ describe('postCreateSchema', () => {
     expect(parsed.references).toHaveLength(2)
   })
 
+  it('accepts an optional link preview URL', () => {
+    const parsed = postCreateSchema.parse({
+      bodyHtml: '<p>https://example.org</p>',
+      linkPreviewUrl: 'https://example.org',
+    })
+    expect(parsed.linkPreviewUrl).toBe('https://example.org')
+  })
+
   it('rejects references with an unknown target type', () => {
     expect(() =>
       postCreateSchema.parse({
@@ -462,6 +471,16 @@ describe('reportResolveSchema', () => {
     expect(() =>
       reportResolveSchema.parse({ action: 'delete', resolutionNote: 'egal' }),
     ).toThrow()
+  })
+})
+
+describe('postUpdateSchema', () => {
+  it('accepts non-empty bodyHtml', () => {
+    expect(postUpdateSchema.parse({ bodyHtml: '<p>Geändert</p>' }).bodyHtml).toBe('<p>Geändert</p>')
+  })
+
+  it('rejects empty bodyHtml', () => {
+    expect(() => postUpdateSchema.parse({ bodyHtml: '' })).toThrow()
   })
 })
 

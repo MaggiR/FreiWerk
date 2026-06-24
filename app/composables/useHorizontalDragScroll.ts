@@ -1,6 +1,6 @@
 const DRAG_THRESHOLD_PX = 4
 
-/** Mouse drag-to-scroll for horizontal overflow rows (same rules as MotionCarousel). */
+/** Mouse drag-to-scroll and horizontal wheel for horizontal overflow rows. */
 export function useHorizontalDragScroll(options?: {
   onScroll?: () => void
   onDragEnd?: (el: HTMLElement) => void
@@ -12,6 +12,37 @@ export function useHorizontalDragScroll(options?: {
   let dragStartScroll = 0
   let hasDragged = false
   let activePointerId: number | null = null
+
+  function onWheel(event: WheelEvent) {
+    const el = scrollEl.value
+    if (!el) return
+
+    const absX = Math.abs(event.deltaX)
+    const absY = Math.abs(event.deltaY)
+    const horizontalIntent = absX > absY || event.shiftKey
+    if (!horizontalIntent) return
+
+    const delta = event.shiftKey && absX <= absY ? event.deltaY : event.deltaX
+    if (delta === 0) return
+
+    const maxScroll = el.scrollWidth - el.clientWidth
+    if (maxScroll <= 1) return
+
+    const next = el.scrollLeft + delta
+    const clamped = Math.max(0, Math.min(maxScroll, next))
+    if (clamped === el.scrollLeft) return
+
+    event.preventDefault()
+    el.scrollLeft = clamped
+    options?.onScroll?.()
+  }
+
+  watchEffect((onCleanup) => {
+    const el = scrollEl.value
+    if (!el) return
+    el.addEventListener('wheel', onWheel, { passive: false })
+    onCleanup(() => el.removeEventListener('wheel', onWheel))
+  })
 
   function onPointerDown(event: PointerEvent) {
     if (event.pointerType !== 'mouse' || event.button !== 0) return

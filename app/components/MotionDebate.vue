@@ -29,6 +29,7 @@ const posts = computed<DebatePost[]>(() =>
     ...p,
     upvoteCount: p.upvoteCount ?? 0,
     upvotedByMe: p.upvotedByMe ?? false,
+    savedByMe: p.savedByMe ?? false,
     references: p.references ?? [],
     referencedByCount: p.referencedByCount ?? 0,
   })),
@@ -42,9 +43,12 @@ watch(
   { immediate: true },
 )
 
-// ---- Reporting ----
 const reportOpen = ref(false)
 const reportTargetId = ref<string | null>(null)
+const deleteModalOpen = ref(false)
+const deleteTargetId = ref<string | null>(null)
+const deletePending = ref(false)
+const deleteError = ref('')
 
 function onReport(postId: string) {
   if (!loggedIn.value) {
@@ -59,28 +63,63 @@ function onReported() {
   toast.success('Meldung an die Moderation übermittelt.')
 }
 
-async function onRemove(postId: string) {
-  const reason = window.prompt(
-    'Begründung für das Entfernen dieses Beitrags (für das Moderationsprotokoll):',
-  )
-  if (reason === null) return
-  if (reason.trim().length < 5) {
-    toast.error('Bitte gib eine Begründung (min. 5 Zeichen) an.')
+async function onDelete(postId: string) {
+  if (!loggedIn.value) {
+    openAuthModal('login')
+    return
+  }
+  deleteError.value = ''
+  deleteTargetId.value = postId
+  deleteModalOpen.value = true
+}
+
+async function confirmDeletePost() {
+  if (!deleteTargetId.value || deletePending.value) return
+  deletePending.value = true
+  deleteError.value = ''
+  try {
+    await $fetch(`/api/posts/${deleteTargetId.value}/own`, { method: 'DELETE' })
+    deleteModalOpen.value = false
+    deleteTargetId.value = null
+    await refresh()
+    toast.success('Nachricht gelöscht.')
+  } catch (err: unknown) {
+    if (isUnauthorized(err)) {
+      deleteError.value = SESSION_EXPIRED_MESSAGE
+      return
+    }
+    deleteError.value = extractError(err, 'Nachricht konnte nicht gelöscht werden.')
+  } finally {
+    deletePending.value = false
+  }
+}
+
+function patchPostSaved(postId: string, saved: boolean) {
+  if (!data.value?.posts) return
+  data.value = {
+    posts: data.value.posts.map((post) =>
+      post.id === postId ? { ...post, savedByMe: saved } : post,
+    ),
+  }
+}
+
+async function onSave(postId: string) {
+  if (!loggedIn.value) {
+    openAuthModal('login')
     return
   }
   try {
-    await $fetch(`/api/posts/${postId}`, {
-      method: 'DELETE',
-      body: { reason },
+    const res = await $fetch<{ saved: boolean }>(`/api/posts/${postId}/save`, {
+      method: 'POST',
     })
-    await refresh()
-    toast.success('Beitrag entfernt.')
+    patchPostSaved(postId, res.saved)
+    toast.success(res.saved ? 'Nachricht gemerkt.' : 'Merken aufgehoben.')
   } catch (err: unknown) {
     if (isUnauthorized(err)) {
       toast.error(SESSION_EXPIRED_MESSAGE)
       return
     }
-    toast.error(extractError(err, 'Beitrag konnte nicht entfernt werden.'))
+    toast.error(extractError(err, 'Merken fehlgeschlagen.'))
   }
 }
 </script>
@@ -98,7 +137,8 @@ async function onRemove(postId: string) {
     :pending="pending"
     @refresh="refresh"
     @report="onReport"
-    @remove="onRemove"
+    @delete="onDelete"
+    @save="onSave"
     @login="openAuthModal('login')"
   />
 
@@ -107,5 +147,12 @@ async function onRemove(postId: string) {
     target-type="post"
     :target-id="reportTargetId"
     @reported="onReported"
+  />
+
+  <DebateMessageDeleteModal
+    v-model:open="deleteModalOpen"
+    :pending="deletePending"
+    :error="deleteError"
+    @confirm="confirmDeletePost"
   />
 </template>

@@ -30,15 +30,22 @@ const OPTIONS: sanitizeHtml.IOptions = {
   ],
   allowedAttributes: {
     a: ['href', 'target', 'rel', 'class', 'data-attachment', 'data-label', 'data-mime'],
-    img: ['src', 'alt', 'title'],
+    img: ['src', 'alt', 'title', 'class'],
     video: ['src', 'controls', 'preload'],
     span: ['class', 'aria-hidden'],
-    div: ['class', 'data-attachment'],
+    div: ['class', 'data-attachment', 'data-link-preview'],
   },
   allowedClasses: {
-    a: ['attachment-chip', 'attachment-chip__link'],
-    span: ['attachment-chip__icon', 'attachment-chip__label'],
-    div: ['attachment-chip-wrapper', 'attachment-chip'],
+    a: ['attachment-chip', 'attachment-chip__link', 'link-preview__link'],
+    span: [
+      'attachment-chip__icon',
+      'attachment-chip__label',
+      'link-preview__site',
+      'link-preview__title',
+      'link-preview__description',
+    ],
+    div: ['attachment-chip-wrapper', 'attachment-chip', 'link-preview', 'link-preview__content'],
+    img: ['link-preview__image'],
   },
   allowedSchemes: ['http', 'https', 'mailto'],
   // Images may also use data/blob URIs (pasted/embedded media in MVP).

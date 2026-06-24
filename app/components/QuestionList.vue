@@ -196,6 +196,25 @@ function othersSectionHeading(question: QuestionItem): string {
   return count === 1 ? '1 Antwort' : `${count} Antworten`
 }
 
+const { pending: deliberationNavTarget } = useDeliberationNav()
+
+watch(
+  deliberationNavTarget,
+  (target) => {
+    if (!target || target.targetType !== 'answer') return
+    for (const question of questions.value) {
+      const answer = question.answers.find((item) => item.id === target.targetId)
+      if (!answer) continue
+      const { others } = splitAnswers(question.answers)
+      if (others.some((item) => item.id === target.targetId) && !answersAreExpanded(question)) {
+        answersExpanded.value = { ...answersExpanded.value, [question.id]: true }
+      }
+      break
+    }
+  },
+  { flush: 'sync' },
+)
+
 defineExpose({
   openAskForm: openForm,
   askLabel,
@@ -207,7 +226,13 @@ defineExpose({
     <p v-if="pending" class="qa__loading">Fragen werden geladen …</p>
 
     <div v-else class="qa__list">
-      <article v-for="q in questions" :key="q.id" class="q">
+      <article
+        v-for="q in questions"
+        :key="q.id"
+        class="q"
+        data-deliberation-type="question"
+        :data-deliberation-id="q.id"
+      >
         <div class="q__main">
           <div class="q__votes">
             <UpvoteButton
@@ -270,6 +295,8 @@ defineExpose({
           <article
             v-if="answerGroupsByQuestionId[q.id]?.accepted"
             class="answer answer--accepted"
+            data-deliberation-type="answer"
+            :data-deliberation-id="answerGroupsByQuestionId[q.id]!.accepted!.id"
           >
             <div class="answer__votes">
               <UpvoteButton
@@ -357,6 +384,8 @@ defineExpose({
                 :key="answer.id"
                 class="answer"
                 :class="{ 'answer--accepted': answer.isAccepted }"
+                data-deliberation-type="answer"
+                :data-deliberation-id="answer.id"
               >
                 <div class="answer__votes">
                   <UpvoteButton

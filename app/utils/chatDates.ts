@@ -143,13 +143,21 @@ export function formatSuggestionTimestamp(
   return formatRecentTimestamp(date, now)
 }
 
+/** Strip HTML tags and collapse whitespace for clipboard or previews. */
+export function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .trim()
+}
+
 /** Strip HTML to a short plain-text preview (for reply quotes). */
 export function htmlPreview(html: string, maxLength = 80): string {
-  const text = html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const text = htmlToPlainText(html).replace(/\n+/g, ' ')
   if (text.length <= maxLength) return text
   return `${text.slice(0, maxLength - 1).trimEnd()}…`
 }

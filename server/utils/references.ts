@@ -3,6 +3,7 @@ import { db } from '../database/client'
 import {
   elementReferences,
   posts,
+  users,
   motionArguments,
   questions,
   answers,
@@ -130,7 +131,9 @@ export async function persistReferences(input: {
       targetType: ref.targetType,
       targetId: ref.targetId,
       excerptText:
-        ref.targetType === 'motion_excerpt' ? (ref.excerptText ?? null) : null,
+        ref.targetType === 'motion_excerpt' || ref.targetType === 'post'
+          ? (ref.excerptText ?? null)
+          : null,
       excerptVersion:
         ref.targetType === 'motion_excerpt' ? (ref.excerptVersion ?? null) : null,
     })
@@ -184,6 +187,8 @@ export async function getReferencePreviewsForSources(
     motion_excerpt: new Map(),
   }
 
+  const postAuthors = new Map<string, string | null>()
+
   if (idsByType.argument.size > 0) {
     const rows = await db
       .select({ id: motionArguments.id, title: motionArguments.title })
@@ -214,10 +219,17 @@ export async function getReferencePreviewsForSources(
   }
   if (idsByType.post.size > 0) {
     const rows = await db
-      .select({ id: posts.id, bodyHtml: posts.bodyHtml, deletedAt: posts.deletedAt })
+      .select({
+        id: posts.id,
+        bodyHtml: posts.bodyHtml,
+        deletedAt: posts.deletedAt,
+        authorName: users.displayName,
+      })
       .from(posts)
+      .leftJoin(users, eq(users.id, posts.authorId))
       .where(inArray(posts.id, [...idsByType.post]))
     for (const row of rows) {
+      postAuthors.set(row.id, row.authorName)
       labels.post.set(row.id, row.deletedAt ? '(entfernter Beitrag)' : snippet(row.bodyHtml))
     }
   }
@@ -225,8 +237,14 @@ export async function getReferencePreviewsForSources(
   for (const ref of refs) {
     let label: string
     let available = true
+    const excerpt =
+      ref.targetType === 'post' || ref.targetType === 'motion_excerpt'
+        ? ref.excerptText?.trim()
+        : undefined
     if (ref.targetType === 'motion_excerpt') {
-      label = ref.excerptText?.trim() || 'Antragstext'
+      label = excerpt || 'Antragstext'
+    } else if (excerpt && ref.targetType === 'post') {
+      label = excerpt
     } else {
       const resolved = labels[ref.targetType].get(ref.targetId)
       if (resolved === undefined) {
@@ -241,6 +259,11 @@ export async function getReferencePreviewsForSources(
       targetType: ref.targetType,
       targetId: ref.targetId,
       label,
+      excerptText: excerpt,
+      quoteAuthorName:
+        ref.targetType === 'post' && excerpt
+          ? (postAuthors.get(ref.targetId) ?? null)
+          : undefined,
       available,
     }
     const list = result.get(ref.sourceId) ?? []

@@ -744,7 +744,7 @@ function resolvePack(
   return defaultPack(title, demand, theme)
 }
 
-function pushUpvotes(
+export function pushUpvotes(
   rows: (typeof schema.elementUpvotes.$inferInsert)[],
   targetType: UpvoteTargetType,
   targetId: string,
@@ -942,24 +942,7 @@ export function buildDeliberationBundle(
     pushUpvotes(bundle.upvotes, 'resource', id, voters, accepted ? 2 : 0)
   }
 
-  // Post upvotes (spread across first posts).
-  ctx.postIds.forEach((postId, index) => {
-    pushUpvotes(bundle.upvotes, 'post', postId, voters, index === 0 ? 1 : index % 3 === 0 ? 2 : 0)
-  })
-
-  // Reference: first post cites first argument when both exist.
-  if (ctx.postIds[0] && argIds[0]) {
-    bundle.references.push({
-      motionId: ctx.motionId,
-      sourceType: 'post',
-      sourceId: ctx.postIds[0]!,
-      targetType: 'argument',
-      targetId: argIds[0]!,
-      excerptText: pack.arguments[0]?.title ?? null,
-    })
-  }
-
-  // Suggestion working document (debate motions only).
+  // Post upvotes are added when seeding debate chat threads.
   if (ctx.status === 'debate' && pack.suggestions?.length) {
     const docJson = buildWorkingDoc(
       ctx.bodyHtml,
@@ -979,18 +962,3 @@ export function buildDeliberationBundle(
 
   return bundle
 }
-
-export const SEED_POST_BODIES = [
-  '<p>Aus meiner Sicht brauchen wir mehr Bürgerbeteiligung, bevor wir verbindliche Regeln beschließen.</p>',
-  '<p>Grundsätzlich überzeugt mich der Ansatz, aber die Datenschutzfragen müssen vorab geklärt werden.</p>',
-  '<p>Starke Idee. Wie verhindern wir Missbrauch und sichern gleichzeitig schnelle Verfahren?</p>',
-  '<p>Durch nachgelagerte Prüfungen, klare Haftung und transparente Dokumentation aller Schritte.</p>',
-  '<p>Ich sehe noch Lücken bei der Finanzierung. Gibt es belastbare Zahlen für die ersten fünf Jahre?</p>',
-  '<p>Die Umsetzung sollte modular erfolgen, damit Kommunen schrittweise starten können.</p>',
-  '<p>Wichtig wäre mir eine klare Evaluierung nach zwei Jahren mit öffentlichem Bericht.</p>',
-  '<p>Bitte den Bezug zu bestehenden EU-Vorgaben deutlicher herausarbeiten.</p>',
-  '<p>Als Kommunalpolitikerin sehe ich viel Umsetzungsaufwand – brauchen wir Begleitfinanzierung?</p>',
-  '<p>Der Vorschlag geht in die richtige Richtung, aber Fristen sollten realistisch bleiben.</p>',
-  '<p>Würde gern verstehen, wie das mit dem Datenschutz bei digitalen Nachweisen zusammenpasst.</p>',
-  '<p>Positiv finde ich die Technologieoffenheit – genau so sollten wir planen.</p>',
-] as const

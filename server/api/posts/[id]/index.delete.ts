@@ -35,7 +35,6 @@ export default defineEventHandler(async (event) => {
       deletedAt: new Date(),
       deletedById: user.id,
       deletedReason: body.reason,
-      updatedAt: new Date(),
     })
     .where(eq(posts.id, id))
 

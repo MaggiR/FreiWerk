@@ -199,6 +199,10 @@ export interface ReferencePreview {
   targetId: string
   /** Short label/snippet shown in the message (e.g. argument title, excerpt). */
   label: string
+  /** Set for post quotes and motion excerpts: the marked passage. */
+  excerptText?: string
+  /** Author of the quoted post (post excerpts only). */
+  quoteAuthorName?: string | null
   /** True if the referenced element still exists / is resolvable. */
   available: boolean
 }

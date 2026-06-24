@@ -282,13 +282,33 @@ export const posts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    /** Set only when the author edits post body content. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }),
   },
   (table) => [
     index('posts_motion_idx').on(table.motionId),
     index('posts_parent_idx').on(table.parentId),
+  ],
+)
+
+// Personal bookmarks for debate posts ("Merken").
+export const postSaves = pgTable(
+  'post_saves',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id')
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('post_saves_post_user_idx').on(table.postId, table.userId),
+    index('post_saves_user_idx').on(table.userId),
   ],
 )
 
@@ -940,6 +960,8 @@ export type Resource = typeof resources.$inferSelect
 export type NewResource = typeof resources.$inferInsert
 export type ElementUpvote = typeof elementUpvotes.$inferSelect
 export type NewElementUpvote = typeof elementUpvotes.$inferInsert
+export type PostSave = typeof postSaves.$inferSelect
+export type NewPostSave = typeof postSaves.$inferInsert
 export type ElementReference = typeof elementReferences.$inferSelect
 export type NewElementReference = typeof elementReferences.$inferInsert
 export type ActivityEvent = typeof activityEvents.$inferSelect

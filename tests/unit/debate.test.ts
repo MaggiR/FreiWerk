@@ -1,16 +1,24 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildInboundByPost,
   buildThreadTree,
   buildChatTimeline,
   countVisiblePosts,
+  findLatestEditableOwnPost,
+  inboundRefsFor,
+  isOwnPostEditable,
+  isPostEdited,
+  postsForThreadFilter,
   type DebatePost,
 } from '../../app/utils/debate'
+import { POST_EDIT_WINDOW_MS } from '#shared/constants'
 
 function post(partial: Partial<DebatePost> & { id: string }): DebatePost {
   return {
     id: partial.id,
     parentId: partial.parentId ?? null,
     createdAt: partial.createdAt ?? '2026-01-01T00:00:00.000Z',
+    updatedAt: partial.updatedAt ?? null,
     deleted: partial.deleted ?? false,
     bodyHtml: partial.bodyHtml ?? '<p>Text</p>',
     authorId: partial.authorId ?? 'u1',
@@ -20,6 +28,9 @@ function post(partial: Partial<DebatePost> & { id: string }): DebatePost {
     authorAvatarUrl: partial.authorAvatarUrl ?? null,
     upvoteCount: partial.upvoteCount ?? 0,
     upvotedByMe: partial.upvotedByMe ?? false,
+    savedByMe: partial.savedByMe ?? false,
+    references: partial.references ?? [],
+    referencedByCount: partial.referencedByCount ?? 0,
   }
 }
 
@@ -84,6 +95,160 @@ describe('countVisiblePosts', () => {
   })
 })
 
+describe('findLatestEditableOwnPost', () => {
+  const now = new Date('2026-06-24T12:00:00.000Z').getTime()
+  const userId = 'u1'
+
+  it('returns the newest editable own post', () => {
+    const posts = [
+      post({
+        id: 'old',
+        authorId: userId,
+        createdAt: '2026-06-24T10:00:00.000Z',
+      }),
+      post({
+        id: 'new',
+        authorId: userId,
+        createdAt: '2026-06-24T11:30:00.000Z',
+      }),
+      post({
+        id: 'other',
+        authorId: 'u2',
+        createdAt: '2026-06-24T11:45:00.000Z',
+      }),
+    ]
+    expect(findLatestEditableOwnPost(posts, userId, true, now)?.id).toBe('new')
+  })
+
+  it('returns null when the edit window has expired', () => {
+    const posts = [
+      post({
+        id: 'stale',
+        authorId: userId,
+        createdAt: '2026-06-24T08:00:00.000Z',
+      }),
+    ]
+    expect(findLatestEditableOwnPost(posts, userId, true, now)).toBeNull()
+  })
+
+  it('ignores deleted posts', () => {
+    const posts = [
+      post({
+        id: 'deleted',
+        authorId: userId,
+        deleted: true,
+        createdAt: '2026-06-24T11:00:00.000Z',
+      }),
+    ]
+    expect(findLatestEditableOwnPost(posts, userId, true, now)).toBeNull()
+  })
+})
+
+describe('isOwnPostEditable', () => {
+  it('matches the two-hour edit window', () => {
+    const createdAt = '2026-06-24T10:00:00.000Z'
+    const postItem = post({ id: 'a', authorId: 'u1', createdAt })
+    const inside = new Date(createdAt).getTime() + POST_EDIT_WINDOW_MS - 1
+    const outside = new Date(createdAt).getTime() + POST_EDIT_WINDOW_MS + 1
+    expect(isOwnPostEditable(postItem, 'u1', true, inside)).toBe(true)
+    expect(isOwnPostEditable(postItem, 'u1', true, outside)).toBe(false)
+  })
+})
+
+describe('buildInboundByPost', () => {
+  it('includes direct replies as inbound references', () => {
+    const posts = [
+      post({ id: 'root' }),
+      post({ id: 'reply', parentId: 'root', bodyHtml: '<p>Antwort</p>' }),
+    ]
+    const inbound = buildInboundByPost(posts)
+    expect(inboundRefsFor(inbound, 'root')).toEqual([
+      expect.objectContaining({ id: 'reply', excerpt: expect.stringContaining('Antwort') }),
+    ])
+  })
+
+  it('merges explicit post references and replies without duplicates', () => {
+    const posts = [
+      post({ id: 'root' }),
+      post({
+        id: 'both',
+        parentId: 'root',
+        references: [
+          {
+            id: 'ref-1',
+            targetType: 'post',
+            targetId: 'root',
+            label: 'Root',
+            available: true,
+          },
+        ],
+      }),
+    ]
+    const inbound = buildInboundByPost(posts)
+    expect(inbound.get('root')).toHaveLength(1)
+  })
+
+  it('excludes deleted inbound messages', () => {
+    const posts = [
+      post({ id: 'root' }),
+      post({ id: 'reply', parentId: 'root', deleted: true }),
+    ]
+    expect(buildInboundByPost(posts).get('root')).toBeUndefined()
+  })
+})
+
+describe('postsForThreadFilter', () => {
+  it('returns the anchor and all inbound referencers', () => {
+    const posts = [
+      post({ id: 'root' }),
+      post({ id: 'reply', parentId: 'root', bodyHtml: '<p>Antwort</p>' }),
+      post({ id: 'other' }),
+    ]
+    const inbound = buildInboundByPost(posts)
+    const filtered = postsForThreadFilter(posts, 'root', inbound)
+    expect(filtered.map((entry) => entry.id)).toEqual(['root', 'reply'])
+  })
+
+  it('includes explicit post references without duplicates', () => {
+    const posts = [
+      post({ id: 'root' }),
+      post({
+        id: 'ref',
+        references: [
+          {
+            id: 'ref-1',
+            targetType: 'post',
+            targetId: 'root',
+            label: 'Root',
+            available: true,
+          },
+        ],
+      }),
+      post({ id: 'noise' }),
+    ]
+    const inbound = buildInboundByPost(posts)
+    const filtered = postsForThreadFilter(posts, 'root', inbound)
+    expect(filtered.map((entry) => entry.id)).toEqual(['root', 'ref'])
+  })
+})
+
+describe('isPostEdited', () => {
+  it('is false when updatedAt is missing', () => {
+    expect(isPostEdited(post({ id: 'a' }))).toBe(false)
+  })
+
+  it('is true when updatedAt is set', () => {
+    expect(
+      isPostEdited(
+        post({
+          id: 'a',
+          updatedAt: '2026-01-01T11:30:00.000Z',
+        }),
+      ),
+    ).toBe(true)
+  })
+})
+
 describe('buildChatTimeline', () => {
   it('inserts date markers when the calendar day changes', () => {
     const posts = [
@@ -106,6 +271,7 @@ describe('buildChatTimeline', () => {
     const timeline = buildChatTimeline(posts)
     const reply = timeline.find((i) => i.type === 'message' && i.post.id === 'reply')
     expect(reply?.type === 'message' && reply.parentPreview?.excerpt).toContain('Original')
+    expect(reply?.type === 'message' && reply.parentPreview?.postId).toBe('root')
   })
 
   it('orders messages newest first when requested', () => {

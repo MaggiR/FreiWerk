@@ -6,6 +6,8 @@ import { postCreateSchema } from '../../../utils/validation'
 import { sanitizeRichText } from '../../../utils/sanitize'
 import { requireAuth } from '../../../utils/auth'
 import { persistReferences } from '../../../utils/references'
+import { bodyContainsUrl } from '#shared/linkPreview'
+import { buildLinkPreviewHtml, fetchLinkPreview } from '../../../utils/linkPreview'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 
@@ -58,12 +60,24 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const bodyHtml = sanitizeRichText(body.bodyHtml)
+  let bodyHtml = sanitizeRichText(body.bodyHtml)
   if (bodyHtml.trim().length === 0) {
     throw createError({
       statusCode: 422,
       statusMessage: 'Der Beitrag darf nicht leer sein.',
     })
+  }
+
+  if (
+    body.linkPreviewUrl
+    && bodyContainsUrl(body.bodyHtml, body.linkPreviewUrl)
+  ) {
+    try {
+      const preview = await fetchLinkPreview(body.linkPreviewUrl)
+      bodyHtml = sanitizeRichText(bodyHtml + buildLinkPreviewHtml(preview))
+    } catch {
+      // Post without preview if unfurl fails.
+    }
   }
 
   const [created] = await db

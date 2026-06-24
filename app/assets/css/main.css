@@ -232,7 +232,7 @@ select:focus {
   margin-bottom: 0;
 }
 
-.rich-text a:not(.attachment-chip):not(.attachment-chip__link) {
+.rich-text a:not(.attachment-chip):not(.attachment-chip__link):not(.link-preview__link) {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 0.12em;
@@ -385,6 +385,74 @@ select:focus {
   content: '\1F4CE';
 }
 
+/* Link preview cards (WhatsApp-style unfurl) in chat posts */
+.link-preview,
+.rich-text .link-preview {
+  margin: var(--space-2) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-bg));
+  overflow: hidden;
+}
+
+.link-preview__link,
+.rich-text a.link-preview__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.link-preview__link:hover .link-preview__title,
+.rich-text a.link-preview__link:hover .link-preview__title {
+  text-decoration: underline;
+}
+
+.link-preview__image,
+.rich-text img.link-preview__image {
+  display: block;
+  width: 100%;
+  max-height: 12rem;
+  object-fit: cover;
+  margin: 0;
+  border-radius: 0;
+  background: var(--color-bg);
+}
+
+.link-preview__content,
+.rich-text .link-preview__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.link-preview__site,
+.rich-text .link-preview__site {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.link-preview__title,
+.rich-text .link-preview__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.link-preview__description,
+.rich-text .link-preview__description {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Inline text button styled like a link */
 .inline-link {
   padding: 0;
@@ -425,5 +493,38 @@ select:focus {
   body.beschluss-print .beschluss__doc {
     border: none !important;
     box-shadow: none !important;
+  }
+}
+
+/* Deliberation element highlight when jumping from chat references. */
+.arg.deliberation-target--highlight,
+.q.deliberation-target--highlight,
+.answer.deliberation-target--highlight,
+.res__item.deliberation-target--highlight {
+  animation: deliberation-target-highlight 2s ease-out;
+}
+
+@keyframes deliberation-target-highlight {
+  0%,
+  100% {
+    box-shadow: none;
+    filter: brightness(1);
+  }
+  35%,
+  55% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent),
+      0 0 18px color-mix(in srgb, var(--color-accent) 30%, transparent);
+    filter: brightness(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arg.deliberation-target--highlight,
+  .q.deliberation-target--highlight,
+  .answer.deliberation-target--highlight,
+  .res__item.deliberation-target--highlight {
+    animation: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
 }

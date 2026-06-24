@@ -7,6 +7,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Attachment, normalizeAttachmentLabel } from '~/editor/attachmentExtension'
+import type { UploadedFileResult } from '~/utils/uploadResult'
 import { Video } from '~/editor/videoExtension'
 import type { SuggestionItem } from '#shared/types'
 import {
@@ -18,6 +19,7 @@ import {
   resolveCleanHtml,
 } from '~/editor/suggestions'
 import { handleUndoRedoKeyDown } from '~/editor/undoRedoKeydown'
+import { chatComposerKeyExtension } from '~/editor/chatComposerKeys'
 import { handleEmojiPickerBeforeInput } from '~/editor/emojiPickerInput'
 import { formatSuggestionTimestamp } from '~/utils/chatDates'
 
@@ -75,6 +77,7 @@ const isReviewMode = computed(() => props.suggestion?.mode === 'review')
 const isEditMode = computed(() => props.suggestion?.mode === 'edit')
 const isViewMode = computed(() => props.suggestion?.mode === 'view')
 const isChatVariant = computed(() => props.variant === 'chat')
+const isChatComposer = props.variant === 'chat'
 const hasTextSelection = ref(false)
 const chatToolbarPos = ref<{ top: number; left: number } | null>(null)
 const canManageSuggestions = computed(() => isReviewMode.value || isEditMode.value)
@@ -322,6 +325,7 @@ const editor = useEditor({
   extensions: [
     StarterKit.configure({
       heading: props.allowHeadings ? { levels: [1, 2, 3] } : false,
+      hardBreak: isChatComposer ? false : undefined,
     }),
     Underline,
     Link.configure({
@@ -336,6 +340,7 @@ const editor = useEditor({
     Video,
     Attachment,
     Placeholder.configure({ placeholder: props.placeholder }),
+    ...(isChatComposer ? [chatComposerKeyExtension()] : []),
     ...(isSuggesting.value ? suggestionExtensions() : []),
   ],
   editorProps: {
@@ -419,6 +424,7 @@ defineExpose({
   getEditor: () => editor.value ?? null,
   getJSON: () => editor.value?.getJSON() ?? null,
   getCleanHtml: () => (editor.value ? resolveCleanHtml(editor.value) : ''),
+  insertUploadedFile,
   acceptSuggestion: (id: number) => {
     if (editor.value) acceptSuggestionCmd(editor.value, id)
   },
@@ -456,6 +462,25 @@ function openAttachmentPicker() {
   fileInput.value?.click()
 }
 
+function insertUploadedFile(res: UploadedFileResult) {
+  if (!editor.value) return
+  if (res.mimeType.startsWith('image/')) {
+    editor.value.chain().focus().setImage({ src: res.url, alt: res.name }).run()
+  } else if (res.mimeType.startsWith('video/')) {
+    editor.value.chain().focus().setVideo({ src: res.url }).run()
+  } else {
+    editor.value
+      .chain()
+      .focus()
+      .setAttachment({
+        href: res.url,
+        label: normalizeAttachmentLabel(res.name),
+        mimeType: res.mimeType,
+      })
+      .run()
+  }
+}
+
 async function onFileSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -467,26 +492,11 @@ async function onFileSelected(event: Event) {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    const res = await $fetch<{ url: string; name: string; mimeType: string }>(
-      '/api/uploads',
-      { method: 'POST', body: formData },
-    )
-
-    if (res.mimeType.startsWith('image/')) {
-      editor.value?.chain().focus().setImage({ src: res.url, alt: res.name }).run()
-    } else if (res.mimeType.startsWith('video/')) {
-      editor.value?.chain().focus().setVideo({ src: res.url }).run()
-    } else {
-      editor.value
-        ?.chain()
-        .focus()
-        .setAttachment({
-          href: res.url,
-          label: normalizeAttachmentLabel(res.name),
-          mimeType: res.mimeType,
-        })
-        .run()
-    }
+    const res = await $fetch<UploadedFileResult>('/api/uploads', {
+      method: 'POST',
+      body: formData,
+    })
+    insertUploadedFile(res)
   } catch (err: unknown) {
     uploadError.value = extractError(err, 'Anhang konnte nicht hochgeladen werden.')
   } finally {

@@ -11,12 +11,16 @@ import {
   buildMoodRows,
   buildBallotRows,
   assertMotionBodyLength,
-  defaultPostCount,
+  defaultDeliberationLevel,
   daysAgo,
   daysFromNow,
   seedProfileAvatarUrl,
 } from './seed-data'
-import { buildDeliberationBundle, SEED_POST_BODIES } from './seed-deliberation'
+import { buildDeliberationBundle, pushUpvotes } from './seed-deliberation'
+import {
+  buildDebateChatBundle,
+  extractDeliberationIds,
+} from './seed-debate-chat'
 import { FEDERAL_DIVISIONS } from '../../shared/divisions'
 
 // Demo seed: clears domain tables, then inserts demo data.
@@ -45,6 +49,7 @@ async function main() {
     drizzleSql`TRUNCATE TABLE
       "moderation_actions", "reports", "ballots", "ballot_participants",
       "element_upvotes", "element_references", "activity_events",
+      "post_saves",
       "answers", "questions", "arguments", "resources",
       "motion_working_docs", "motion_versions", "motion_watches",
       "mood_vote_events", "mood_votes", "posts", "motions", "users", "divisions"
@@ -183,58 +188,10 @@ async function main() {
     await db.insert(schema.ballots).values(ballotRows)
   }
 
-  console.log('[seed] Inserting debate posts...')
+  console.log('[seed] Building deliberation and debate chat data...')
   const debateMotions = insertedMotions.filter((m) => m.status !== 'draft')
   const motionMetaByTitle = Object.fromEntries(SEED_MOTIONS.map((m) => [m.title, m]))
-  const postsByMotionId = new Map<string, string[]>()
 
-  const postRows: (typeof schema.posts.$inferInsert)[] = []
-  for (const motion of debateMotions) {
-    const meta = motionMetaByTitle[motion.title]
-    const authorPool = insertedUsers.filter((u) => u.id !== motion.authorId)
-    const postCount = meta ? defaultPostCount(meta) : 3
-    for (let i = 0; i < postCount; i++) {
-      const author = authorPool[i % authorPool.length]!
-      postRows.push({
-        motionId: motion.id,
-        authorId: author.id,
-        bodyHtml: SEED_POST_BODIES[(i + debateMotions.indexOf(motion)) % SEED_POST_BODIES.length]!,
-        createdAt: daysAgo(now, Math.max(0, postCount - i)),
-      })
-    }
-  }
-
-  const insertedPosts = await db.insert(schema.posts).values(postRows).returning()
-  for (const post of insertedPosts) {
-    const list = postsByMotionId.get(post.motionId) ?? []
-    list.push(post.id)
-    postsByMotionId.set(post.motionId, list)
-  }
-
-  const euMotion = debateMotions.find((m) => m.title === 'Europäische Digitale Identität')
-  if (euMotion) {
-    const euPosts = postsByMotionId.get(euMotion.id) ?? []
-    const rootId = euPosts[0]
-    if (rootId) {
-      const [reply] = await db
-        .insert(schema.posts)
-        .values({
-          motionId: euMotion.id,
-          authorId: userIdByEmail['admin@freiwerk.local']!,
-          parentId: rootId,
-          bodyHtml:
-            '<p>Datenschutz muss vorab geklärt werden — siehe auch das Contra-Argument oben.</p>',
-          createdAt: daysAgo(now, 0),
-        })
-        .returning()
-      if (reply) {
-        euPosts.push(reply.id)
-        postsByMotionId.set(euMotion.id, euPosts)
-      }
-    }
-  }
-
-  console.log('[seed] Inserting deliberation elements...')
   const allArguments: (typeof schema.motionArguments.$inferInsert)[] = []
   const allQuestions: (typeof schema.questions.$inferInsert)[] = []
   const allAnswers: (typeof schema.answers.$inferInsert)[] = []
@@ -243,11 +200,13 @@ async function main() {
   const allReferences: (typeof schema.elementReferences.$inferInsert)[] = []
   const allActivity: (typeof schema.activityEvents.$inferInsert)[] = []
   const allWorkingDocs: (typeof schema.motionWorkingDocs.$inferInsert)[] = []
+  const allPostRows: (typeof schema.posts.$inferInsert)[] = []
 
   for (const motion of debateMotions) {
     const meta = motionMetaByTitle[motion.title]
     if (!meta) continue
-    const bundle = buildDeliberationBundle({
+
+    const deliberationBundle = buildDeliberationBundle({
       motionId: motion.id,
       motionTitle: motion.title,
       bodyHtml: motion.bodyHtml,
@@ -259,19 +218,55 @@ async function main() {
       deliberationLevel: meta.deliberationLevel,
       userIdByEmail,
       memberIds: insertedUsers.map((u) => u.id),
-      postIds: postsByMotionId.get(motion.id) ?? [],
+      postIds: [],
       now,
     })
-    allArguments.push(...bundle.arguments)
-    allQuestions.push(...bundle.questions)
-    allAnswers.push(...bundle.answers)
-    allResources.push(...bundle.resources)
-    allUpvotes.push(...bundle.upvotes)
-    allReferences.push(...bundle.references)
-    allActivity.push(...bundle.activityEvents)
-    allWorkingDocs.push(...bundle.workingDocs)
+
+    const chatBundle = buildDebateChatBundle({
+      motionId: motion.id,
+      motionTitle: motion.title,
+      bodyTheme: meta.bodyTheme,
+      bodyDemand: meta.bodyDemand,
+      status: motion.status as 'debate' | 'ballot' | 'decided',
+      deliberationLevel: meta.deliberationLevel ?? defaultDeliberationLevel(meta.status),
+      authorId: motion.authorId,
+      userIdByEmail,
+      memberIds: insertedUsers.map((u) => u.id),
+      deliberation: extractDeliberationIds(deliberationBundle),
+      publishedAt: motion.publishedAt,
+      now,
+      postCount: meta.postCount,
+    })
+
+    const voters = insertedUsers.map((u) => u.id).filter((id) => id !== motion.authorId)
+    chatBundle.postIds.forEach((postId, index) => {
+      pushUpvotes(
+        deliberationBundle.upvotes,
+        'post',
+        postId,
+        voters,
+        index === 0 ? 2 : index % 4 === 0 ? 3 : index % 2 === 0 ? 1 : 0,
+      )
+    })
+    deliberationBundle.references.push(...chatBundle.references)
+
+    allPostRows.push(...chatBundle.posts)
+    allArguments.push(...deliberationBundle.arguments)
+    allQuestions.push(...deliberationBundle.questions)
+    allAnswers.push(...deliberationBundle.answers)
+    allResources.push(...deliberationBundle.resources)
+    allUpvotes.push(...deliberationBundle.upvotes)
+    allReferences.push(...deliberationBundle.references)
+    allActivity.push(...deliberationBundle.activityEvents)
+    allWorkingDocs.push(...deliberationBundle.workingDocs)
   }
 
+  console.log('[seed] Inserting debate posts...')
+  const insertedPosts = allPostRows.length
+    ? await db.insert(schema.posts).values(allPostRows).returning()
+    : []
+
+  console.log('[seed] Inserting deliberation elements...')
   if (allArguments.length) await db.insert(schema.motionArguments).values(allArguments)
   if (allQuestions.length) await db.insert(schema.questions).values(allQuestions)
   if (allAnswers.length) await db.insert(schema.answers).values(allAnswers)

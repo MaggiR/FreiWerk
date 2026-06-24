@@ -163,6 +163,8 @@ defineExpose({
         :key="resource.id"
         class="res__item"
         :class="{ 'res__item--pending': resource.status !== 'accepted' }"
+        data-deliberation-type="resource"
+        :data-deliberation-id="resource.id"
       >
         <div class="res__votes">
           <UpvoteButton

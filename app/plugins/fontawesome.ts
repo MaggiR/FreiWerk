@@ -85,6 +85,9 @@ import {
   faDiagramProject,
   faTurnUp,
   faComment,
+  faBookmark,
+  faCopy,
+  faEllipsisVertical,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -175,6 +178,9 @@ library.add(
   faDiagramProject,
   faTurnUp,
   faComment,
+  faBookmark,
+  faCopy,
+  faEllipsisVertical,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

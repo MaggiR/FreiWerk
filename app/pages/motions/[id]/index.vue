@@ -4,6 +4,13 @@ import {
   MOTION_VIEW_META,
 } from '#shared/constants'
 import type { MotionBarAction } from '~/components/MotionActionBar.vue'
+import {
+  deliberationTabFor,
+  scrollToDeliberationTarget,
+} from '~/utils/deliberationNavigation'
+import { scrollToMotionExcerpt } from '~/utils/motionExcerptNavigation'
+import type { DeliberationNavTarget } from '~/composables/useDeliberationNav'
+import type { MotionExcerptNavTarget } from '~/composables/useMotionExcerptNav'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -177,7 +184,9 @@ function isTabActive(id: ViewTab): boolean {
 
 function onTabClick(id: ViewTab) {
   if (!isWideLayout.value) {
-    if (mobileActiveView.value !== id) mobileActiveView.value = id
+    if (mobileActiveView.value !== id) {
+      switchMobileView(id)
+    }
     return
   }
 
@@ -198,6 +207,106 @@ function onTabClick(id: ViewTab) {
     panelVisible.value = true
   }
 }
+
+const toast = useToast()
+const { pending: deliberationNavTarget, clearPending: clearDeliberationNav } =
+  useDeliberationNav()
+const { pending: motionExcerptNavTarget, clearPending: clearMotionExcerptNav } =
+  useMotionExcerptNav()
+const { focusDebate, clearFocusDebate } = useComposerReferenceQueue()
+
+const excerptReferenceEnabled = computed(
+  () => debateOpen.value && !isSuggestionEditing.value && !showSuggestionDiff.value,
+)
+
+watch(focusDebate, (focus) => {
+  if (!focus) return
+  clearFocusDebate()
+  if (!debateOpen.value) return
+  onTabClick('debate')
+})
+
+function switchMobileView(next: ViewTab) {
+  if (mobileActiveView.value === next) return
+  const scrollY = window.scrollY
+  mobileActiveView.value = next
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      window.scrollTo({ top: Math.min(scrollY, maxY) })
+    })
+  })
+}
+
+async function navigateToDeliberationTarget(target: DeliberationNavTarget) {
+  const tab = deliberationTabFor(target.targetType)
+  if (!tab) return
+
+  if (!isWideLayout.value) {
+    switchMobileView(tab)
+  } else {
+    activeMainTab.value = tab
+    mainVisible.value = true
+  }
+
+  await nextTick()
+
+  const tryScroll = () => scrollToDeliberationTarget(target.targetType, target.targetId)
+  let found = tryScroll()
+  if (!found) {
+    await new Promise((resolve) => window.setTimeout(resolve, 320))
+    found = tryScroll()
+  }
+  if (!found) {
+    toast.info('Das referenzierte Element ist nicht mehr verfügbar.')
+  }
+}
+
+watch(deliberationNavTarget, (target) => {
+  if (!target) return
+  const copy = { ...target }
+  clearDeliberationNav()
+  void navigateToDeliberationTarget(copy)
+})
+
+async function navigateToMotionExcerpt(target: MotionExcerptNavTarget) {
+  if (target.motionId !== id) return
+
+  if (isSuggestionEditing.value) {
+    toast.error('Die referenzierte Stelle im Antragstext ist nicht mehr verfügbar.')
+    return
+  }
+
+  if (showSuggestionDiff.value) {
+    showSuggestionDiff.value = false
+  }
+
+  if (!isWideLayout.value) {
+    switchMobileView('antrag')
+  } else {
+    activeMainTab.value = 'antrag'
+    mainVisible.value = true
+  }
+
+  await nextTick()
+
+  const tryScroll = () => scrollToMotionExcerpt(target.motionId, target.excerptText)
+  let found = tryScroll()
+  if (!found) {
+    await new Promise((resolve) => window.setTimeout(resolve, 320))
+    found = tryScroll()
+  }
+  if (!found) {
+    toast.error('Die referenzierte Stelle im Antragstext ist nicht mehr verfügbar.')
+  }
+}
+
+watch(motionExcerptNavTarget, (target) => {
+  if (!target) return
+  const copy = { ...target }
+  clearMotionExcerptNav()
+  void navigateToMotionExcerpt(copy)
+})
 
 const showMainPane = computed(() => {
   if (isDraft.value) return true
@@ -233,14 +342,9 @@ const isDebateViewActive = computed(() => {
   return showPanelPane.value && activePanelTab.value === 'debate'
 })
 
-const isStackedDebateView = computed(
-  () => isDebateViewActive.value && !isWideLayout.value,
-)
-
 const tabsRef = ref<HTMLElement | null>(null)
 const tabsFadeLeft = ref(false)
 const tabsFadeRight = ref(false)
-const tabsOffsetPx = ref(0)
 let tabsResizeObserver: ResizeObserver | null = null
 
 const {
@@ -251,16 +355,6 @@ const {
   onPointerUp: onTabsPointerUp,
   onClickCapture: onTabsClickCapture,
 } = useHorizontalDragScroll({ onScroll: updateTabsScrollFades })
-
-const stackedDebateDockStyle = computed(() => {
-  if (!isStackedDebateView.value || tabsOffsetPx.value <= 0) return undefined
-  return { '--motion-tabs-offset': `${tabsOffsetPx.value}px` }
-})
-
-function syncTabsOffset() {
-  if (!import.meta.client) return
-  tabsOffsetPx.value = tabsRef.value?.offsetHeight ?? 0
-}
 
 function updateTabsScrollFades() {
   if (!import.meta.client || isWideLayout.value) {
@@ -282,10 +376,8 @@ function updateTabsScrollFades() {
 
 function setupTabsObserver() {
   if (!import.meta.client) return
-  syncTabsOffset()
   tabsResizeObserver?.disconnect()
   tabsResizeObserver = new ResizeObserver(() => {
-    syncTabsOffset()
     updateTabsScrollFades()
   })
   if (tabsRef.value) tabsResizeObserver.observe(tabsRef.value)
@@ -357,7 +449,7 @@ function syncLayoutMode() {
   }
 
   isWideLayout.value = wide
-  nextTick(syncTabsOffset)
+  nextTick(updateTabsScrollFades)
 }
 
 const splitLeftStyle = computed(() => {
@@ -462,22 +554,18 @@ onMounted(() => {
   layoutMedia = window.matchMedia(`(min-width: ${SPLIT_BREAKPOINT}px)`)
   layoutMedia.addEventListener('change', syncLayoutMode)
   syncLayoutMode()
-  window.addEventListener('resize', () => {
-    syncTabsOffset()
-    updateTabsScrollFades()
-  })
+  window.addEventListener('resize', updateTabsScrollFades)
   nextTick(setupTabsObserver)
 })
 
 onUnmounted(() => {
   layoutMedia?.removeEventListener('change', syncLayoutMode)
-  window.removeEventListener('resize', syncTabsOffset)
+  window.removeEventListener('resize', updateTabsScrollFades)
   window.removeEventListener('pointermove', onDividerMove)
   window.removeEventListener('pointerup', onDividerUp)
   tabsResizeObserver?.disconnect()
 })
 
-watch(isStackedDebateView, () => nextTick(syncTabsOffset))
 watch(isDraft, () => nextTick(setupTabsObserver))
 watch(isWideLayout, () => nextTick(updateTabsScrollFades))
 
@@ -782,11 +870,7 @@ function onBarAction(id: string) {
   <article
     v-if="motion"
     class="motion"
-    :class="{
-      'motion--wide': !isDraft,
-      'motion--stacked-debate': isStackedDebateView,
-    }"
-    :style="stackedDebateDockStyle"
+    :class="{ 'motion--wide': !isDraft }"
   >
     <header class="motion__head">
       <div class="motion__topbar">
@@ -925,7 +1009,7 @@ function onBarAction(id: string) {
           >
             <Transition name="swap">
               <div v-if="!isSuggestionEditing" class="motion__body-area">
-                <div class="motion__body-content">
+                <div class="motion__body-content" :data-motion-body="motion.id">
                   <RichText :html="motion.bodyHtml" />
                 </div>
               </div>
@@ -956,7 +1040,7 @@ function onBarAction(id: string) {
       </div>
 
       <!-- Mobile / tablet: one view at a time with transition -->
-      <Transition v-else-if="!isWideLayout" name="tab-panel" mode="out-in">
+      <Transition v-else-if="!isWideLayout" name="tab-panel">
         <div :key="mobileActiveView" class="motion__animated-view">
           <div v-if="mobileActiveView === 'antrag'" class="motion__tabpanel">
             <MotionViewHeading view="antrag" />
@@ -969,7 +1053,12 @@ function onBarAction(id: string) {
             >
               <Transition name="swap">
                 <div v-if="!isSuggestionEditing" class="motion__body-area">
-                  <div class="motion__body-content">
+                <MotionExcerptReferenceMenu
+                  :motion-id="motion.id"
+                  :motion-version="motion.currentVersion"
+                  :enabled="excerptReferenceEnabled"
+                >
+                  <div class="motion__body-content" :data-motion-body="motion.id">
                     <div class="motion__body-swap">
                       <div
                         class="motion__body-layer"
@@ -987,6 +1076,7 @@ function onBarAction(id: string) {
                       />
                     </div>
                   </div>
+                </MotionExcerptReferenceMenu>
                 </div>
               </Transition>
               <MotionSuggestions
@@ -1070,24 +1160,30 @@ function onBarAction(id: string) {
           >
             <Transition name="swap">
               <div v-if="!isSuggestionEditing" class="motion__body-area">
-                <div class="motion__body-content">
-                  <div class="motion__body-swap">
-                    <div
-                      class="motion__body-layer"
-                      :class="{ 'is-visible': !showSuggestionDiff }"
-                      :aria-hidden="showSuggestionDiff"
-                    >
-                      <RichText :html="motion.bodyHtml" />
+                <MotionExcerptReferenceMenu
+                  :motion-id="motion.id"
+                  :motion-version="motion.currentVersion"
+                  :enabled="excerptReferenceEnabled"
+                >
+                  <div class="motion__body-content" :data-motion-body="motion.id">
+                    <div class="motion__body-swap">
+                      <div
+                        class="motion__body-layer"
+                        :class="{ 'is-visible': !showSuggestionDiff }"
+                        :aria-hidden="showSuggestionDiff"
+                      >
+                        <RichText :html="motion.bodyHtml" />
+                      </div>
+                      <div
+                        v-if="isDebate && suggestionCount > 0"
+                        :id="`motion-body-diff-${motion.id}`"
+                        class="motion__body-layer"
+                        :class="{ 'is-visible': showSuggestionDiff }"
+                        :aria-hidden="!showSuggestionDiff"
+                      />
                     </div>
-                    <div
-                      v-if="isDebate && suggestionCount > 0"
-                      :id="`motion-body-diff-${motion.id}`"
-                      class="motion__body-layer"
-                      :class="{ 'is-visible': showSuggestionDiff }"
-                      :aria-hidden="!showSuggestionDiff"
-                    />
                   </div>
-                </div>
+                </MotionExcerptReferenceMenu>
               </div>
             </Transition>
 
@@ -1141,7 +1237,7 @@ function onBarAction(id: string) {
           />
         </div>
 
-        <Transition name="tab-panel" mode="out-in">
+        <Transition name="tab-panel">
           <div
             v-if="visibleMainTab !== 'antrag' && visibleMainTab !== 'ballot'"
             :key="visibleMainTab"
@@ -1178,7 +1274,7 @@ function onBarAction(id: string) {
         :aria-hidden="!showPanelPane || dragPanelCollapsed"
         :inert="(!showPanelPane || dragPanelCollapsed) || undefined"
       >
-        <Transition name="tab-panel" mode="out-in">
+        <Transition name="tab-panel">
           <div :key="visiblePanelTab" class="panel">
             <MotionTabView
               :view="visiblePanelTab"
@@ -1393,31 +1489,6 @@ function onBarAction(id: string) {
   }
 }
 
-/* Stacked layout: debate chat docks under tabs and fills the viewport. */
-@media (max-width: 1023px) {
-  .motion--stacked-debate .motion__tabs {
-    position: sticky;
-    top: var(--header-total-height);
-    z-index: 25;
-    margin-bottom: var(--space-3);
-    padding-bottom: var(--space-2);
-    background: var(--color-bg);
-  }
-
-  .motion--stacked-debate .motion__animated-view :deep(.tab-view--debate-dock) {
-    position: sticky;
-    top: calc(var(--header-total-height) + var(--motion-tabs-offset, 2.75rem));
-    display: flex;
-    flex-direction: column;
-    height: calc(
-      100dvh - var(--header-total-height) - var(--motion-tabs-offset, 2.75rem) -
-        var(--space-8)
-    );
-    min-height: min(20rem, 60dvh);
-    min-width: 0;
-  }
-}
-
 /* ---- Resizable split (motion views | side panel) ---- */
 .motion__split {
   display: flex;
@@ -1452,6 +1523,7 @@ function onBarAction(id: string) {
 }
 .motion__animated-view {
   min-width: 0;
+  min-height: min(32rem, 70vh);
 }
 .motion__tabpanel--persistent {
   animation: tab-panel-in 0.28s ease;
@@ -1864,10 +1936,47 @@ textarea.motion__summary:focus-visible {
 .motion__body-content {
   outline: none;
   width: 100%;
+  --motion-excerpt-highlight: color-mix(in srgb, var(--color-tertiary) 35%, transparent);
+  --motion-excerpt-outline: color-mix(in srgb, var(--color-tertiary) 55%, transparent);
+}
+
+.dark .motion__body-content {
+  --motion-excerpt-highlight: color-mix(in srgb, var(--brand-cyan) 44%, var(--color-surface));
+  --motion-excerpt-outline: color-mix(in srgb, var(--brand-cyan) 68%, var(--color-text));
 }
 
 .motion__body-content :deep(.rich-text > :last-child:not(ul):not(ol)) {
   margin-bottom: calc(var(--space-3) * 0.25);
+}
+.motion__body-content :deep(.msg__excerpt-mark) {
+  background: var(--motion-excerpt-highlight);
+  border-radius: 0.15em;
+  padding: 0 0.05em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: motion-excerpt-mark 2s ease-out;
+}
+.motion__body-content :deep(.rich-text.msg__body--quote-target) {
+  border-radius: var(--radius-sm);
+  animation: motion-excerpt-outline 2s ease-out;
+}
+@keyframes motion-excerpt-mark {
+  0%,
+  15% {
+    background-color: var(--motion-excerpt-highlight);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes motion-excerpt-outline {
+  0%,
+  15% {
+    box-shadow: inset 0 0 0 2px var(--motion-excerpt-outline);
+  }
+  100% {
+    box-shadow: none;
+  }
 }
 
 /* Read-only motion body (RichText + suggestion diff overlay), not the edit surface. */
@@ -1926,24 +2035,24 @@ textarea.motion__summary:focus-visible {
   }
 }
 
-/* Tab panel cross-fade + slide */
+/* Tab panel cross-fade */
 .tab-panel-enter-active {
-  transition:
-    opacity 0.28s ease,
-    transform 0.28s ease;
+  transition: opacity 0.24s ease;
 }
 .tab-panel-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s ease;
+  transition: opacity 0.16s ease;
 }
 .tab-panel-enter-from {
   opacity: 0;
-  transform: translateY(0.65rem);
 }
 .tab-panel-leave-to {
   opacity: 0;
-  transform: translateY(-0.45rem);
+}
+@media (max-width: 1023px) {
+  .tab-panel-enter-from,
+  .tab-panel-leave-to {
+    transform: none;
+  }
 }
 @keyframes tab-panel-in {
   from {

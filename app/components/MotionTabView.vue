@@ -142,7 +142,7 @@ watch(
   min-height: min(32rem, 70vh);
 }
 .tab-view--debate-dock {
-  min-height: 0;
+  min-height: min(32rem, 70vh);
 }
 .tab-view--debate-dock .tab-view__head {
   flex-shrink: 0;
@@ -150,6 +150,11 @@ watch(
 .tab-view--debate-dock .tab-view__panel {
   flex: 1;
   min-height: 0;
+}
+@media (max-width: 1023px) {
+  .tab-view--debate-dock {
+    min-height: min(32rem, 70vh);
+  }
 }
 .tab-view__head {
   display: flex;

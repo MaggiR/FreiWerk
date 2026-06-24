@@ -172,6 +172,8 @@ function deliberationTone(status: string): 'primary' | 'neutral' {
           :key="arg.id"
           class="arg"
           :class="[`arg--${col.key}`, { 'arg--pending': arg.status !== 'accepted' }]"
+          data-deliberation-type="argument"
+          :data-deliberation-id="arg.id"
         >
           <div class="arg__votes">
             <UpvoteButton

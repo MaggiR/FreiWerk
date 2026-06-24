@@ -16,6 +16,9 @@ export const TOPICS = [
 
 export type Topic = (typeof TOPICS)[number]
 
+/** Authors may edit debate posts within this window after creation. */
+export const POST_EDIT_WINDOW_MS = 2 * 60 * 60 * 1000
+
 export const TOPIC_LABELS: Record<Topic, string> = {
   wirtschaft: 'Wirtschaft',
   bildung: 'Bildung',
