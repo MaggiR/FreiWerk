@@ -710,8 +710,8 @@ defineExpose({
   border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
   background: color-mix(in srgb, var(--color-success) 8%, var(--color-bg));
 }
-.answer--accepted .answer__content {
-  padding-right: 0.25rem;
+.answer:has(.answer__accept) .answer__content {
+  padding-right: calc(1.8rem + var(--space-3));
 }
 .answer__accept {
   position: absolute;

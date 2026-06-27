@@ -64,6 +64,14 @@ const authorAttributes = {
         ? {}
         : { 'data-created-at': String(attributes.createdAt) },
   },
+  rationale: {
+    default: null,
+    parseHTML: (element: HTMLElement) => element.dataset.rationale ?? null,
+    renderHTML: (attributes: Record<string, unknown>) =>
+      attributes.rationale == null
+        ? {}
+        : { 'data-rationale': String(attributes.rationale) },
+  },
 }
 
 export const SuggestionInsertion = Mark.create({
@@ -278,6 +286,48 @@ export function stampSuggestionAuthors(
             userId,
             userName,
             createdAt: mark.attrs.createdAt ?? new Date().toISOString(),
+          }),
+        )
+        changed = true
+      }
+    })
+  })
+
+  if (changed) {
+    tr.setMeta(suggestChangesKey, { skip: true })
+    tr.setMeta('addToHistory', false)
+    editor.view.dispatch(tr)
+  }
+}
+
+const MAX_SUGGESTION_RATIONALE_LENGTH = 500
+
+/** Stamp optional rationale onto suggestion marks that belong to the current user. */
+export function stampSuggestionRationale(editor: Editor, rationale: string | null) {
+  const trimmed = rationale?.trim().slice(0, MAX_SUGGESTION_RATIONALE_LENGTH) ?? ''
+  if (!trimmed) return
+
+  const { state } = editor
+  const { schema, doc } = state
+  const tr = state.tr
+  const markTypes = SUGGESTION_MARK_NAMES.map((name) => schema.marks[name]).filter(
+    (markType): markType is NonNullable<typeof markType> => Boolean(markType),
+  )
+  let changed = false
+
+  doc.descendants((node, pos) => {
+    node.marks.forEach((mark) => {
+      if (
+        markTypes.includes(mark.type)
+        && mark.attrs.userId != null
+        && mark.attrs.rationale == null
+      ) {
+        tr.addMark(
+          pos,
+          pos + node.nodeSize,
+          mark.type.create({
+            ...mark.attrs,
+            rationale: trimmed,
           }),
         )
         changed = true

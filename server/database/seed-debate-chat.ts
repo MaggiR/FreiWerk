@@ -54,7 +54,6 @@ export type DebateChatBundle = {
 }
 
 export function extractDeliberationIds(bundle: DeliberationSeedBundle): DeliberationIds {
-  const questionTitleById = new Map(bundle.questions.map((q) => [q.id!, q.title]))
   return {
     arguments: bundle.arguments.map((a) => ({
       id: a.id!,

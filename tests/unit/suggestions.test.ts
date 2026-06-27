@@ -94,6 +94,35 @@ describe('extractSuggestions', () => {
     expect(deletion?.authorId).toBe('u2')
     expect(deletion?.createdAt).toBeNull()
   })
+
+  it('includes optional rationale from mark attrs', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Vorschlag',
+              marks: [{
+                type: 'insertion',
+                attrs: {
+                  id: 3,
+                  userId: 'u1',
+                  userName: 'Alice',
+                  createdAt: '2026-06-10T14:30:00.000Z',
+                  rationale: 'Bessere Formulierung nötig.',
+                },
+              }],
+            },
+          ],
+        },
+      ],
+    }
+    const item = extractSuggestions(doc).find((entry) => entry.id === 3)
+    expect(item?.rationale).toBe('Bessere Formulierung nötig.')
+  })
 })
 
 describe('media reference checks', () => {

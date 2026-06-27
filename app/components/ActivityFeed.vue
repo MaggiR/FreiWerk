@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { ActivityItem, ActivityListResponse } from '#shared/types'
 import { ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_ICONS } from '#shared/constants'
+import {
+  activityDeliberationTarget,
+  isActivityTargetClickable,
+} from '~/utils/activityNavigation'
 
 const props = withDefaults(
   defineProps<{
@@ -10,6 +14,12 @@ const props = withDefaults(
   }>(),
   { layout: 'panel' },
 )
+
+const emit = defineEmits<{
+  'open-motion': []
+}>()
+
+const { navigateTo: navigateToDeliberation } = useDeliberationNav()
 
 const PAGE_SIZE = 25
 
@@ -27,6 +37,18 @@ function detail(event: ActivityItem): string {
   const meta = event.metadata
   if (meta && typeof meta.title === 'string') return meta.title
   return ''
+}
+
+function openTarget(event: ActivityItem) {
+  if (!isActivityTargetClickable(event)) return
+  const deliberationTarget = activityDeliberationTarget(event)
+  if (deliberationTarget) {
+    navigateToDeliberation(deliberationTarget)
+    return
+  }
+  if (event.targetType === 'motion') {
+    emit('open-motion')
+  }
 }
 
 async function fetchPage(cursor?: string): Promise<ActivityListResponse> {
@@ -164,7 +186,15 @@ onUnmounted(() => {
               </NuxtLink>
               <span v-else class="activity__actor">{{ event.actorName ?? 'System' }}</span>
               {{ ACTIVITY_TYPE_LABELS[event.type] ?? event.type }}
-              <span v-if="detail(event)" class="activity__detail">„{{ detail(event) }}“</span>
+              <button
+                v-if="detail(event) && isActivityTargetClickable(event)"
+                type="button"
+                class="activity__detail activity__detail--link"
+                @click="openTarget(event)"
+              >
+                „{{ detail(event) }}“
+              </button>
+              <span v-else-if="detail(event)" class="activity__detail">„{{ detail(event) }}“</span>
             </p>
             <time class="activity__time" :datetime="event.createdAt">
               {{ formatDate(event.createdAt) }}
@@ -298,6 +328,19 @@ a.activity__actor:hover {
 
 .activity__detail {
   color: var(--color-text-muted);
+}
+.activity__detail--link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+.activity__detail--link:hover {
+  color: var(--color-text);
 }
 
 .activity__time {

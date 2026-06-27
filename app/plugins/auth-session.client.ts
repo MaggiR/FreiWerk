@@ -11,14 +11,20 @@ export default defineNuxtPlugin({
     const { clear, loggedIn, fetch: refreshSession } = useUserSession()
     const { open: openAuthModal } = useAuthModal()
 
+    let lastSessionRefresh = 0
+    const SESSION_REFRESH_MIN_MS = 5 * 60 * 1000
+
     onNuxtReady(async () => {
       await refreshSession()
+      lastSessionRefresh = Date.now()
     })
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        void refreshSession()
-      }
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastSessionRefresh < SESSION_REFRESH_MIN_MS) return
+      lastSessionRefresh = now
+      void refreshSession()
     })
 
     globalThis.$fetch = $fetch.create({

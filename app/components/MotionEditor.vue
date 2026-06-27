@@ -16,6 +16,7 @@ import {
   acceptSuggestion as acceptSuggestionCmd,
   rejectSuggestion as rejectSuggestionCmd,
   stampSuggestionAuthors,
+  stampSuggestionRationale,
   resolveCleanHtml,
 } from '~/editor/suggestions'
 import { handleUndoRedoKeyDown } from '~/editor/undoRedoKeydown'
@@ -156,6 +157,7 @@ function suggestionItemFromMark(mark: HTMLElement, id: number): SuggestionItem |
   const authorId = mark.dataset.userId ?? null
   const authorName = mark.dataset.userName ?? null
   const createdAt = mark.dataset.createdAt ?? null
+  const rationale = mark.dataset.rationale ?? null
   if (!authorId && !authorName && !createdAt) return null
 
   return {
@@ -165,6 +167,7 @@ function suggestionItemFromMark(mark: HTMLElement, id: number): SuggestionItem |
     authorName,
     authorAvatarUrl: null,
     createdAt,
+    rationale,
     snippet: (mark.textContent ?? '').trim().slice(0, 80),
   }
 }
@@ -439,6 +442,9 @@ defineExpose({
         props.suggestion.userName,
       )
     }
+  },
+  stampRationale: (rationale: string | null) => {
+    if (editor.value) stampSuggestionRationale(editor.value, rationale)
   },
 })
 
@@ -854,6 +860,9 @@ const chatBlockTools = computed<ToolItem[]>(() => {
               {{ formatSuggestionTimestamp(reviewPopover.item.createdAt) }}
             </span>
           </div>
+          <p v-if="reviewPopover.item.rationale" class="editor__review-rationale">
+            {{ reviewPopover.item.rationale }}
+          </p>
           <div v-if="canManageSuggestions" class="editor__review-actions">
             <button
               type="button"
@@ -1217,6 +1226,20 @@ const chatBlockTools = computed<ToolItem[]>(() => {
 
 .editor__review-popover--info .editor__review-popover-head {
   margin-bottom: 0;
+}
+
+.editor__review-rationale {
+  max-height: 8rem;
+  margin: 0 0 var(--space-2);
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+.editor__review-popover--info:has(.editor__review-rationale) .editor__review-popover-head {
+  margin-bottom: var(--space-2);
 }
 
 .editor__review-user {

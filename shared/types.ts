@@ -82,6 +82,8 @@ export interface SuggestionItem {
   authorAvatarUrl?: string | null
   /** ISO timestamp stamped when the suggestion was submitted. */
   createdAt: string | null
+  /** Optional rationale provided when submitting the suggestion. */
+  rationale?: string | null
   /** Short plain-text preview of the affected content. */
   snippet: string
 }

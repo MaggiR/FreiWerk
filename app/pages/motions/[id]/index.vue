@@ -11,6 +11,12 @@ import {
 import { scrollToMotionExcerpt } from '~/utils/motionExcerptNavigation'
 import type { DeliberationNavTarget } from '~/composables/useDeliberationNav'
 import type { MotionExcerptNavTarget } from '~/composables/useMotionExcerptNav'
+import type { SidebarGroup } from '~/composables/useAppSidebar'
+import { buildMotionSidebarGroups } from '~/utils/motionSidebarNav'
+import {
+  CONTENT_SPLIT_MIN_WIDTH,
+  contentAreaWidth,
+} from '~/utils/layoutBreakpoints'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -28,19 +34,42 @@ if (error.value) {
 const motion = computed(() => data.value?.motion)
 const watchCount = computed(() => data.value?.watchCount ?? 0)
 const isWatched = computed(() => data.value?.isWatched ?? false)
-const olderVersionCount = computed(() => data.value?.olderVersionCount ?? 0)
+const versionCount = computed(() => data.value?.versionCount ?? 0)
+const argumentCount = ref(0)
+const questionCount = ref(0)
+const resourceCount = ref(0)
 const versionUpdatedAt = computed(
   () => data.value?.versionUpdatedAt ?? motion.value?.updatedAt ?? null,
 )
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
 const isDraft = computed(() => motion.value?.status === 'draft')
+
+const { data: moodData } = await useFetch(
+  () => (isDraft.value ? null : `/api/motions/${id}/mood`),
+  { key: `mood-${id}` },
+)
+
+const moodVoteCount = computed(
+  () => moodData.value?.totalVotes ?? data.value?.moodVoteCount ?? 0,
+)
 const isDebate = computed(() => motion.value?.status === 'debate')
 const isBallot = computed(() => motion.value?.status === 'ballot')
 const isDecided = computed(() => motion.value?.status === 'decided')
 const isArchived = computed(() => Boolean(motion.value?.archivedAt))
 const canArchive = computed(() => isAuthor.value || isModerator.value)
 const canManageBallot = computed(() => isAuthor.value || isModerator.value)
+
+watch(
+  () => data.value,
+  (payload) => {
+    if (!payload || payload.motion.status === 'draft') return
+    argumentCount.value = payload.argumentCount ?? 0
+    questionCount.value = payload.questionCount ?? 0
+    resourceCount.value = payload.resourceCount ?? 0
+  },
+  { immediate: true },
+)
 
 const archivePending = ref(false)
 const archiveError = ref('')
@@ -140,17 +169,19 @@ const debateLastSeenCount = ref<number | null>(null)
 const reportOpen = ref(false)
 
 // ---- Tabs ----
-type MainTab = 'antrag' | 'ballot' | 'arguments' | 'mood' | 'questions' | 'resources'
+type MainTab = 'antrag' | 'ballot' | 'arguments' | 'mood' | 'questions' | 'resources' | 'versions'
 type PanelTab = 'debate' | 'activity'
 type ViewTab = MainTab | PanelTab
+type MotionTabViewId = Exclude<MainTab, 'antrag' | 'ballot' | 'versions'> | PanelTab
 
 const SPLIT_MIN = 0.3
 const SPLIT_MAX = 0.7
-const SPLIT_BREAKPOINT = 1024
 
 const activeMainTab = ref<MainTab>('antrag')
 const activePanelTab = ref<PanelTab>('debate')
 const mobileActiveView = ref<ViewTab>('antrag')
+const mobileReturnView = ref<ViewTab>('antrag')
+const mobileDebateExpanded = ref(false)
 /** Mobile-first default keeps SSR/hydration aligned; syncLayoutMode sets wide on desktop. */
 const isWideLayout = ref(false)
 const mainVisible = ref(true)
@@ -162,10 +193,24 @@ const mainTabs = computed(() => {
     if (isBallot.value || isDecided.value) {
       ids.push('ballot')
     }
-    ids.push('arguments', 'questions', 'mood', 'resources')
+    ids.push('arguments', 'questions', 'mood', 'resources', 'versions')
   }
   return ids.map((id) => ({ id, ...MOTION_VIEW_META[id] }))
 })
+
+const motionTabCounts = computed(() => ({
+  antrag: suggestionCount.value,
+  arguments: argumentCount.value,
+  questions: questionCount.value,
+  mood: moodVoteCount.value,
+  resources: resourceCount.value,
+  versions: versionCount.value,
+}))
+
+function mainTabCount(tabId: MainTab): number | undefined {
+  const count = motionTabCounts.value[tabId]
+  return count > 0 ? count : undefined
+}
 
 const panelTabs = (['debate', 'activity'] as const).map((id) => ({
   id,
@@ -176,6 +221,55 @@ function isMainTab(id: ViewTab): id is MainTab {
   return id !== 'debate' && id !== 'activity'
 }
 
+/** Panel entries for the desktop rail, with the live unread badge on the debate item. */
+const railPanelItems = computed(() =>
+  panelTabs.map((tab) => ({
+    ...tab,
+    count: tab.id === 'debate' ? debateUnreadCount.value : undefined,
+  })),
+)
+const railActiveMainId = computed(() => {
+  if (!isWideLayout.value) {
+    return isMainTab(mobileActiveView.value) ? mobileActiveView.value : null
+  }
+  return mainVisible.value ? activeMainTab.value : null
+})
+const railActivePanelId = computed(() => {
+  if (!isWideLayout.value) {
+    return isMainTab(mobileActiveView.value) ? null : mobileActiveView.value
+  }
+  return panelVisible.value ? activePanelTab.value : null
+})
+
+// Feed the motion views into the global left sidebar (desktop) as contextual
+// section entries below the app navigation.
+const { setGroups, clearGroups, setSelectHandler, expanded: sidebarPinned } = useAppSidebar()
+
+const sidebarGroups = computed<SidebarGroup[]>(() =>
+  buildMotionSidebarGroups({
+    isDraft: isDraft.value,
+    isBallot: isBallot.value,
+    isDecided: isDecided.value,
+    activeMainId: railActiveMainId.value,
+    activePanelId: railActivePanelId.value,
+    debateUnreadCount: debateUnreadCount.value,
+    tabCounts: motionTabCounts.value,
+  }),
+)
+
+onMounted(() => {
+  setGroups(sidebarGroups.value)
+  setSelectHandler((tabId) => onTabClick(tabId as ViewTab))
+  // Registered here (not at setup) so the watch source is first evaluated after
+  // all reactive sources it depends on are initialized.
+  watch(sidebarGroups, (groups) => setGroups(groups))
+})
+
+onUnmounted(() => {
+  clearGroups()
+  setSelectHandler(null)
+})
+
 function isTabActive(id: ViewTab): boolean {
   if (!isWideLayout.value) return mobileActiveView.value === id
   if (isMainTab(id)) return mainVisible.value && activeMainTab.value === id
@@ -184,6 +278,17 @@ function isTabActive(id: ViewTab): boolean {
 
 function onTabClick(id: ViewTab) {
   if (!isWideLayout.value) {
+    if (id === 'debate') {
+      if (mobileActiveView.value !== 'debate') {
+        mobileReturnView.value = mobileActiveView.value
+      }
+      mobileDebateExpanded.value = true
+      if (mobileActiveView.value !== id) {
+        switchMobileView(id)
+      }
+      return
+    }
+    mobileDebateExpanded.value = false
     if (mobileActiveView.value !== id) {
       switchMobileView(id)
     }
@@ -237,6 +342,42 @@ function switchMobileView(next: ViewTab) {
     })
   })
 }
+
+function closeMobileDebate() {
+  mobileDebateExpanded.value = false
+  switchMobileView(mobileReturnView.value)
+}
+
+function onActivityOpenMotion() {
+  if (!isWideLayout.value) {
+    mobileDebateExpanded.value = false
+    switchMobileView('antrag')
+    return
+  }
+  activeMainTab.value = 'antrag'
+  mainVisible.value = true
+}
+
+const mobileViewStorageKey = computed(() => `freiwerk-motion-tab-${id}`)
+
+function isStoredViewTab(value: string): value is ViewTab {
+  return (
+    value === 'antrag'
+    || value === 'ballot'
+    || value === 'arguments'
+    || value === 'mood'
+    || value === 'questions'
+    || value === 'resources'
+    || value === 'versions'
+    || value === 'debate'
+    || value === 'activity'
+  )
+}
+
+watch(mobileActiveView, (view) => {
+  if (!import.meta.client || isWideLayout.value) return
+  sessionStorage.setItem(mobileViewStorageKey.value, view)
+})
 
 async function navigateToDeliberationTarget(target: DeliberationNavTarget) {
   const tab = deliberationTabFor(target.targetType)
@@ -432,8 +573,7 @@ let layoutMedia: MediaQueryList | null = null
 
 function syncLayoutMode() {
   if (!import.meta.client) return
-  const wide =
-    layoutMedia?.matches ?? window.innerWidth >= SPLIT_BREAKPOINT
+  const wide = contentAreaWidth() >= CONTENT_SPLIT_MIN_WIDTH
   if (wide === isWideLayout.value) return
 
   if (!wide) {
@@ -551,8 +691,28 @@ function onDividerDown(event: PointerEvent) {
 
 onMounted(() => {
   loadDebateSeenCount()
-  layoutMedia = window.matchMedia(`(min-width: ${SPLIT_BREAKPOINT}px)`)
+  if (import.meta.client) {
+    const storedView = sessionStorage.getItem(mobileViewStorageKey.value)
+    if (storedView && isStoredViewTab(storedView)) {
+      if (!isWideLayout.value) {
+        mobileActiveView.value = storedView
+        if (storedView === 'debate') {
+          mobileDebateExpanded.value = true
+          mobileReturnView.value = 'antrag'
+        }
+      } else if (isMainTab(storedView)) {
+        activeMainTab.value = storedView
+        mainVisible.value = true
+      } else {
+        activePanelTab.value = storedView
+        panelVisible.value = true
+      }
+    }
+  }
+  layoutMedia = window.matchMedia('(min-width: 768px)')
   layoutMedia.addEventListener('change', syncLayoutMode)
+  window.addEventListener('resize', syncLayoutMode)
+  watch(sidebarPinned, syncLayoutMode)
   syncLayoutMode()
   window.addEventListener('resize', updateTabsScrollFades)
   nextTick(setupTabsObserver)
@@ -560,6 +720,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   layoutMedia?.removeEventListener('change', syncLayoutMode)
+  window.removeEventListener('resize', syncLayoutMode)
   window.removeEventListener('resize', updateTabsScrollFades)
   window.removeEventListener('pointermove', onDividerMove)
   window.removeEventListener('pointerup', onDividerUp)
@@ -753,23 +914,12 @@ const barActions = computed<MotionBarAction[]>(() => {
       icon: 'pen-to-square',
       variant: 'secondary',
     })
-  } else if (canSuggest.value) {
+  } else   if (canSuggest.value) {
     actions.push({
       id: 'propose',
       label: 'Änderungen vorschlagen',
       icon: 'pen',
       variant: 'secondary',
-    })
-  }
-
-  if (!isDraft.value) {
-    actions.push({
-      id: 'versions',
-      label: 'Versionen',
-      icon: 'clock-rotate-left',
-      to: `/motions/${m.id}/versions`,
-      count: olderVersionCount.value,
-      variant: 'ghost',
     })
   }
 
@@ -903,19 +1053,27 @@ function onBarAction(id: string) {
       <p v-if="!isAuthorEditing" class="motion__summary">{{ motion.summary }}</p>
 
       <div class="motion__meta">
-        <NuxtLink
-          v-if="motion.authorId && !motion.isAnonymous"
-          :to="`/users/${motion.authorId}`"
-          class="motion__author-link"
-        >
-          <FontAwesomeIcon icon="user" /> {{ motion.author?.displayName }}
-        </NuxtLink>
-        <span v-else>
-          <FontAwesomeIcon icon="user" /> Anonym
-        </span>
-        <span v-if="motion.publishedAt">
-          <FontAwesomeIcon icon="clock" /> Veröffentlicht am
-          {{ formatDate(motion.publishedAt) }}
+        <span class="motion__meta-primary">
+          <NuxtLink
+            v-if="motion.authorId && !motion.isAnonymous"
+            :to="`/users/${motion.authorId}`"
+            class="motion__author-link"
+          >
+            <UserAvatar
+              :avatar-url="motion.author?.avatarUrl ?? null"
+              :name="motion.author?.displayName"
+              size="sm"
+            />
+            {{ motion.author?.displayName }}
+          </NuxtLink>
+          <span v-else class="motion__author-link">
+            <FontAwesomeIcon icon="user" /> Anonym
+          </span>
+          <RelativeTime
+            v-if="motion.publishedAt"
+            :value="motion.publishedAt"
+            prefix="Veröffentlicht"
+          />
         </span>
         <span v-if="motion.status === 'debate' && motion.debateEndsAt">
           <FontAwesomeIcon icon="comments" />
@@ -965,6 +1123,10 @@ function onBarAction(id: string) {
           @click="onTabClick(tab.id)"
         >
           <FontAwesomeIcon :icon="tab.icon" /> {{ tab.label }}
+          <span
+            v-if="mainTabCount(tab.id)"
+            class="motion__tab-count"
+          >{{ mainTabCount(tab.id) }}</span>
         </button>
         <span class="motion__tabs-spacer" aria-hidden="true" />
         <button
@@ -1041,7 +1203,14 @@ function onBarAction(id: string) {
 
       <!-- Mobile / tablet: one view at a time with transition -->
       <Transition v-else-if="!isWideLayout" name="tab-panel">
-        <div :key="mobileActiveView" class="motion__animated-view">
+        <div
+          :key="mobileActiveView"
+          class="motion__animated-view"
+          :class="{
+            'motion__animated-view--debate-fullscreen':
+              mobileDebateExpanded && mobileActiveView === 'debate',
+          }"
+        >
           <div v-if="mobileActiveView === 'antrag'" class="motion__tabpanel">
             <MotionViewHeading view="antrag" />
             <FwCard
@@ -1122,17 +1291,27 @@ function onBarAction(id: string) {
               @changed="refreshNuxtData(motionDataKey)"
             />
           </div>
+          <div v-else-if="mobileActiveView === 'versions'" class="motion__tabpanel">
+            <MotionViewHeading view="versions" :count="mainTabCount('versions')" />
+            <MotionVersions :motion-id="motion.id" />
+          </div>
           <MotionTabView
             v-else
-            :view="mobileActiveView"
             v-model:debate-post-count="debatePostCount"
             v-model:debate-post-sort="debatePostSort"
+            v-model:argument-item-count="argumentCount"
+            v-model:question-item-count="questionCount"
+            v-model:resource-item-count="resourceCount"
+            :view="mobileActiveView as MotionTabViewId"
             :motion-id="motion.id"
             :motion-version="motion.currentVersion"
             :debate-open="debateOpen"
             :can-moderate="isModerator"
             :current-user-id="user?.id ?? null"
+            :mobile-debate-fullscreen="mobileDebateExpanded && mobileActiveView === 'debate'"
             activity-layout="endless"
+            @close-debate="closeMobileDebate"
+            @open-motion="onActivityOpenMotion"
           />
         </div>
       </Transition>
@@ -1237,16 +1416,31 @@ function onBarAction(id: string) {
           />
         </div>
 
+        <div
+          v-show="visibleMainTab === 'versions'"
+          class="motion__tabpanel"
+        >
+          <MotionViewHeading view="versions" :count="mainTabCount('versions')" />
+          <MotionVersions :motion-id="motion.id" />
+        </div>
+
         <Transition name="tab-panel">
           <div
-            v-if="visibleMainTab !== 'antrag' && visibleMainTab !== 'ballot'"
+            v-if="
+              visibleMainTab !== 'antrag'
+                && visibleMainTab !== 'ballot'
+                && visibleMainTab !== 'versions'
+            "
             :key="visibleMainTab"
             class="motion__tabpanel"
           >
             <MotionTabView
-              :view="visibleMainTab"
+              :view="visibleMainTab as MotionTabViewId"
               v-model:debate-post-count="debatePostCount"
               v-model:debate-post-sort="debatePostSort"
+              v-model:argument-item-count="argumentCount"
+              v-model:question-item-count="questionCount"
+              v-model:resource-item-count="resourceCount"
               :motion-id="motion.id"
               :motion-version="motion.currentVersion"
               :debate-open="debateOpen"
@@ -1280,12 +1474,16 @@ function onBarAction(id: string) {
               :view="visiblePanelTab"
               v-model:debate-post-count="debatePostCount"
               v-model:debate-post-sort="debatePostSort"
+              v-model:argument-item-count="argumentCount"
+              v-model:question-item-count="questionCount"
+              v-model:resource-item-count="resourceCount"
               :motion-id="motion.id"
               :motion-version="motion.currentVersion"
               :debate-open="debateOpen"
               :can-moderate="isModerator"
               :current-user-id="user?.id ?? null"
               activity-layout="panel"
+              @open-motion="onActivityOpenMotion"
             />
           </div>
         </Transition>
@@ -1326,6 +1524,12 @@ function onBarAction(id: string) {
 .motion__tabs {
   margin-bottom: var(--space-5);
 }
+/* Tablet/desktop: sidebar replaces the tab chips; tabs stay phone-only below. */
+@media (min-width: 768px) {
+  .motion__tabs {
+    display: none;
+  }
+}
 .motion__tabs-row {
   display: flex;
   flex-wrap: wrap;
@@ -1342,7 +1546,7 @@ function onBarAction(id: string) {
   flex: 1 1 auto;
   min-width: var(--space-2);
 }
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .motion__tabs-spacer {
     display: none;
   }
@@ -1467,7 +1671,7 @@ function onBarAction(id: string) {
   font-variant-numeric: tabular-nums;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .motion__tab {
     flex-shrink: 0;
     min-height: 2.3rem;
@@ -1498,8 +1702,8 @@ function onBarAction(id: string) {
 .motion__split--stacked {
   gap: 0;
 }
-/* Fallback if layout JS has not run yet: never show the side panel below 1024px. */
-@media (max-width: 1023px) {
+/* SSR/hydration fallback on phones before split JS runs. */
+@media (max-width: 767px) {
   .motion__split:not(.motion__split--stacked) .motion__pane--right {
     display: none;
   }
@@ -1525,6 +1729,28 @@ function onBarAction(id: string) {
   min-width: 0;
   min-height: min(32rem, 70vh);
 }
+@media (max-width: 767px) {
+  .motion__animated-view--debate-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    height: 100dvh;
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    background: var(--color-bg);
+  }
+  .motion__animated-view--debate-fullscreen :deep(.tab-view) {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+  }
+}
 .motion__tabpanel--persistent {
   animation: tab-panel-in 0.28s ease;
 }
@@ -1539,142 +1765,166 @@ function onBarAction(id: string) {
   transition: background 0.15s ease;
 }
 
-@media (min-width: 1024px) {
-  .motion__split:not(.motion__split--stacked) {
-    flex-direction: row;
-    align-items: stretch;
-    gap: 0;
-  }
+.motion__split:not(.motion__split--stacked) {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--left,
+.motion__split:not(.motion__split--stacked) .motion__pane--right {
+  transition:
+    flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease,
+    min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--left {
+  overflow-x: clip;
+  overflow-y: visible;
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.motion__split:not(.motion__split--stacked):not(.is-panel-hidden):not(.is-main-hidden) .motion__pane--left {
+  flex: 0 0 var(--split-left, 60%);
+  min-width: 30%;
+}
+.motion__split:not(.motion__split--stacked).is-main-hidden .motion__pane--left,
+.motion__split:not(.motion__split--stacked).is-panel-hidden .motion__pane--right {
+  flex: 0 0 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.motion__split:not(.motion__split--stacked).is-main-hidden:not(.is-panel-hidden) .motion__pane--right {
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.motion__split:not(.motion__split--stacked).is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
+  flex: 1 1 100% !important;
+  max-width: 100%;
+  min-width: 0;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right {
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.motion__split:not(.motion__split--stacked):not(.is-panel-hidden):not(.is-main-hidden) .motion__pane--right {
+  min-width: 30%;
+}
+/* Keep split headings aligned; stick only the scrollable panel body. */
+.motion__split:not(.motion__split--stacked) .motion__pane--left .motion__tabpanel > :deep(.motion-view-heading),
+.motion__split:not(.motion__split--stacked) .motion__pane--left .motion__tabpanel :deep(.tab-view__head),
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view__head) {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view__head .motion-view-heading) {
+  margin: 0;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view--debate-dock),
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view--activity-dock) {
+  min-height: 0;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view--debate-dock .tab-view__panel),
+.motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view--activity-dock .tab-view__panel) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+/* While dragging, JS owns the clamping/snapping, so drop the min-width floors
+   that would otherwise stop the divider from tracking the pointer. */
+.motion__split:not(.motion__split--stacked).is-dragging .motion__pane--left,
+.motion__split:not(.motion__split--stacked).is-dragging .motion__pane--right {
+  min-width: 0;
+}
+/* Free 30–70% range: flex tracks the pointer 1:1. */
+.motion__split:not(.motion__split--stacked).is-dragging:not(.is-snapping):not(.is-main-hidden):not(.is-panel-hidden)
   .motion__pane--left,
+.motion__split:not(.motion__split--stacked).is-dragging:not(.is-snapping):not(.is-main-hidden):not(.is-panel-hidden)
   .motion__pane--right {
-    transition:
-      flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.24s ease,
-      min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  }
+  transition: opacity 0.24s ease;
+}
+/* Snap zone (both panes still visible): magnetic ease on the divider position. */
+.motion__split:not(.motion__split--stacked).is-dragging.is-snapping:not(.is-main-hidden):not(.is-panel-hidden)
   .motion__pane--left {
-    overflow-x: clip;
-    overflow-y: visible;
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
-  .motion__split:not(.is-panel-hidden):not(.is-main-hidden) .motion__pane--left {
-    flex: 0 0 var(--split-left, 60%);
-    min-width: 30%;
-  }
-  .motion__split.is-main-hidden .motion__pane--left,
-  .motion__split.is-panel-hidden .motion__pane--right {
-    flex: 0 0 0 !important;
-    width: 0 !important;
-    min-width: 0 !important;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .motion__split.is-main-hidden:not(.is-panel-hidden) .motion__pane--right {
-    flex: 1 1 100%;
-    min-width: 0;
-    max-width: 100%;
-  }
-  .motion__split.is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
-    flex: 1 1 100% !important;
-    max-width: 100%;
-    min-width: 0;
-  }
-  .motion__pane--right {
-    flex: 1 1 0;
-    min-width: 0;
-    align-self: flex-start;
-    position: sticky;
-    top: calc(var(--header-total-height) + var(--space-4));
-    height: calc(100vh - var(--header-total-height) - var(--space-6));
-    min-height: 24rem;
-  }
-  .motion__split:not(.is-panel-hidden):not(.is-main-hidden) .motion__pane--right {
-    min-width: 30%;
-  }
-  /* While dragging, JS owns the clamping/snapping, so drop the min-width floors
-     that would otherwise stop the divider from tracking the pointer. */
-  .motion__split.is-dragging .motion__pane--left,
-  .motion__split.is-dragging .motion__pane--right {
-    min-width: 0;
-  }
-  /* Free 30–70% range: flex tracks the pointer 1:1. */
-  .motion__split.is-dragging:not(.is-snapping):not(.is-main-hidden):not(.is-panel-hidden)
-    .motion__pane--left,
-  .motion__split.is-dragging:not(.is-snapping):not(.is-main-hidden):not(.is-panel-hidden)
-    .motion__pane--right {
-    transition: opacity 0.24s ease;
-  }
-  /* Snap zone (both panes still visible): magnetic ease on the divider position. */
-  .motion__split.is-dragging.is-snapping:not(.is-main-hidden):not(.is-panel-hidden)
-    .motion__pane--left {
-    transition:
-      flex-basis 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.24s ease;
-  }
-  /* Collapse threshold crossed while dragging: shrink faded pane, expand sibling. */
-  .motion__split.is-dragging.is-main-hidden .motion__pane--left,
-  .motion__split.is-dragging.is-panel-hidden .motion__pane--right {
-    transition:
-      flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.24s ease,
-      min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .motion__split.is-dragging.is-main-hidden:not(.is-panel-hidden) .motion__pane--right,
-  .motion__split.is-dragging.is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
-    transition:
-      flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.24s ease;
-  }
-  .motion__pane--right .panel {
-    height: 100%;
-    min-height: 0;
-  }
-  .motion__divider {
-    flex: 0 0 auto;
-    align-self: stretch;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--space-4);
-    cursor: col-resize;
-    touch-action: none;
-    overflow: hidden;
-    transition:
-      width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.2s ease;
-  }
-  .motion__divider--hidden {
-    width: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .motion__split.is-dragging:not(.is-main-hidden):not(.is-panel-hidden) .motion__divider {
-    transition: none;
-  }
-  .motion__divider:hover .motion__divider-grip,
-  .motion__split.is-dragging .motion__divider-grip {
-    background: var(--color-accent);
-  }
-  .motion__split.is-dragging {
-    user-select: none;
-  }
+  transition:
+    flex-basis 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease;
+}
+/* Collapse threshold crossed while dragging: shrink faded pane, expand sibling. */
+.motion__split:not(.motion__split--stacked).is-dragging.is-main-hidden .motion__pane--left,
+.motion__split:not(.motion__split--stacked).is-dragging.is-panel-hidden .motion__pane--right {
+  transition:
+    flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease,
+    min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.motion__split:not(.motion__split--stacked).is-dragging.is-main-hidden:not(.is-panel-hidden) .motion__pane--right,
+.motion__split:not(.motion__split--stacked).is-dragging.is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
+  transition:
+    flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.24s ease;
+}
+.motion__split:not(.motion__split--stacked) .motion__pane--right .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.motion__split:not(.motion__split--stacked) .motion__divider {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  cursor: col-resize;
+  touch-action: none;
+  overflow: hidden;
+  transition:
+    width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+.motion__split:not(.motion__split--stacked) .motion__divider--hidden {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.motion__split:not(.motion__split--stacked).is-dragging:not(.is-main-hidden):not(.is-panel-hidden) .motion__divider {
+  transition: none;
+}
+.motion__split:not(.motion__split--stacked) .motion__divider:hover .motion__divider-grip,
+.motion__split:not(.motion__split--stacked).is-dragging .motion__divider-grip {
+  background: var(--color-accent);
+}
+.motion__split:not(.motion__split--stacked).is-dragging {
+  user-select: none;
 }
 
-@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
-  .motion__pane--left,
-  .motion__pane--right,
-  .motion__divider {
+@media (prefers-reduced-motion: reduce) {
+  .motion__split:not(.motion__split--stacked) .motion__pane--left,
+  .motion__split:not(.motion__split--stacked) .motion__pane--right,
+  .motion__split:not(.motion__split--stacked) .motion__divider {
     transition: none;
   }
-  .motion__split.is-dragging.is-snapping:not(.is-main-hidden):not(.is-panel-hidden)
+  .motion__split:not(.motion__split--stacked).is-dragging.is-snapping:not(.is-main-hidden):not(.is-panel-hidden)
     .motion__pane--left,
-  .motion__split.is-dragging.is-main-hidden .motion__pane--left,
-  .motion__split.is-dragging.is-main-hidden:not(.is-panel-hidden) .motion__pane--right,
-  .motion__split.is-dragging.is-panel-hidden .motion__pane--right,
-  .motion__split.is-dragging.is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
+  .motion__split:not(.motion__split--stacked).is-dragging.is-main-hidden .motion__pane--left,
+  .motion__split:not(.motion__split--stacked).is-dragging.is-main-hidden:not(.is-panel-hidden) .motion__pane--right,
+  .motion__split:not(.motion__split--stacked).is-dragging.is-panel-hidden .motion__pane--right,
+  .motion__split:not(.motion__split--stacked).is-dragging.is-panel-hidden:not(.is-main-hidden) .motion__pane--left {
     transition: none;
   }
 }
@@ -1883,6 +2133,10 @@ textarea.motion__summary:focus-visible {
   align-items: center;
   gap: var(--space-2);
 }
+
+.motion__meta-primary .relative-time {
+  display: inline;
+}
 .motion__author-link {
   color: var(--color-text-muted);
   text-decoration: none;
@@ -1895,12 +2149,10 @@ textarea.motion__summary:focus-visible {
   flex-direction: column;
 }
 
-@media (min-width: 1024px) {
-  .motion__tabpanel--persistent {
-    display: flex;
-    flex-direction: column;
-    min-height: calc(100vh - var(--header-total-height) - var(--space-8));
-  }
+.motion__split:not(.motion__split--stacked) .motion__tabpanel--persistent {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--header-total-height) - var(--space-8));
 }
 
 .motion__body-version-bar {
@@ -1936,13 +2188,13 @@ textarea.motion__summary:focus-visible {
 .motion__body-content {
   outline: none;
   width: 100%;
-  --motion-excerpt-highlight: color-mix(in srgb, var(--color-tertiary) 35%, transparent);
-  --motion-excerpt-outline: color-mix(in srgb, var(--color-tertiary) 55%, transparent);
+  --motion-excerpt-highlight: var(--color-reference-highlight);
+  --motion-excerpt-outline: var(--color-reference-outline);
 }
 
 .dark .motion__body-content {
-  --motion-excerpt-highlight: color-mix(in srgb, var(--brand-cyan) 44%, var(--color-surface));
-  --motion-excerpt-outline: color-mix(in srgb, var(--brand-cyan) 68%, var(--color-text));
+  --motion-excerpt-highlight: color-mix(in srgb, var(--brand-yellow) 48%, var(--color-surface));
+  --motion-excerpt-outline: color-mix(in srgb, var(--brand-yellow) 72%, var(--color-text));
 }
 
 .motion__body-content :deep(.rich-text > :last-child:not(ul):not(ol)) {
@@ -2048,7 +2300,7 @@ textarea.motion__summary:focus-visible {
 .tab-panel-leave-to {
   opacity: 0;
 }
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .tab-panel-enter-from,
   .tab-panel-leave-to {
     transform: none;

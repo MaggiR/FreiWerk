@@ -88,6 +88,7 @@ import {
   faBookmark,
   faCopy,
   faEllipsisVertical,
+  faThumbtack,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -181,6 +182,7 @@ library.add(
   faBookmark,
   faCopy,
   faEllipsisVertical,
+  faThumbtack,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

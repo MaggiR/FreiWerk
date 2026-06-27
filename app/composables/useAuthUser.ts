@@ -23,13 +23,22 @@ export function useAuthUser() {
     () => user.value?.role === 'moderator' || user.value?.role === 'admin',
   )
 
+  async function syncSessionAfterAuthMutation() {
+    await refreshSession()
+    if (loggedIn.value) return
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve())
+    })
+    await refreshSession()
+  }
+
   async function login(credentials: Credentials) {
     await $fetch('/api/auth/login', {
       method: 'POST',
       body: credentials,
       credentials: 'include',
     })
-    await refreshSession()
+    await syncSessionAfterAuthMutation()
     if (!loggedIn.value) {
       throw new Error(
         'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
@@ -43,7 +52,7 @@ export function useAuthUser() {
       body: input,
       credentials: 'include',
     })
-    await refreshSession()
+    await syncSessionAfterAuthMutation()
     if (!loggedIn.value) {
       throw new Error(
         'Registrierung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',

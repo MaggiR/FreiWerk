@@ -21,6 +21,17 @@ const MS_HOUR = 3_600_000
 const MS_DAY = 86_400_000
 const RELATIVE_MAX_DAYS = 7
 
+const RELATIVE_TIME = new Intl.RelativeTimeFormat('de', { numeric: 'auto', style: 'short' })
+
+const EXACT_DATE_TIME = new Intl.DateTimeFormat('de-DE', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
 const WEEKDAY_WITH_TIME = new Intl.DateTimeFormat('de-DE', {
   weekday: 'long',
   hour: '2-digit',
@@ -87,6 +98,45 @@ const FULL_DATE = new Intl.DateTimeFormat('de-DE', {
 
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+/** ISO-8601 string for `<time datetime>` attributes. */
+export function toIsoTimestamp(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value
+  return date.toISOString()
+}
+
+/**
+ * Always-relative German timestamp for UI labels (e.g. "vor 3 Std.", "vor 2 Mon.").
+ * Use `formatExactDateTime` for the hover tooltip.
+ */
+export function formatRelativeTime(value: string | Date, now = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value
+  const diffMs = now.getTime() - date.getTime()
+
+  if (Math.abs(diffMs) < MS_MINUTE) return 'gerade eben'
+
+  const absMinutes = Math.floor(Math.abs(diffMs) / MS_MINUTE)
+  const absHours = Math.floor(Math.abs(diffMs) / MS_HOUR)
+  const absDays = Math.floor(Math.abs(diffMs) / MS_DAY)
+  const sign = diffMs >= 0 ? -1 : 1
+
+  if (absMinutes < 60) return RELATIVE_TIME.format(sign * absMinutes, 'minute')
+  if (absHours < 24) return RELATIVE_TIME.format(sign * absHours, 'hour')
+  if (absDays < 28) return RELATIVE_TIME.format(sign * absDays, 'day')
+
+  const absMonths = Math.max(1, Math.round(absDays / 30))
+  if (absMonths < 12) return RELATIVE_TIME.format(sign * absMonths, 'month')
+
+  const absYears = Math.max(1, Math.round(absDays / 365))
+  return RELATIVE_TIME.format(sign * absYears, 'year')
+}
+
+/** Exact weekday + calendar date + clock time for timestamp tooltips. */
+export function formatExactDateTime(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value
+  const formatted = EXACT_DATE_TIME.format(date)
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
 /**

@@ -3,7 +3,9 @@ import {
   chatDayKey,
   formatChatTime,
   formatChatDateLabel,
+  formatExactDateTime,
   formatRecentTimestamp,
+  formatRelativeTime,
   formatSuggestionTimestamp,
   htmlPreview,
 } from '../../app/utils/chatDates'
@@ -82,6 +84,36 @@ describe('formatSuggestionTimestamp', () => {
 
   it('shows date only for entries older than seven days', () => {
     expect(formatSuggestionTimestamp(new Date(2026, 5, 10, 8, 0), now)).toBe('10.06.2026')
+  })
+})
+
+describe('formatRelativeTime', () => {
+  const now = new Date(2026, 5, 19, 15, 0)
+
+  it('shows gerade eben for very recent entries', () => {
+    expect(formatRelativeTime(new Date(2026, 5, 19, 14, 59, 30), now)).toBe('gerade eben')
+  })
+
+  it('shows short relative labels for minutes and hours', () => {
+    expect(formatRelativeTime(new Date(2026, 5, 19, 14, 30), now)).toMatch(/30/)
+    expect(formatRelativeTime(new Date(2026, 5, 19, 12, 0), now)).toMatch(/3/)
+  })
+
+  it('stays relative for entries older than seven days', () => {
+    const label = formatRelativeTime(new Date(2026, 2, 15, 8, 0), now)
+    expect(label).toMatch(/Mon/)
+    expect(label).not.toMatch(/15\.03\.2026/)
+  })
+})
+
+describe('formatExactDateTime', () => {
+  it('includes weekday, long date, and clock time', () => {
+    const label = formatExactDateTime(new Date(2026, 5, 15, 14, 30))
+    expect(label).toMatch(/^Montag/)
+    expect(label).toMatch(/15/)
+    expect(label).toMatch(/Juni/)
+    expect(label).toMatch(/2026/)
+    expect(label).toMatch(/14:30/)
   })
 })
 

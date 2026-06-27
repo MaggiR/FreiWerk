@@ -174,6 +174,7 @@ export type MotionViewId =
   | 'questions'
   | 'mood'
   | 'resources'
+  | 'versions'
   | 'debate'
   | 'activity'
 
@@ -187,6 +188,7 @@ export const MOTION_VIEW_META: Record<
   questions: { label: 'Fragen', icon: 'circle-question' },
   mood: { label: 'Stimmungsbild', icon: 'chart-pie' },
   resources: { label: 'Ressourcen', icon: 'paperclip' },
+  versions: { label: 'Versionen', icon: 'clock-rotate-left' },
   debate: { label: 'Beratung', icon: 'comments' },
   activity: { label: 'Aktivität', icon: 'list-ul' },
 }

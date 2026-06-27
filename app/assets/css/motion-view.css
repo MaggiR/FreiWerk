@@ -210,6 +210,17 @@ textarea.motion__summary:focus-visible {
   margin-bottom: var(--space-4);
 }
 
+.motion__meta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.motion__meta-primary .relative-time {
+  color: var(--color-text-muted);
+}
+
 .motion__meta--fields {
   align-items: flex-end;
 }

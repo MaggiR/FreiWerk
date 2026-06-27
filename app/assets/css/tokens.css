@@ -68,9 +68,17 @@
 
   /* Layout */
   --layout-max-width: 1080px;
+  --breakpoint-phone-max: 767px;
+  --breakpoint-sidebar-min: 768px;
+  --content-split-min: 64rem;
   --header-offset-top: var(--space-3);
   --header-height: 64px;
   --header-total-height: calc(var(--header-offset-top) + var(--header-height));
+  /* Desktop floating icon rail */
+  --rail-icon-size: 2.75rem;
+  --rail-fab-size: 3rem;
+  --rail-collapsed: 5.5rem;
+  --rail-expanded: 16rem;
 
   /* Light theme surfaces */
   --color-bg: #f6f8fc;
@@ -81,6 +89,8 @@
   --color-border: #e2e8f2;
   --color-accent: var(--brand-blue);
   --color-accent-contrast: #ffffff;
+  --color-reference-highlight: color-mix(in srgb, var(--brand-yellow) 42%, transparent);
+  --color-reference-outline: color-mix(in srgb, var(--brand-yellow) 58%, transparent);
   --color-danger: #c0392b;
   --color-success: #1e8e5a;
 
@@ -112,6 +122,8 @@
   --color-border: #243353;
   --color-accent: var(--brand-cyan);
   --color-accent-contrast: #04122b;
+  --color-reference-highlight: color-mix(in srgb, var(--brand-yellow) 48%, transparent);
+  --color-reference-outline: color-mix(in srgb, var(--brand-yellow) 72%, transparent);
   --color-danger: #ff6b5e;
   --color-success: #4cd093;
 

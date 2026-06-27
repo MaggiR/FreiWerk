@@ -65,10 +65,12 @@ interface EditorApi {
   acceptSuggestion: (id: number) => void
   rejectSuggestion: (id: number) => void
   stampAuthors: () => void
+  stampRationale: (rationale: string | null) => void
 }
 
 const editorRef = ref<EditorApi | null>(null)
 const reviewPending = ref<SuggestionItem[]>([])
+const proposalRationale = ref('')
 const editSessionKey = ref(0)
 const sessionBaseline = ref<string | null>(null)
 const sessionReviewCount = ref(0)
@@ -214,6 +216,7 @@ function cancel() {
 
 function confirmDiscard() {
   discardConfirmOpen.value = false
+  proposalRationale.value = ''
   mode.value = 'idle'
 }
 
@@ -226,6 +229,7 @@ function onDiscardKeydown(event: KeyboardEvent) {
 watch(mode, async (current, previous) => {
   if (current !== 'idle' || !previous || previous === 'idle') return
   discardConfirmOpen.value = false
+  proposalRationale.value = ''
   reviewPending.value = []
   sessionBaseline.value = null
   await reloadSuggestions()
@@ -256,6 +260,7 @@ async function submitProposal() {
   busy.value = true
   try {
     editorRef.value.stampAuthors()
+    editorRef.value.stampRationale(proposalRationale.value)
     const json = editorRef.value.getJSON()
     if (!json) return
     const openSuggestions = countOpenSuggestionsInJson(json)
@@ -272,6 +277,7 @@ async function submitProposal() {
     const fresh = await reloadSuggestions()
     sessionRevision.value = fresh.revision
     mode.value = 'idle'
+    proposalRationale.value = ''
     // Reveal the diff immediately so the member sees their tracked change.
     showDiff.value = true
     toast.success('Dein Änderungsvorschlag wurde gespeichert und ist nun einsehbar.')
@@ -382,6 +388,16 @@ defineExpose({ startReview, startEdit, cancel, submitProposal, saveReview, accep
           :suggestion="{ mode: 'propose', ...suggestionConfig }"
         />
       </ClientOnly>
+      <label class="suggestions__rationale">
+        <span class="suggestions__rationale-label">Begründung (optional)</span>
+        <textarea
+          v-model="proposalRationale"
+          class="suggestions__rationale-input"
+          rows="3"
+          maxlength="500"
+          placeholder="Warum schlägst du diese Änderung vor?"
+        />
+      </label>
       <p class="suggestions__lead">
         <FontAwesomeIcon icon="comment-dots" aria-hidden="true" />
         Deine Änderungen werden dem Antragsteller als Vorschläge vorgelegt und sind
@@ -473,6 +489,33 @@ defineExpose({ startReview, startEdit, cancel, submitProposal, saveReview, accep
 }
 .suggestions__editor {
   margin-top: var(--space-4);
+}
+.suggestions__rationale {
+  display: block;
+  margin-top: var(--space-3);
+}
+.suggestions__rationale-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.suggestions__rationale-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+.suggestions__rationale-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 .swap-enter-active {
   transition: opacity 0.25s ease;

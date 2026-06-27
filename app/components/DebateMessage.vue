@@ -2,11 +2,9 @@
 import type { DebateMessageMenuAction, DebateMessageMenuItem } from '~/utils/debateMessageMenu'
 import type { DebateQuoteDraft, DebatePost } from '~/utils/debate'
 import { getSelectionExcerptIn } from '~/utils/chatQuote'
-import { htmlToPlainText } from '~/utils/chatDates'
-import { formatChatTime } from '~/utils/chatDates'
-import { formatDateTime } from '~/utils/format'
+import { htmlToPlainText, formatChatTime } from '~/utils/chatDates'
+import { formatDateTime, formatAuthorAffiliation } from '~/utils/format'
 import { isPostEdited } from '~/utils/debate'
-import { formatAuthorAffiliation } from '~/utils/format'
 import { isDeliberationReferenceType } from '~/utils/deliberationNavigation'
 import { REFERENCE_ICONS, referenceExcerptText } from '~/utils/references'
 import { REFERENCE_TARGET_LABELS, POST_EDIT_WINDOW_MS } from '#shared/constants'
@@ -98,6 +96,25 @@ const menuY = ref(0)
 const menuTriggerRef = ref<HTMLElement | null>(null)
 const menuSelectionExcerpt = ref<string | null>(null)
 
+const isCoarsePointer = ref(false)
+
+onMounted(() => {
+  if (!import.meta.client) return
+  isCoarsePointer.value = window.matchMedia('(hover: none) and (pointer: coarse)').matches
+})
+
+function hasActiveTextSelection(): boolean {
+  const selection = window.getSelection()
+  return Boolean(selection && !selection.isCollapsed)
+}
+
+function isInteractiveRefTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return Boolean(
+    target.closest('a, button, .msg__ref--clickable, .msg__menu-trigger, .upvote'),
+  )
+}
+
 const canReply = computed(() => props.debateOpen && !props.post.deleted)
 const canEdit = computed(() => {
   if (!props.isOwn || !props.loggedIn || props.post.deleted || !props.debateOpen) {
@@ -164,12 +181,26 @@ function openMenuAt(x: number, y: number) {
 }
 
 function onContextMenu(event: MouseEvent) {
-  if (props.post.deleted) return
+  if (props.post.deleted || isCoarsePointer.value) return
+  if (hasActiveTextSelection()) return
   menuSelectionExcerpt.value = bodyEl.value
     ? getSelectionExcerptIn(bodyEl.value)
     : null
   event.preventDefault()
   openMenuAt(event.clientX, event.clientY)
+}
+
+function onBubbleClick(event: MouseEvent) {
+  if (!isCoarsePointer.value || props.post.deleted) return
+  if (isInteractiveRefTarget(event.target)) return
+  if (hasActiveTextSelection()) return
+  if (menuItems.value.length === 0) return
+  menuSelectionExcerpt.value = bodyEl.value
+    ? getSelectionExcerptIn(bodyEl.value)
+    : null
+  const bubble = event.currentTarget as HTMLElement
+  const rect = bubble.getBoundingClientRect()
+  openMenuAt(rect.left + rect.width / 2, rect.top + rect.height / 2)
 }
 
 function onMenuTriggerClick(event: MouseEvent) {
@@ -419,6 +450,7 @@ watchEffect((onCleanup) => {
           class="msg__bubble"
           lang="de"
           @contextmenu="onContextMenu"
+          @click="onBubbleClick"
         >
           <button
             v-if="menuItems.length > 0"
@@ -459,7 +491,7 @@ watchEffect((onCleanup) => {
                 <span class="msg__ref-type">{{ parentPreview.authorName ?? 'Unbekannt' }}</span>
               </div>
               <div class="msg__ref-body">
-                <ExpandableExcerpt block :text="previewText" />
+                <span class="msg__ref-excerpt">{{ previewText }}</span>
               </div>
             </li>
             <li
@@ -628,7 +660,7 @@ watchEffect((onCleanup) => {
   color: var(--color-text-muted);
 }
 .msg__body :deep(.msg__excerpt-mark) {
-  background: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  background: var(--color-reference-highlight);
   border-radius: 2px;
   box-decoration-break: clone;
   animation: excerpt-mark 2s ease-out;
@@ -644,7 +676,7 @@ watchEffect((onCleanup) => {
   }
   35%,
   55% {
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
+    box-shadow: inset 0 0 0 2px var(--color-reference-outline);
   }
 }
 .msg__row {
@@ -906,6 +938,13 @@ watchEffect((onCleanup) => {
   padding-left: calc(0.85em + 0.35rem);
   color: var(--color-text);
 }
+.msg__ref-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .msg__ref--clickable {
   cursor: pointer;
 }
@@ -974,15 +1013,15 @@ watchEffect((onCleanup) => {
   35%,
   55% {
     box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent),
-      0 0 18px color-mix(in srgb, var(--color-accent) 30%, transparent);
+      0 0 0 2px var(--color-reference-outline),
+      0 0 18px color-mix(in srgb, var(--brand-yellow) 35%, transparent);
     filter: brightness(1.04);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .msg--highlight .msg__bubble {
     animation: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent);
+    box-shadow: 0 0 0 2px var(--color-reference-outline);
   }
 }
 </style>

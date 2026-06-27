@@ -1,7 +1,16 @@
 import { z } from 'zod'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../../../database/client'
-import { motionVersions, motionWatches, motionWorkingDocs } from '../../../database/schema'
+import {
+  motionArguments,
+  motionVersions,
+  motionWatches,
+  motionWorkingDocs,
+  moodVotes,
+  questions,
+  resources,
+} from '../../../database/schema'
+import { hasRequiredRole } from '../../../utils/authRole'
 import { redactMotionAuthor } from '../../../utils/motionAnonymity'
 import { countOpenSuggestions } from '../../../utils/suggestions'
 
@@ -16,7 +25,7 @@ export default defineEventHandler(async (event) => {
     where: (m, { eq: eqOp }) => eqOp(m.id, id),
     with: {
       author: {
-        columns: { id: true, displayName: true, fn: true },
+        columns: { id: true, displayName: true, fn: true, avatarUrl: true },
       },
       division: { columns: { id: true, name: true, slug: true } },
     },
@@ -63,8 +72,17 @@ export default defineEventHandler(async (event) => {
 
   let openSuggestionCount = 0
   let olderVersionCount = 0
+  let versionCount = 0
+  let argumentCount = 0
+  let questionCount = 0
+  let resourceCount = 0
+  let moodVoteCount = 0
   let versionUpdatedAt = motion.updatedAt
   if (motion.status !== 'draft') {
+    const canModerate =
+      (currentUserId != null && currentUserId === motion.authorId) ||
+      (session.user?.role != null && hasRequiredRole(session.user.role, 'moderator'))
+
     const [workingDoc] = await db
       .select({ docJson: motionWorkingDocs.docJson })
       .from(motionWorkingDocs)
@@ -76,8 +94,9 @@ export default defineEventHandler(async (event) => {
       .select({ count: sql<number>`count(*)::int` })
       .from(motionVersions)
       .where(eq(motionVersions.motionId, id))
+    const versionCount = versionRow?.count ?? 0
     // Current version is excluded; only prior snapshots count as "older".
-    olderVersionCount = Math.max(0, (versionRow?.count ?? 0) - 1)
+    olderVersionCount = Math.max(0, versionCount - 1)
 
     if (motion.currentVersion > 0) {
       const [currentVersionRow] = await db
@@ -94,6 +113,46 @@ export default defineEventHandler(async (event) => {
         versionUpdatedAt = currentVersionRow.createdAt
       }
     }
+
+    const [argumentRows, questionCountRow, resourceRows, moodCountRow] = await Promise.all([
+      db
+        .select({
+          status: motionArguments.status,
+          authorId: motionArguments.authorId,
+        })
+        .from(motionArguments)
+        .where(eq(motionArguments.motionId, id)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(questions)
+        .where(eq(questions.motionId, id)),
+      db
+        .select({
+          status: resources.status,
+          authorId: resources.authorId,
+        })
+        .from(resources)
+        .where(eq(resources.motionId, id)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(moodVotes)
+        .where(eq(moodVotes.motionId, id)),
+    ])
+
+    argumentCount = argumentRows.filter(
+      (row) =>
+        row.status === 'accepted' ||
+        canModerate ||
+        (currentUserId != null && row.authorId === currentUserId),
+    ).length
+    questionCount = questionCountRow?.count ?? 0
+    resourceCount = resourceRows.filter(
+      (row) =>
+        row.status === 'accepted' ||
+        canModerate ||
+        (currentUserId != null && row.authorId === currentUserId),
+    ).length
+    moodVoteCount = moodCountRow?.count ?? 0
   }
 
   return {
@@ -106,6 +165,11 @@ export default defineEventHandler(async (event) => {
     isWatched,
     openSuggestionCount,
     olderVersionCount,
+    versionCount,
+    argumentCount,
+    questionCount,
+    resourceCount,
+    moodVoteCount,
     versionUpdatedAt,
   }
 })

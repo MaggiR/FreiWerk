@@ -129,6 +129,7 @@ export function extractSuggestions(docJson: unknown): SuggestionItem[] {
       authorId: string | null
       authorName: string | null
       createdAt: string | null
+      rationale: string | null
       snippet: string
     }
   >()
@@ -151,9 +152,10 @@ export function extractSuggestions(docJson: unknown): SuggestionItem[] {
         byId.set(id, {
           type: mark.type,
           authorId: (mark.attrs?.userId as string | undefined) ?? null,
-          authorName: (mark.attrs?.userName as string | undefined) ?? null,
-          createdAt: (mark.attrs?.createdAt as string | undefined) ?? null,
-          snippet: text.slice(0, 80),
+      authorName: (mark.attrs?.userName as string | undefined) ?? null,
+      createdAt: (mark.attrs?.createdAt as string | undefined) ?? null,
+      rationale: (mark.attrs?.rationale as string | undefined) ?? null,
+      snippet: text.slice(0, 80),
         })
       }
     })
@@ -165,6 +167,7 @@ export function extractSuggestions(docJson: unknown): SuggestionItem[] {
     authorId: value.authorId,
     authorName: value.authorName,
     createdAt: value.createdAt,
+    rationale: value.rationale,
     snippet: value.snippet.trim(),
   }))
 }

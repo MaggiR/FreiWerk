@@ -177,6 +177,13 @@ watch(
   pointer-events: none;
 }
 
+/* Desktop replaces the top header with the global left sidebar. */
+@media (min-width: 768px) {
+  .header-wrap {
+    display: none;
+  }
+}
+
 .header {
   pointer-events: auto;
   max-width: var(--layout-max-width);

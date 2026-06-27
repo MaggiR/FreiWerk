@@ -39,6 +39,13 @@ On container start the app runs `npm install` (when needed), migrations, seed-if
 - Prefer minimal, focused diffs — no drive-by refactors or unrelated changes.
 - Do not add new dependencies without clear justification.
 
+## Time display (UI)
+
+- Show event timestamps **relatively** in the interface (`formatRelativeTime` in `app/utils/chatDates.ts`, or the `<RelativeTime>` component).
+- Put the **exact** weekday, calendar date, and clock time in a native tooltip only (`title` on `<time>`, via `formatExactDateTime`). Do not show the absolute date inline unless an exception below applies.
+- Prefer `<RelativeTime :value="…" />` for new UI; it refreshes the label every minute.
+- **Exceptions** (absolute dates OK inline): formal exports (Markdown/PDF/print), Beschluss documentation, date-only profile fields without a meaningful time (e.g. “Dabei seit”), explicit date ranges (ballot window “vom … bis …”), version bars that name a calendar day, and server-side export formatters.
+
 ## Security (always)
 
 - Enforce authorization in `server/api/`, not only in Vue components.

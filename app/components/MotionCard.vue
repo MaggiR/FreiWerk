@@ -17,7 +17,11 @@ const emit = defineEmits<{
       <div class="motion-card__top">
         <div class="motion-card__head">
           <MotionStatusBadge :status="motion.status" :outcome="motion.outcome" />
-          <FwBadge tone="tertiary">{{ topicLabel(motion.topic) }}</FwBadge>
+          <FwBadge v-if="motion.divisionName" tone="neutral" class="motion-card__badge">
+            <FontAwesomeIcon icon="layer-group" aria-hidden="true" />
+            {{ motion.divisionName }}
+          </FwBadge>
+          <FwBadge tone="tertiary" class="motion-card__badge">{{ topicLabel(motion.topic) }}</FwBadge>
           <FwBadge v-if="motion.archivedAt" tone="neutral">
             <FontAwesomeIcon icon="box-archive" /> Archiviert
           </FwBadge>
@@ -84,9 +88,18 @@ const emit = defineEmits<{
 .motion-card__head {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 0.35rem;
   flex: 1;
   min-width: 0;
+}
+.motion-card__badge {
+  max-width: 100%;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.45rem;
+  line-height: 1.25;
+}
+.motion-card__badge :deep(svg) {
+  font-size: 0.68rem;
 }
 .motion-card__title,
 .motion-card__summary {

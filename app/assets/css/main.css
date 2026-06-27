@@ -513,8 +513,8 @@ select:focus {
   35%,
   55% {
     box-shadow:
-      0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent),
-      0 0 18px color-mix(in srgb, var(--color-accent) 30%, transparent);
+      0 0 0 2px var(--color-reference-outline),
+      0 0 18px color-mix(in srgb, var(--brand-yellow) 35%, transparent);
     filter: brightness(1.04);
   }
 }
@@ -525,6 +525,6 @@ select:focus {
   .answer.deliberation-target--highlight,
   .res__item.deliberation-target--highlight {
     animation: none;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 50%, transparent);
-  }
+    box-shadow: 0 0 0 2px var(--color-reference-outline);
+}
 }
