@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
       .select({ count: sql<number>`count(*)::int` })
       .from(motionVersions)
       .where(eq(motionVersions.motionId, id))
-    const versionCount = versionRow?.count ?? 0
+    versionCount = versionRow?.count ?? 0
     // Current version is excluded; only prior snapshots count as "older".
     olderVersionCount = Math.max(0, versionCount - 1)
 

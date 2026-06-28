@@ -24,6 +24,8 @@ const props = withDefaults(
     loggedIn?: boolean
     currentUserId?: string | null
     pending?: boolean
+    menuInHeader?: boolean
+    upvoteInContextMenu?: boolean
   }>(),
   {
     motionVersion: null,
@@ -31,19 +33,12 @@ const props = withDefaults(
     loggedIn: false,
     currentUserId: null,
     pending: false,
+    menuInHeader: false,
+    upvoteInContextMenu: false,
   },
 )
 
-const showThreads = ref(true)
-const menuOpen = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
-
-function onMenuClickOutside(event: MouseEvent) {
-  if (!menuOpen.value) return
-  if (menuRef.value && !menuRef.value.contains(event.target as Node)) {
-    menuOpen.value = false
-  }
-}
+const showThreads = defineModel<boolean>('showThreads', { default: true })
 
 const inboundByPost = computed(() => buildInboundByPost(props.posts))
 
@@ -157,12 +152,20 @@ function postById(id: string): DebatePost | undefined {
   return props.posts.find((p) => p.id === id)
 }
 
+function stickyDateScrollThreshold(container: HTMLElement): number {
+  if (props.menuInHeader) {
+    const pill = container.closest('.chat')?.querySelector<HTMLElement>('.chat__sticky-date')
+    if (pill) return pill.getBoundingClientRect().bottom
+  }
+  return container.getBoundingClientRect().top + 36
+}
+
 function updateStickyDate() {
   const container = scrollRef.value
   if (!container) return
 
   const markers = container.querySelectorAll<HTMLElement>('[data-chat-day]')
-  const containerTop = container.getBoundingClientRect().top + 36
+  const containerTop = stickyDateScrollThreshold(container)
   let activeKey: string | null = null
 
   for (const marker of markers) {
@@ -329,13 +332,11 @@ watch(
 )
 
 onMounted(() => {
-  document.addEventListener('click', onMenuClickOutside, true)
   restoreScrollPosition()
   nextTick(setupComposerObserver)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onMenuClickOutside, true)
   composerResizeObserver?.disconnect()
   composerResizeObserver = null
   persistScrollPosition()
@@ -405,6 +406,7 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
             :inbound-refs="showThreads ? inboundFor(item.post.id) : []"
             :show-references="showThreads"
             :thread-filter-active="threadFilterAnchorId === item.post.id"
+            :upvote-in-context-menu="upvoteInContextMenu"
             @reply="onReply"
             @quote="onQuote"
             @edit="onEdit"
@@ -420,54 +422,11 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
       </TransitionGroup>
     </div>
 
-    <div ref="menuRef" class="chat__menu" @click.stop>
-      <button
-        type="button"
-        class="chat__menu-trigger"
-        aria-label="Chat-Optionen"
-        :aria-expanded="menuOpen"
-        @click.stop="menuOpen = !menuOpen"
-      >
-        <FontAwesomeIcon icon="ellipsis" />
-      </button>
-      <div v-if="menuOpen" class="chat__menu-panel" role="menu">
-        <button
-          type="button"
-          class="chat__menu-item"
-          role="menuitemradio"
-          :aria-checked="postSort === 'oldest'"
-          @click="postSort = 'oldest'; menuOpen = false"
-        >
-          <span class="chat__menu-check">
-            <FontAwesomeIcon v-if="postSort === 'oldest'" icon="check" />
-          </span>
-          Älteste zuerst
-        </button>
-        <button
-          type="button"
-          class="chat__menu-item"
-          role="menuitemradio"
-          :aria-checked="postSort === 'recent'"
-          @click="postSort = 'recent'; menuOpen = false"
-        >
-          <span class="chat__menu-check">
-            <FontAwesomeIcon v-if="postSort === 'recent'" icon="check" />
-          </span>
-          Neueste zuerst
-        </button>
-        <button
-          type="button"
-          class="chat__menu-item"
-          role="menuitemcheckbox"
-          :aria-checked="showThreads"
-          @click="showThreads = !showThreads; menuOpen = false"
-        >
-          <span class="chat__menu-check">
-            <FontAwesomeIcon v-if="showThreads" icon="check" />
-          </span>
-          Bezüge anzeigen
-        </button>
-      </div>
+    <div v-if="!menuInHeader" class="chat__menu">
+      <DebateChatOptionsMenu
+        v-model:post-sort="postSort"
+        v-model:show-threads="showThreads"
+      />
     </div>
 
     <div v-if="debateOpen" ref="composerWrapRef" class="chat__composer">
@@ -552,65 +511,6 @@ defineExpose({ countVisible: () => countVisiblePosts(props.posts) })
   top: var(--space-2);
   right: var(--space-2);
   z-index: 10;
-}
-.chat__menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border-radius: var(--radius-pill);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  box-shadow: var(--shadow-sm);
-  color: var(--color-text-muted);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.chat__menu-trigger:hover {
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--glass-bg) 80%, var(--color-surface) 20%);
-}
-.chat__menu-panel {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: 30;
-  min-width: 11rem;
-  padding: var(--space-1);
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-.chat__menu-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text);
-  font: inherit;
-  font-size: 0.88rem;
-  text-align: left;
-  cursor: pointer;
-}
-.chat__menu-item:hover {
-  background: var(--color-bg);
-}
-.chat__menu-check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  color: var(--color-accent);
 }
 .chat__loading,
 .chat__empty,

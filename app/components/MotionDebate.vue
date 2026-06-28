@@ -8,12 +8,15 @@ const props = withDefaults(
     debateOpen: boolean
     canModerate?: boolean
     currentUserId?: string | null
+    menuInHeader?: boolean
+    upvoteInContextMenu?: boolean
   }>(),
-  { motionVersion: null, canModerate: false, currentUserId: null },
+  { motionVersion: null, canModerate: false, currentUserId: null, menuInHeader: false, upvoteInContextMenu: false },
 )
 
 const postCount = defineModel<number>('postCount', { default: 0 })
 const postSort = defineModel<'recent' | 'oldest'>('postSort', { default: 'oldest' })
+const showThreads = defineModel<boolean>('showThreads', { default: true })
 
 const { loggedIn, SESSION_EXPIRED_MESSAGE } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
@@ -127,6 +130,7 @@ async function onSave(postId: string) {
 <template>
   <DebateChat
     v-model:post-sort="postSort"
+    v-model:show-threads="showThreads"
     :motion-id="motionId"
     :motion-version="motionVersion"
     :posts="posts"
@@ -135,6 +139,8 @@ async function onSave(postId: string) {
     :logged-in="loggedIn"
     :current-user-id="currentUserId"
     :pending="pending"
+    :menu-in-header="menuInHeader"
+    :upvote-in-context-menu="upvoteInContextMenu"
     @refresh="refresh"
     @report="onReport"
     @delete="onDelete"

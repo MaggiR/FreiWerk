@@ -5,20 +5,18 @@ export type SeedUser = {
   email: string
   displayName: string
   gender: 'm' | 'f'
+  /** 1–5, maps to `public/imgs/profile_{gender}_{n}.png` (one image per seed user). */
+  avatarIndex: 1 | 2 | 3 | 4 | 5
   role: 'member' | 'moderator' | 'admin'
   fn: string
   divisionSlug: DivisionSlug
 }
 
-/** Static demo avatars in `public/imgs/profile_m_1.png` … `profile_m_4.png` and `profile_f_1.png` … `profile_f_4.png`. */
-export const SEED_PROFILE_AVATARS_PER_GENDER = 4
+/** Static demo avatars in `public/imgs/profile_m_1.png` … `profile_m_5.png` and `profile_f_1.png` … `profile_f_5.png`. */
+export const SEED_PROFILE_AVATARS_PER_GENDER = 5
 
-const avatarSlotByGender = { m: 0, f: 0 }
-
-export function seedProfileAvatarUrl(user: Pick<SeedUser, 'gender'>): string {
-  const slot =
-    (avatarSlotByGender[user.gender]++ % SEED_PROFILE_AVATARS_PER_GENDER) + 1
-  return `/imgs/profile_${user.gender}_${slot}.png`
+export function seedProfileAvatarUrl(user: Pick<SeedUser, 'gender' | 'avatarIndex'>): string {
+  return `/imgs/profile_${user.gender}_${user.avatarIndex}.png`
 }
 
 export const SEED_USERS: SeedUser[] = [
@@ -26,6 +24,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'demo@freiwerk.local',
     displayName: 'Marc Schmidt',
     gender: 'm',
+    avatarIndex: 1,
     role: 'member',
     fn: 'Mitglied',
     divisionSlug: 'nrw',
@@ -34,6 +33,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'admin@freiwerk.local',
     displayName: 'Stefan Hoffmann',
     gender: 'm',
+    avatarIndex: 2,
     role: 'admin',
     fn: 'Administrator:in',
     divisionSlug: 'bund',
@@ -42,6 +42,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'mod@freiwerk.local',
     displayName: 'Mira Becker',
     gender: 'f',
+    avatarIndex: 1,
     role: 'moderator',
     fn: 'Moderator:in',
     divisionSlug: 'bund',
@@ -50,6 +51,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'anna.schneider@freiwerk.local',
     displayName: 'Anna Schneider',
     gender: 'f',
+    avatarIndex: 2,
     role: 'member',
     fn: 'Kreisvorsitzende',
     divisionSlug: 'nrw',
@@ -58,6 +60,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'thomas.berger@freiwerk.local',
     displayName: 'Thomas Berger',
     gender: 'm',
+    avatarIndex: 3,
     role: 'member',
     fn: 'Mitglied LFA Wirtschaft',
     divisionSlug: 'bayern',
@@ -66,6 +69,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'lisa.koch@freiwerk.local',
     displayName: 'Lisa Koch',
     gender: 'f',
+    avatarIndex: 3,
     role: 'member',
     fn: 'Mitglied LFA Bildung',
     divisionSlug: 'nrw',
@@ -74,6 +78,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'felix.weber@freiwerk.local',
     displayName: 'Felix Weber',
     gender: 'm',
+    avatarIndex: 4,
     role: 'member',
     fn: 'Mitglied LFA Digitales',
     divisionSlug: 'hessen',
@@ -82,14 +87,16 @@ export const SEED_USERS: SeedUser[] = [
     email: 'julia.hartmann@freiwerk.local',
     displayName: 'Julia Hartmann',
     gender: 'f',
+    avatarIndex: 4,
     role: 'member',
     fn: 'Mitglied LFA Umwelt',
     divisionSlug: 'baden-wuerttemberg',
   },
   {
-    email: 'mark.rothermel@freiwerk.local',
-    displayName: 'Mark Rothermel',
+    email: 'niklas.brandt@freiwerk.local',
+    displayName: 'Niklas Brandt',
     gender: 'm',
+    avatarIndex: 5,
     role: 'member',
     fn: 'Kreisschatzmeister',
     divisionSlug: 'niedersachsen',
@@ -98,6 +105,7 @@ export const SEED_USERS: SeedUser[] = [
     email: 'sarah.mueller@freiwerk.local',
     displayName: 'Sarah Müller',
     gender: 'f',
+    avatarIndex: 5,
     role: 'member',
     fn: 'Mitglied LFA Soziales',
     divisionSlug: 'berlin',
@@ -133,6 +141,8 @@ export type SeedMotion = {
   postCount?: number
   debateDays?: number
   publishedDaysAgo?: number
+  /** Draft creation date offset; defaults to `now` when omitted. */
+  createdDaysAgo?: number
   ballotDays?: number
   ballotStartedDaysAgo?: number
   outcome?: 'accepted' | 'rejected'
@@ -143,10 +153,16 @@ function attachmentChip(href: string, label: string, mime = 'application/pdf'): 
   return `<a href="${href}" class="attachment-chip attachment-chip__link" data-attachment data-label="${label}" data-mime="${mime}" target="_blank" rel="noopener noreferrer nofollow"><span class="attachment-chip__icon" aria-hidden="true"></span><span class="attachment-chip__label">${label}</span></a>`
 }
 
-/** Extra paragraph block for slightly longer demo bodies. */
+/** Closing rationale block — plain prose, no extra heading. */
 function rationaleParagraph(theme: string, extra?: string): string {
-  const tail = extra ?? 'Subsidiarität, Transparenz und messbare Wirkung sind dabei Leitplanken.'
-  return `<h2>Begründung</h2><p>Im Bereich ${theme} verbinden wir liberale Freiheits- und Verantwortungsideen mit pragmatischer Umsetzung. ${tail}</p>`
+  const tail =
+    extra ??
+    'Subsidiarität, Transparenz und messbare Wirkung sind dabei Leitplanken. Wir wollen Entscheidungen nachvollziehbar machen und unnötige Hürden abbauen, ohne Qualitätsstandards aufzugeben.'
+  return `<p>Im Bereich ${theme} verbinden wir liberale Freiheits- und Verantwortungsideen mit pragmatischer Umsetzung. ${tail}</p>`
+}
+
+function prose(...paragraphs: string[]): string {
+  return paragraphs.map((text) => `<p>${text}</p>`).join('')
 }
 
 export function defaultDeliberationLevel(status: SeedMotion['status']): DeliberationLevel {
@@ -181,26 +197,31 @@ export const SEED_MOTIONS: SeedMotion[] = [
     status: 'debate',
     divisionSlug: 'bund',
     deliberationLevel: 'rich',
+    postCount: 20,
+    publishedDaysAgo: 12,
+    debateDays: 30,
     bodyTheme: 'Unternehmensgründung',
-    bodyDemand: 'Wir fordern ein vollständig digitales Gründungsverfahren mit verbindlicher Entscheidung innerhalb von 24 Stunden.',
+    bodyDemand:
+      'Wir fordern ein vollständig digitales Gründungsverfahren mit verbindlicher Entscheidung innerhalb von 24 Stunden.',
     bodyHtml: [
-      '<h2>Kernpunkt</h2>',
-      '<p><strong>Wir fordern ein vollständig digitales Gründungsverfahren mit verbindlicher Entscheidung innerhalb von 24 Stunden.</strong></p>',
-      '<p>Gründerinnen und Gründer sollen Anträge zentral einreichen können – analog zum ',
-      '<a href="https://www.unternehmensregister.de/" target="_blank" rel="noopener noreferrer">Unternehmensregister</a>.</p>',
-      '<h2>Umsetzung</h2>',
-      '<ul>',
-      '<li>Ein Portal für alle Schritte von der Idee bis zur Eintragung</li>',
-      '<li>Automatische Prüfung standardisierter Unterlagen</li>',
-      '<li>Evaluierung nach zwei Jahren mit öffentlichem Bericht</li>',
-      '</ul>',
+      prose(
+        'Wir fordern ein vollständig digitales Gründungsverfahren mit verbindlicher Entscheidung innerhalb von 24 Stunden. Gründerinnen und Gründer sollen Anträge zentral einreichen, Status verfolgen und Bescheide digital entgegennehmen können – ohne Medienbrüche zwischen Notar, Registergericht und Finanzamt.',
+        'Heute dauern Gründungen oft Wochen, weil Behörden parallel arbeiten, aber nicht miteinander verbunden sind. Ein One-Stop-Portal würde standardisierte Unterlagen automatisch prüfen, fehlende Angaben sofort zurückmelden und Fristen für jede Stelle verbindlich festlegen.',
+        'Gerade Gründerinnen und Gründer ohne etabliertes Netzwerk profitieren von klaren Fristen und nachvollziehbaren Prozessen. Weniger Wartezeit bedeutet schnelleres Testen von Geschäftsideen und weniger Fixkosten in der Startphase.',
+      ),
+      '<p>Orientierung bietet das ',
+      '<a href="https://www.unternehmensregister.de/" target="_blank" rel="noopener noreferrer">Unternehmensregister</a> – ein vergleichbares Modell soll den gesamten Gründungsweg abdecken.</p>',
       `<p>Hintergrund: ${attachmentChip('/uploads/seed-feasibility-study.pdf', 'Kurzstudie Gründungsverfahren')}</p>`,
-      rationaleParagraph('Unternehmensgründung', 'Gerade Gründerinnen und Gründer ohne Netzwerk profitieren von klaren Fristen und digitalen Prozessen.'),
+      rationaleParagraph(
+        'Unternehmensgründung',
+        'Subsidiarität und Transparenz bleiben Leitplanken: Kommunen und Länder können ergänzen, der Bund garantiert Mindeststandards und messbare Bearbeitungszeiten.',
+      ),
     ].join(''),
   },
   {
     authorEmail: 'admin@freiwerk.local',
-    title: 'Digitalpakt verstetigen',
+    title:
+      'Digitalpakt Schule verstetigen: dauerhafte Mittel für Netze, Geräte und Lehrkräfte-Fortbildung',
     summary:
       'Dauerhafte Mittel für Schulnetze, Geräte und Lehrkräfte-Fortbildung statt Stückwerk-Förderung.',
     topic: 'bildung',
@@ -213,34 +234,36 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern verbindliche Fortbildungsquoten und transparente Gerätezyklen an allen Schulen.',
     bodyHtml: [
-      '<blockquote><p>Digitalisierung darf nicht am Schulgeld scheitern.</p></blockquote>',
-      '<p><strong>Wir fordern verbindliche Fortbildungsquoten und transparente Gerätezyklen an allen Schulen.</strong></p>',
-      '<p>Der <a href="https://www.bildungsserver.de/" target="_blank" rel="noopener noreferrer">Deutsche Bildungsserver</a> zeigt: Infrastruktur und Didaktik müssen zusammen gedacht werden.</p>',
-      '<ol>',
-      '<li>Digitalpakt-Mittel dauerhaft verstetigen</li>',
-      '<li>Mindeststandards für WLAN und Endgeräte</li>',
-      '<li>Fortbildung verpflichtend einplanen</li>',
-      '</ol>',
+      prose(
+        'Wir fordern verbindliche Fortbildungsquoten und transparente Gerätezyklen an allen Schulen. Digitalisierung darf nicht am fehlenden Budget oder an unklaren Zuständigkeiten scheitern – Schülerinnen und Schüler brauchen verlässliche Infrastruktur, nicht punktuelle Pilotprojekte.',
+        'Der Digitalpakt hat Fortschritte gebracht, endete aber zu oft in Insellösungen. Dauerhafte Mittel würden WLAN-Ausbau, Endgeräte und didaktische Begleitung zusammen planbar machen. Lehrkräfte müssen regelmäßig geschult werden, damit Technik im Unterricht nicht zur Belastung wird.',
+        'Transparenz über Gerätealter, Wartungszyklen und Fortbildungsstunden schafft Vergleichbarkeit zwischen Schulträgern und erleichtert die Kommunikation mit Eltern und Schulaufsicht.',
+      ),
+      '<p>Der ',
+      '<a href="https://www.bildungsserver.de/" target="_blank" rel="noopener noreferrer">Deutsche Bildungsserver</a> zeigt: Infrastruktur und Didaktik müssen gemeinsam gedacht werden.</p>',
       rationaleParagraph('digitale Bildung'),
     ].join(''),
   },
   {
     authorEmail: 'demo@freiwerk.local',
-    title: 'Open Data in Kommunen',
+    title: 'Open Data',
     summary: 'Offene Verwaltungsdaten als Standard – maschinenlesbar, aktuell und frei nutzbar.',
     topic: 'digitales',
     status: 'draft',
     divisionSlug: 'berlin',
     deliberationLevel: 'none',
+    createdDaysAgo: 5,
     bodyTheme: 'Open Data',
     bodyDemand:
       'Wir fordern Open-Data-Standards mit verpflichtender Maschinenlesbarkeit für alle Kommunen.',
     bodyHtml: [
-      '<h2>Entwurf</h2>',
-      '<p><strong>Wir fordern Open-Data-Standards mit verpflichtender Maschinenlesbarkeit für alle Kommunen.</strong></p>',
-      '<p>Vorbild: <a href="https://opendata.de/" target="_blank" rel="noopener noreferrer">Open Knowledge Foundation Deutschland</a>.</p>',
-      '<p>Bürgerinnen, Bürger und Unternehmen profitieren von offenen Daten und weniger Hürden.</p>',
-      '<ul><li>Offene Schnittstellen (APIs)</li><li>Lizenzfreie Nutzung</li><li>Qualitätskontrolle durch Metadaten</li></ul>',
+      prose(
+        'Wir fordern Open-Data-Standards mit verpflichtender Maschinenlesbarkeit für alle Kommunen. Verwaltungsdaten sollen standardmäßig offen, aktuell und unter freien Lizenzen veröffentlicht werden – nicht nur auf Anfrage oder in PDF-Form.',
+        'Bürgerinnen, Bürger, Journalistinnen und Unternehmen profitieren von offenen Daten: Sie ermöglichen neue Dienste, erleichtern Kontrolle und reduzieren Doppelarbeit. Kommunen gewinnen Planungssicherheit, wenn Schnittstellen einheitlich sind.',
+        'Metadaten, Qualitätskennzeichnungen und klare Aktualisierungsrhythmen sind Voraussetzung dafür, dass Open Data nicht zur Flickschusterei wird. Der Entwurf sieht schrittweise Einführung und Unterstützung kleinerer Städte vor.',
+      ),
+      '<p>Vorbild: ',
+      '<a href="https://opendata.de/" target="_blank" rel="noopener noreferrer">Open Knowledge Foundation Deutschland</a>.</p>',
     ].join(''),
   },
   {
@@ -257,33 +280,43 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern Klimaneutralität der Bundesverwaltung bis 2030 mit jährlichem Fortschrittsbericht.',
     bodyHtml: [
-      '<h2>Ziel</h2>',
-      '<p><strong>Wir fordern Klimaneutralität der Bundesverwaltung bis 2030 mit jährlichem Fortschrittsbericht.</strong></p>',
-      '<p>Green Procurement und Energieeffizienz sind Hebel – siehe ',
+      prose(
+        'Wir fordern Klimaneutralität der Bundesverwaltung bis 2030 mit jährlichem Fortschrittsbericht. Der Staat muss beim Klimaschutz Vorbild sein – durch Energieeffizienz, klimafreundliche Beschaffung und transparente Emissionsbilanzierung über alle Standorte.',
+        'Green Procurement kann Marktimpulse setzen, wenn Anforderungen klar, prüfbar und wettbewerbsfähig formuliert sind. Scope-1-, Scope-2- und relevante Scope-3-Emissionen sollen erfasst und veröffentlicht werden; Ausnahmen müssen begründet und zeitlich begrenzt sein.',
+        'Jährliche Fortschrittsberichte machen Ziele überprüfbar und erlauben Anpassungen, wenn Maßnahmen nicht greifen. So entsteht Vertrauen, dass Klimaziele ernst gemeint sind und nicht nur auf dem Papier stehen.',
+      ),
+      '<p>Green Procurement und Energieeffizienz sind zentrale Hebel – siehe ',
       '<a href="https://www.umweltbundesamt.de/" target="_blank" rel="noopener noreferrer">Umweltbundesamt</a>.</p>',
-      '<p><em>Scope 1–3</em> sollen erfasst und veröffentlicht werden; Ausnahmen müssen begründet sein.</p>',
       rationaleParagraph('Klimaschutz in der öffentlichen Verwaltung'),
     ].join(''),
   },
   {
     authorEmail: 'sarah.mueller@freiwerk.local',
-    title: 'Mehr Zuverdienst beim Bürgergeld',
-    summary: 'Höhere Freibeträge, einfache Meldewege und schnellere Vermittlung statt bürokratischer Hürden.',
+    title: 'Bürgergeld-Zuverdienst',
+    summary:
+      'Höhere Freibeträge, einfache Meldewege und schnellere Vermittlung statt bürokratischer Hürden.',
     topic: 'soziales',
     status: 'debate',
     divisionSlug: 'berlin',
     deliberationLevel: 'rich',
+    postCount: 5,
     debateDays: 3,
     publishedDaysAgo: 1,
     bodyTheme: 'Soziale Sicherung',
     bodyDemand:
       'Wir fordern höhere Freibeträge, eine einfache Zuverdienstregel und digitale Meldewege ohne Medienbrüche.',
     bodyHtml: [
-      '<h2>Kurzfassung</h2>',
-      '<p><strong>Wir fordern höhere Freibeträge, eine einfache Zuverdienstregel und digitale Meldewege ohne Medienbrüche.</strong></p>',
-      '<p>Arbeit muss sich lohnen – ohne Angst vor Rückforderungen. Informationen: ',
+      prose(
+        'Wir fordern höhere Freibeträge, eine einfache Zuverdienstregel und digitale Meldewege ohne Medienbrüche. Arbeit muss sich lohnen – ohne Angst vor Rückforderungen oder undurchsichtigen Berechnungen.',
+        'Viele Betroffene verzichten auf Zuverdienst, weil Meldewege kompliziert sind und Folgen schwer absehbar bleiben. Eine verständliche Freigrenze, klare Fristen und automatische Mitteilungen würden Anreize stärken und Fehlentscheidungen reduzieren.',
+        'Jobcenter und Träger brauchen einheitliche IT-Schnittstellen, damit Einkommen einmal gemeldet und überall berücksichtigt wird. Beratung sollte niedrigschwellig erreichbar bleiben, auch für Menschen ohne digitale Routine.',
+      ),
+      '<p>Informationen zur Arbeitsmarktpolitik: ',
       '<a href="https://www.arbeitsagentur.de/" target="_blank" rel="noopener noreferrer">Bundesagentur für Arbeit</a>.</p>',
-      rationaleParagraph('Soziale Sicherung', 'Anreize zur Erwerbstätigkeit dürfen nicht durch Bürokratie untergraben werden.'),
+      rationaleParagraph(
+        'Soziale Sicherung',
+        'Anreize zur Erwerbstätigkeit dürfen nicht durch Bürokratie untergraben werden – Transparenz und Einfachheit sind liberaler Kern.',
+      ),
     ].join(''),
   },
   {
@@ -294,21 +327,20 @@ export const SEED_MOTIONS: SeedMotion[] = [
     status: 'debate',
     divisionSlug: 'bund',
     deliberationLevel: 'rich',
+    postCount: 6,
     debateDays: 30,
     publishedDaysAgo: 5,
     bodyTheme: 'digitale Identität',
     bodyDemand:
       'Wir fordern eine interoperable digitale Identität auf Basis offener Standards und freiwilliger Nutzung.',
     bodyHtml: [
-      '<h2>Einleitung</h2>',
-      '<blockquote><p>Wir fordern eine interoperable digitale Identität auf Basis offener Standards und freiwilliger Nutzung.</p></blockquote>',
-      '<p>Die <a href="https://digital-strategy.ec.europa.eu/" target="_blank" rel="noopener noreferrer">EU-Digitalstrategie</a> (eIDAS 2.0) bietet den Rahmen.</p>',
-      '<h2>Leitplanken</h2>',
-      '<ol>',
-      '<li>Freiwilligkeit und gleichwertige analoge Wege</li>',
-      '<li>Open Source für Wallet-Software</li>',
-      '<li>Dezentrale Speicherung statt zentraler Identitätsstores</li>',
-      '</ol>',
+      prose(
+        'Wir fordern eine interoperable digitale Identität auf Basis offener Standards und freiwilliger Nutzung. Bürgerinnen und Bürger sollen Behörden- und Privatleistungen digital nutzen können, ohne zentralen Datenspeicher und ohne Zwang zur Wallet-Nutzung.',
+        'Die EU-Digitalstrategie mit eIDAS 2.0 bietet den Rahmen – Deutschland soll ihn nutzen, ohne Sicherheit und Datensparsamkeit zu opfern. Wallet-Software soll quelloffen sein, damit unabhängige Prüfung möglich bleibt.',
+        'Gleichwertige analoge Wege müssen erhalten bleiben. Dezentrale Speicherung statt zentraler Identitätsstores reduziert Angriffsflächen und stärkt die Kontrolle der Nutzerinnen und Nutzer über ihre Daten.',
+      ),
+      '<p>Referenz: ',
+      '<a href="https://digital-strategy.ec.europa.eu/" target="_blank" rel="noopener noreferrer">EU-Digitalstrategie</a> (eIDAS 2.0).</p>',
       `<p>${attachmentChip('/uploads/seed-eu-id-background.pdf', 'Hintergrundpapier eID')}</p>`,
       rationaleParagraph('digitale Identität'),
     ].join(''),
@@ -328,11 +360,13 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern eine automatisierte Forschungszulage für KMU und vereinfachte Antragsverfahren.',
     bodyHtml: [
-      '<h2>Forderung</h2>',
-      '<p><strong>Wir fordern eine automatisierte Forschungszulage für KMU und vereinfachte Antragsverfahren.</strong></p>',
-      '<p>Bayern und der Bund sollten Modelle abstimmen – vgl. ',
-      '<a href="https://www.zim.de/" target="_blank" rel="noopener noreferrer">ZIM-Förderung</a>.</p>',
-      '<ul><li>Pauschale Zuschüsse statt Dutzende Formulare</li><li>Schnellere Bescheide</li></ul>',
+      prose(
+        'Wir fordern eine automatisierte Forschungszulage für KMU und vereinfachte Antragsverfahren. Forschung und Entwicklung sollen sich lohnen, ohne dass kleine Betriebe ganze Abteilungen für Förderanträge aufbauen müssen.',
+        'Pauschale Zuschüsse auf Basis nachvollziehbarer Kriterien ersetzen Dutzende Formulare. Schnellere Bescheide geben Planungssicherheit und halten Talente im Unternehmen statt in der Verwaltung.',
+        'Bayern und der Bund sollten Modelle abstimmen, damit Unternehmen nicht zwischen widersprüchlichen Regeln navigieren müssen. Evaluierung nach drei Jahren zeigt, ob Ziele erreicht wurden.',
+      ),
+      '<p>Orientierung bietet die ',
+      '<a href="https://www.zim.de/" target="_blank" rel="noopener noreferrer">ZIM-Förderung</a> – ähnliche Logik soll breiter greifen.</p>',
       rationaleParagraph('Innovationsförderung'),
     ].join(''),
   },
@@ -350,9 +384,12 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern digitale Bürgerforen, modernisierte Satzungen und klare Zuständigkeitsregeln.',
     bodyHtml: [
-      '<h2>Problem</h2>',
-      '<p><strong>Wir fordern digitale Bürgerforen, modernisierte Satzungen und klare Zuständigkeitsregeln.</strong></p>',
-      '<p>NRW braucht niedrigschwellige Formate – orientiert an ',
+      prose(
+        'Wir fordern digitale Bürgerforen, modernisierte Satzungen und klare Zuständigkeitsregeln. Kommunale Entscheidungen werden schneller und nachvollziehbarer, wenn Bürgerinnen und Bürger früh und niedrigschwellig einbezogen werden.',
+        'NRW braucht Formate, die neben klassischen Sitzungen funktionieren – barrierefrei, zeitlich flexibel und mit klarem Ergebnisprotokoll. Satzungen sollen Beteiligung ermöglichen, nicht ausschließlich regulieren.',
+        'Zuständigkeiten zwischen Rat, Verwaltung und Fachgremien müssen transparent sein, damit Foren nicht im luftleeren Raum enden. Digitale Tools ersetzen keine Demokratie, sie erweitern den Zugang dazu.',
+      ),
+      '<p>Orientiert an ',
       '<a href="https://www.bpb.de/" target="_blank" rel="noopener noreferrer">bpb-Beteiligungsformaten</a>.</p>',
       `<p>Anhang: ${attachmentChip('/uploads/seed-lfa-digital-position.pdf', 'Positionspapier LFA')}</p>`,
       rationaleParagraph('Kommunalrecht'),
@@ -360,27 +397,35 @@ export const SEED_MOTIONS: SeedMotion[] = [
   },
   {
     authorEmail: 'lisa.koch@freiwerk.local',
-    title: 'Fairer Freihandel mit Nachhaltigkeit',
+    title: 'Freihandel mit Nachhaltigkeit',
     summary: 'Handelsabkommen mit verbindlichen Sozial- und Umweltkapiteln plus KMU-Marktzugang.',
     topic: 'aussen',
     status: 'debate',
     divisionSlug: 'bund',
     deliberationLevel: 'rich',
+    postCount: 8,
     debateDays: 28,
     publishedDaysAgo: 12,
     bodyTheme: 'Handelspolitik',
     bodyDemand:
       'Wir fordern Freihandelsabkommen mit verbindlichen Nachhaltigkeits- und Transparenzstandards.',
     bodyHtml: [
-      '<blockquote><p>Freihandel ja – aber mit fairen Regeln.</p></blockquote>',
-      '<p><strong>Wir fordern Freihandelsabkommen mit verbindlichen Nachhaltigkeits- und Transparenzstandards.</strong></p>',
-      '<p>Referenz: <a href="https://ec.europa.eu/trade/" target="_blank" rel="noopener noreferrer">EU-Handelspolitik</a>.</p>',
-      '<hr><p><strong>Fazit:</strong> Marktzugang für KMU und Schutz hoher Standards gehören zusammen.</p>',
+      prose(
+        'Wir fordern Freihandelsabkommen mit verbindlichen Nachhaltigkeits- und Transparenzstandards. Freihandel ja – aber mit fairen Regeln, die Arbeits-, Umwelt- und Verbraucherschutz nicht untergraben.',
+        'Marktzugang für KMU und Schutz hoher Standards gehören zusammen. Abkommen müssen prüfbar sein: Verstöße brauchen Konsequenzen, Verhandlungen Transparenz. Nur so entsteht Akzeptanz jenseits großer Konzerne.',
+        'Offene Märkte stärken Wohlstand, wenn Wettbewerb auf Augenhöhe stattfindet. Nachhaltigkeitskapitel dürfen keine Lippenbekenntnisse bleiben – sie brauchen Durchsetzungsmechanismen und öffentliche Berichte.',
+      ),
+      '<p>Referenz: ',
+      '<a href="https://ec.europa.eu/trade/" target="_blank" rel="noopener noreferrer">EU-Handelspolitik</a>.</p>',
+      rationaleParagraph(
+        'Handelspolitik',
+        'Liberaler Freihandel und verantwortungsvolle Rahmenbedingungen schließen einander nicht aus – im Gegenteil.',
+      ),
     ].join(''),
   },
   {
-    authorEmail: 'mark.rothermel@freiwerk.local',
-    title: 'Prävention digital ausbauen',
+    authorEmail: 'niklas.brandt@freiwerk.local',
+    title: 'Prävention ausbauen',
     summary: 'Flächendeckende Präventionsprogramme und sichere digitale Gesundheitsangebote.',
     topic: 'gesundheit',
     status: 'debate',
@@ -393,11 +438,17 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern ein bundesweites Präventionsbudget und patientenkontrollierte Datennutzung bei DiGAs.',
     bodyHtml: [
-      '<h2>Kurz</h2>',
-      '<p><strong>Wir fordern ein bundesweites Präventionsbudget und patientenkontrollierte Datennutzung bei DiGAs.</strong></p>',
+      prose(
+        'Wir fordern ein bundesweites Präventionsbudget und patientenkontrollierte Datennutzung bei DiGAs. Prävention ist günstiger als Behandlung – und entlastet das Gesundheitssystem langfristig.',
+        'Flächendeckende Programme brauchen verlässliche Finanzierung statt Projektcharakter. Digitale Gesundheitsangebote müssen sicher, freiwillig und datensparsam sein; Nutzerinnen und Nutzer behalten die Kontrolle über ihre Daten.',
+        'DiGAs können niedrigschwellige Hilfe bieten, wenn Qualität und Datenschutz klar geregelt sind. Der Bund soll Mindeststandards setzen, Länder und Krankenkassen passende Angebote entwickeln.',
+      ),
       '<p>Mehr zu DiGAs: ',
       '<a href="https://www.bundesgesundheitsministerium.de/" target="_blank" rel="noopener noreferrer">Bundesgesundheitsministerium</a>.</p>',
-      rationaleParagraph('Gesundheitsvorsorge', 'Prävention ist günstiger als Behandlung – digitale Angebote müssen sicher und freiwillig bleiben.'),
+      rationaleParagraph(
+        'Gesundheitsvorsorge',
+        'Prävention stärkt Eigenverantwortung und entlastet den Staat – ohne Bevormundung.',
+      ),
     ].join(''),
   },
   {
@@ -409,21 +460,24 @@ export const SEED_MOTIONS: SeedMotion[] = [
     divisionSlug: 'bund',
     deliberationLevel: 'moderate',
     postCount: 6,
-    bodyTheme: 'Open Source in der Verwaltung',
-    bodyDemand:
-      'Wir fordern eine verbindliche Open-Source-Strategie nach dem Grundsatz „Public Money, Public Code“.',
-    bodyHtml: [
-      '<h2>Grundsatz</h2>',
-      '<p><strong>Wir fordern eine verbindliche Open-Source-Strategie nach dem Grundsatz „Public Money, Public Code“.</strong></p>',
-      '<p>Beispiele: <a href="https://publiccode.eu/" target="_blank" rel="noopener noreferrer">Public Code Europe</a>.</p>',
-      '<ol><li>Neue Software standardmäßig quelloffen</li><li>Ausnahmen begründen und dokumentieren</li></ol>',
-      `<p>${attachmentChip('/uploads/seed-feasibility-study.pdf', 'Umsetzungsstudie OSS')}</p>`,
-    ].join(''),
     debateDays: 14,
     publishedDaysAgo: 24,
     ballotDays: 7,
     ballotStartedDaysAgo: 5,
     ballotTally: { approve: 4, reject: 1, abstain: 1 },
+    bodyTheme: 'Open Source in der Verwaltung',
+    bodyDemand:
+      'Wir fordern eine verbindliche Open-Source-Strategie nach dem Grundsatz „Public Money, Public Code“.',
+    bodyHtml: [
+      prose(
+        'Wir fordern eine verbindliche Open-Source-Strategie nach dem Grundsatz „Public Money, Public Code“. Software, die mit Steuergeldern entwickelt wird, soll quelloffen sein und anderen Behörden zur Nachnutzung bereitstehen.',
+        'Neue Verwaltungssoftware soll standardmäßig unter offenen Lizenzen veröffentlicht werden. Ausnahmen müssen begründet, dokumentiert und zeitlich überprüft werden – Sicherheitsgründe rechtfertigen kein Dauer-Blackbox-Modell.',
+        'Open Source reduziert Lock-in-Effekte, senkt Folgekosten und ermöglicht unabhängige Sicherheitsprüfungen. Kommunen und Länder profitieren von geteilten Komponenten statt paralleler Entwicklung.',
+      ),
+      '<p>Beispiele und Best Practices: ',
+      '<a href="https://publiccode.eu/" target="_blank" rel="noopener noreferrer">Public Code Europe</a>.</p>',
+      `<p>${attachmentChip('/uploads/seed-feasibility-study.pdf', 'Umsetzungsstudie OSS')}</p>`,
+    ].join(''),
   },
   {
     authorEmail: 'anna.schneider@freiwerk.local',
@@ -433,53 +487,57 @@ export const SEED_MOTIONS: SeedMotion[] = [
     status: 'decided',
     divisionSlug: 'nrw',
     deliberationLevel: 'rich',
-    postCount: 8,
-    bodyTheme: 'Kommunale Transparenz',
-    bodyDemand:
-      'Wir fordern ein einheitliches, maschinenlesbares Transparenzregister für alle kommunalen Beteiligungen.',
-    bodyHtml: [
-      '<h2>Beschlusslage</h2>',
-      '<p><strong>Wir fordern ein einheitliches, maschinenlesbares Transparenzregister für alle kommunalen Beteiligungen.</strong></p>',
-      '<p>Kontrolle und Vergleichbarkeit stärken Vertrauen in kommunale Wirtschaftlichkeit.</p>',
-      `<p>${attachmentChip('/uploads/seed-lfa-digital-position.pdf', 'Musterregister (PDF)')}</p>`,
-    ].join(''),
+    postCount: 7,
     debateDays: 14,
     publishedDaysAgo: 45,
     ballotDays: 7,
     ballotStartedDaysAgo: 21,
     outcome: 'accepted',
     ballotTally: { approve: 6, reject: 2, abstain: 1 },
+    bodyTheme: 'Kommunale Transparenz',
+    bodyDemand:
+      'Wir fordern ein einheitliches, maschinenlesbares Transparenzregister für alle kommunalen Beteiligungen.',
+    bodyHtml: [
+      prose(
+        'Wir fordern ein einheitliches, maschinenlesbares Transparenzregister für alle kommunalen Beteiligungen. Bürgerinnen und Bürger sollen nachvollziehen können, welche Unternehmen Kommunen beteiligt halten und welche wirtschaftlichen Interessen dahinterstehen.',
+        'Kontrolle und Vergleichbarkeit stärken Vertrauen in kommunale Wirtschaftlichkeit. Ein Register mit offenen Schnittstellen erleichtert Recherche für Medien, Wissenschaft und engagierte Bürgerinnen und Bürger.',
+        'Datenschutz und Geschäftsgeheimnisse bleiben gewahrt, wo gesetzlich vorgesehen – aber Grunddaten zu Beteiligungen, Anteilen und Geschäftsführung gehören in die Öffentlichkeit.',
+      ),
+      `<p>${attachmentChip('/uploads/seed-lfa-digital-position.pdf', 'Musterregister (PDF)')}</p>`,
+    ].join(''),
   },
   {
     authorEmail: 'julia.hartmann@freiwerk.local',
-    title: 'Windenergie-Abstände modernisieren',
+    title: 'Windabstände reformieren',
     summary:
       'Planungsrecht an neue Technik anpassen, Abstände kommunalfreundlich gestalten und Genehmigungen beschleunigen.',
     topic: 'umwelt',
     status: 'debate',
     divisionSlug: 'hessen',
     deliberationLevel: 'rich',
+    postCount: 5,
     debateDays: 18,
     publishedDaysAgo: 9,
     bodyTheme: 'Erneuerbare Energien',
     bodyDemand:
       'Wir fordern eine Reform der Abstandsregeln mit kommunaler Mitbestimmung und schnelleren Genehmigungsverfahren.',
     bodyHtml: [
-      '<h2>Ausgangslage</h2>',
-      '<p><strong>Wir fordern eine Reform der Abstandsregeln mit kommunaler Mitbestimmung und schnelleren Genehmigungsverfahren.</strong></p>',
-      '<p>Windkraft ist zentral für Klimaziele – siehe ',
+      prose(
+        'Wir fordern eine Reform der Abstandsregeln mit kommunaler Mitbestimmung und schnelleren Genehmigungsverfahren. Windkraft ist zentral für Klimaziele – aber Akzeptanz entsteht nur durch faire Regeln und transparente Planung.',
+        'Abstände sollten an Rotordurchmesser, Lärmschutz und Standortqualität gekoppelt werden, statt pauschaler Mindestwerte. Kommunen brauchen Planungshoheit bei Standortpaketen und Ausgleichsmechanismen für Anwohnerinnen und Anwohner.',
+        'Bürgerbeteiligung muss vor Festlegung von Flächen stattfinden, nicht erst im Einzelverfahren. Schnellere Genehmigungen sind möglich, wenn Konflikte früh geklärt werden und Verfahren digitalisiert sind.',
+      ),
+      '<p>Windkraft und Energiewende: ',
       '<a href="https://www.bmwk.de/" target="_blank" rel="noopener noreferrer">BMWK Energiewende</a>.</p>',
-      '<ul>',
-      '<li>Abstände an Rotordurchmesser und Lärmschutz koppeln</li>',
-      '<li>Kommunen erhalten Planungshoheit bei Standortpaketen</li>',
-      '<li>Bürgerbeteiligung vor Festlegung von Flächen</li>',
-      '</ul>',
-      rationaleParagraph('Windenergie', 'Akzeptanz entsteht durch Transparenz und faire Ausgleichsmechanismen.'),
+      rationaleParagraph(
+        'Windenergie',
+        'Akzeptanz entsteht durch Transparenz, faire Ausgleichsmechanismen und kommunale Mitbestimmung.',
+      ),
     ].join(''),
   },
   {
     authorEmail: 'felix.weber@freiwerk.local',
-    title: 'Ehrenamtskarte bundesweit',
+    title: 'Ehrenamtskarte',
     summary:
       'Einheitliche digitale Ehrenamtskarte mit Anerkennungsleistungen und einfacher Nachweisführung für Engagierte.',
     topic: 'inneres',
@@ -492,20 +550,18 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern eine bundesweit gültige Ehrenamtskarte mit digitalen Services und kommunalen Anerkennungsangeboten.',
     bodyHtml: [
-      '<blockquote><p>Ehrenamt darf nicht an Bürokratie scheitern.</p></blockquote>',
-      '<p><strong>Wir fordern eine bundesweit gültige Ehrenamtskarte mit digitalen Services und kommunalen Anerkennungsangeboten.</strong></p>',
-      '<p>Viele Länder haben Piloten – ein Bund-Länder-Standard würde Entlastung schaffen.</p>',
-      '<ol>',
-      '<li>Einheitliche digitale Karte mit fälschungssicherem Nachweis</li>',
-      '<li>Kommunen definieren freiwillige Vergünstigungen</li>',
-      '<li>Datenschutz by Design</li>',
-      '</ol>',
+      prose(
+        'Wir fordern eine bundesweit gültige Ehrenamtskarte mit digitalen Services und kommunalen Anerkennungsangeboten. Ehrenamt darf nicht an Bürokratie scheitern – Engagierte brauchen einen einfachen, fälschungssicheren Nachweis ihrer Tätigkeit.',
+        'Viele Länder haben Piloten gestartet; ein Bund-Länder-Standard würde Entlastung schaffen und Vergünstigungen planbar machen. Kommunen definieren freiwillige Anerkennungsangebote, der Bund stellt die technische Infrastruktur bereit.',
+        'Datenschutz by Design ist Pflicht: Die Karte belegt Engagement, ohne sensible Details unnötig preiszugeben. Offline-Nutzung und barrierefreie Antragstellung bleiben möglich.',
+      ),
       rationaleParagraph('Ehrenamt'),
     ].join(''),
   },
   {
     authorEmail: 'sarah.mueller@freiwerk.local',
-    title: 'Kitaplätze verbindlich sichern',
+    title:
+      'Rechtsanspruch auf Kitaplätze mit verbindlichen Fristen und transparentem Monitoring',
     summary:
       'Rechtsanspruch mit klaren Fristen, besserer Personalgewinnung und transparentem Kita-Monitoring.',
     topic: 'soziales',
@@ -514,15 +570,20 @@ export const SEED_MOTIONS: SeedMotion[] = [
     deliberationLevel: 'minimal',
     postCount: 1,
     debateDays: 28,
-    publishedDaysAgo: 1,
+    publishedDaysAgo: 0,
     bodyTheme: 'Frühkindliche Bildung',
     bodyDemand:
       'Wir fordern verbindliche Kitaplätze innerhalb definierter Fristen und ein öffentliches Monitoring der Versorgung.',
     bodyHtml: [
-      '<h2>Forderung</h2>',
-      '<p><strong>Wir fordern verbindliche Kitaplätze innerhalb definierter Fristen und ein öffentliches Monitoring der Versorgung.</strong></p>',
-      '<p>Eltern brauchen Planbarkeit; Kommunen brauchen Unterstützung bei Personal und Infrastruktur.</p>',
-      rationaleParagraph('Kitabetreuung', 'Chancengleichheit beginnt vor der Schule.'),
+      prose(
+        'Wir fordern verbindliche Kitaplätze innerhalb definierter Fristen und ein öffentliches Monitoring der Versorgung. Eltern brauchen Planbarkeit – nicht Wartelisten ohne Perspektive und nicht unterschiedliche Standards von Bezirk zu Bezirk.',
+        'Ein Rechtsanspruch ohne Durchsetzung bleibt wirkungslos. Deshalb brauchen klare Fristen, Sanktionen bei Verzug und ein Dashboard, das Versorgungsquoten, Personaldecke und Wartezeiten transparent macht.',
+        'Kommunen brauchen Unterstützung bei Personalgewinnung und Infrastruktur. Bund und Länder müssen Finanzierung und Qualitätsstandards abstimmen, damit Chancengleichheit nicht am Geld scheitert.',
+      ),
+      rationaleParagraph(
+        'Kitabetreuung',
+        'Chancengleichheit beginnt vor der Schule – verlässliche Betreuung entlastet Familien und stärkt den Arbeitsmarkt.',
+      ),
     ].join(''),
   },
   {
@@ -534,27 +595,26 @@ export const SEED_MOTIONS: SeedMotion[] = [
     status: 'debate',
     divisionSlug: 'bund',
     deliberationLevel: 'rich',
+    postCount: 6,
     debateDays: 14,
     publishedDaysAgo: 11,
     bodyTheme: 'Cybersicherheit',
     bodyDemand:
       'Wir fordern verbindliche Sicherheitsstandards für KRITIS-Betreiber mit unabhängigen Audits und Bußgeldern bei Nachlässigkeit.',
     bodyHtml: [
-      '<h2>Problem</h2>',
-      '<p><strong>Wir fordern verbindliche Sicherheitsstandards für KRITIS-Betreiber mit unabhängigen Audits und Bußgeldern bei Nachlässigkeit.</strong></p>',
-      '<p>Das BSI veröffentlicht Leitlinien – sie müssen verbindlich werden: ',
+      prose(
+        'Wir fordern verbindliche Sicherheitsstandards für KRITIS-Betreiber mit unabhängigen Audits und Bußgeldern bei Nachlässigkeit. Kritische Infrastruktur – Energie, Wasser, Gesundheit, Verkehr – darf nicht auf Kosten kurzfristiger Einsparungen unsicher werden.',
+        'Das BSI veröffentlicht Leitlinien; sie müssen verbindlich werden. Regelmäßige Penetrationstests, dokumentierte Notfallpläne und Meldepflicht bei Sicherheitsvorfällen innerhalb von 24 Stunden sind Mindeststandard.',
+        'Mittelstandslieferanten brauchen Förderung und Beratung, damit sie Anforderungen erfüllen können, ohne ausgeschlossen zu werden. Sicherheit ist keine Luxusfrage, sondern Voraussetzung für Vertrauen in digitale Dienste.',
+      ),
+      '<p>Leitlinien und Standards: ',
       '<a href="https://www.bsi.bund.de/" target="_blank" rel="noopener noreferrer">BSI</a>.</p>',
-      '<ul>',
-      '<li>Regelmäßige Penetrationstests</li>',
-      '<li>Meldepflicht bei Sicherheitsvorfällen innerhalb von 24 Stunden</li>',
-      '<li>Förderung für Mittelstandslieferanten</li>',
-      '</ul>',
       `<p>${attachmentChip('/uploads/seed-feasibility-study.pdf', 'Audit-Checkliste KRITIS')}</p>`,
       rationaleParagraph('Cybersicherheit'),
     ].join(''),
   },
   {
-    authorEmail: 'mark.rothermel@freiwerk.local',
+    authorEmail: 'niklas.brandt@freiwerk.local',
     title: 'Wohnungsbau beschleunigen',
     summary:
       'Genehmigungen straffen, Standardisierung fördern und Kommunen bei Baulandaktivierung unterstützen.',
@@ -563,25 +623,22 @@ export const SEED_MOTIONS: SeedMotion[] = [
     divisionSlug: 'nrw',
     deliberationLevel: 'moderate',
     postCount: 6,
-    bodyTheme: 'Wohnungsmarkt',
-    bodyDemand:
-      'Wir fordern ein Beschleunigungsgesetz für Wohnungsbau mit digitalen Genehmigungsverfahren und Vorrang für verdichtete Projekte.',
-    bodyHtml: [
-      '<h2>Kernpunkt</h2>',
-      '<p><strong>Wir fordern ein Beschleunigungsgesetz für Wohnungsbau mit digitalen Genehmigungsverfahren und Vorrang für verdichtete Projekte.</strong></p>',
-      '<p>Bezahlbarer Wohnraum erfordert schnellere Planung ohne Qualitätsverlust.</p>',
-      '<ol>',
-      '<li>Standardisierte Bauweise privilegieren</li>',
-      '<li>Kommunale Baulandoffensive</li>',
-      '<li>Evaluierung nach drei Jahren</li>',
-      '</ol>',
-      rationaleParagraph('Wohnungsmarkt'),
-    ].join(''),
     debateDays: 10,
     publishedDaysAgo: 20,
     ballotDays: 5,
     ballotStartedDaysAgo: 3,
     ballotTally: { approve: 5, reject: 3, abstain: 1 },
+    bodyTheme: 'Wohnungsmarkt',
+    bodyDemand:
+      'Wir fordern ein Beschleunigungsgesetz für Wohnungsbau mit digitalen Genehmigungsverfahren und Vorrang für verdichtete Projekte.',
+    bodyHtml: [
+      prose(
+        'Wir fordern ein Beschleunigungsgesetz für Wohnungsbau mit digitalen Genehmigungsverfahren und Vorrang für verdichteter Projekte. Bezahlbarer Wohnraum erfordert schnellere Planung ohne Qualitätsverlust – nicht weniger Bürgerbeteiligung, sondern klarere Verfahren.',
+        'Standardisierte Bauweise und wiederkehrende Bauelemente können Genehmigungen beschleunigen, wenn Sicherheits- und Umweltstandards gewahrt bleiben. Kommunale Baulandoffensive bringt brachliegende Flächen in die Entwicklung.',
+        'Digitale Antragstellung, einheitliche Formate und feste Bearbeitungsfristen reduzieren Wartezeiten. Nach drei Jahren soll eine Evaluation zeigen, ob mehr Wohnraum bei gleichbleibender Qualität entstanden ist.',
+      ),
+      rationaleParagraph('Wohnungsmarkt'),
+    ].join(''),
   },
   {
     authorEmail: 'thomas.berger@freiwerk.local',
@@ -593,25 +650,31 @@ export const SEED_MOTIONS: SeedMotion[] = [
     divisionSlug: 'bayern',
     deliberationLevel: 'moderate',
     postCount: 7,
-    bodyTheme: 'Verkehrspolitik',
-    bodyDemand:
-      'Wir fordern die Abschaffung genereller Tempolimits auf Autobahnen zugunsten dynamischer, verkehrsabhängiger Regelungen.',
-    bodyHtml: [
-      '<h2>Position</h2>',
-      '<p><strong>Wir fordern die Abschaffung genereller Tempolimits auf Autobahnen zugunsten dynamischer, verkehrsabhängiger Regelungen.</strong></p>',
-      '<p>Freie Fahrt dort, wo es die Situation erlaubt, stärkt Akzeptanz und Effizienz.</p>',
-      rationaleParagraph('Verkehrspolitik', 'Entscheidungen sollten Daten und lokale Gegebenheiten berücksichtigen.'),
-    ].join(''),
     debateDays: 7,
     publishedDaysAgo: 35,
     ballotDays: 5,
     ballotStartedDaysAgo: 18,
     outcome: 'rejected',
     ballotTally: { approve: 2, reject: 7, abstain: 1 },
+    bodyTheme: 'Verkehrspolitik',
+    bodyDemand:
+      'Wir fordern die Abschaffung genereller Tempolimits auf Autobahnen zugunsten dynamischer, verkehrsabhängiger Regelungen.',
+    bodyHtml: [
+      prose(
+        'Wir fordern die Abschaffung genereller Tempolimits auf Autobahnen zugunsten dynamischer, verkehrsabhängiger Regelungen. Freie Fahrt dort, wo es die Situation erlaubt, stärkt Akzeptanz und Effizienz – pauschale Limits greifen oft zu grob.',
+        'Moderne Assistenzsysteme, Verkehrsdaten und wetterabhängige Steuerung ermöglichen sicherere Geschwindigkeiten als starre Vorgaben. Entscheidungen sollten Daten und lokale Gegebenheiten berücksichtigen, nicht Ideologie.',
+        'Der Beschluss wurde abgelehnt – die Debatte zeigt aber, dass Verkehrspolitik zwischen Freiheit, Sicherheit und Klimazielen ausgewogen bleiben muss.',
+      ),
+      rationaleParagraph(
+        'Verkehrspolitik',
+        'Entscheidungen sollten Daten und lokale Gegebenheiten berücksichtigen – nicht pauschale Regeln ohne Blick auf die Realität.',
+      ),
+    ].join(''),
   },
   {
     authorEmail: 'lisa.koch@freiwerk.local',
-    title: 'Feuerwehr-Funk digitalisieren',
+    title:
+      'Digitale BOS-Funknetze für Feuerwehr und Rettungsdienste bundesweit interoperabel',
     summary:
       'Moderne Kommunikationsinfrastruktur für Hilfsorganisationen mit bundesweiter Interoperabilität.',
     topic: 'inneres',
@@ -625,62 +688,70 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern ein digitales Funksystem für Feuerwehr und Rettungsdienste mit bundesweit kompatiblen Standards.',
     bodyHtml: [
-      '<p><strong>Wir fordern ein digitales Funksystem für Feuerwehr und Rettungsdienste mit bundesweit kompatiblen Standards.</strong></p>',
-      '<p>Analogfunk ist am Limit – Einsatzkräfte brauchen zuverlässige Datenübertragung.</p>',
+      prose(
+        'Wir fordern ein digitales Funksystem für Feuerwehr und Rettungsdienste mit bundesweit kompatiblen Standards. Analogfunk ist am Limit – Einsatzkräfte brauchen zuverlässige Sprach- und Datenübertragung, auch unter Extrembedingungen.',
+        'Großschadenslagen und länderübergreifende Hilfe scheitern, wenn Funknetze nicht zusammenarbeiten. Ein einheitlicher Standard mit getesteter Interoperabilität spart Leben und vereinfacht Ausbildung.',
+        'Finanzierung muss Bund und Länder fair teilen; kleine Wehrverbände dürfen nicht allein auf Kosten sitzen bleiben. Datenschutz und Verschlüsselung sind Pflicht, ohne Einsatzfähigkeit zu gefährden.',
+      ),
       rationaleParagraph('Katastrophenschutz'),
     ].join(''),
   },
   {
     authorEmail: 'demo@freiwerk.local',
-    title: 'Sozialleistungen digital vereinfachen',
+    title: 'Once-Only für Sozialleistungen',
     summary:
       'Entwurf für ein Once-Only-Prinzip bei Anträgen und automatische Weiterleitung nachgewiesener Daten.',
     topic: 'soziales',
     status: 'draft',
     divisionSlug: 'hamburg',
     deliberationLevel: 'none',
+    createdDaysAgo: 3,
     bodyTheme: 'Verwaltungsdigitalisierung',
     bodyDemand:
       'Wir fordern das Once-Only-Prinzip für Sozialleistungen mit sicheren Datentreuhändern.',
     bodyHtml: [
-      '<h2>Entwurf</h2>',
-      '<p><strong>Wir fordern das Once-Only-Prinzip für Sozialleistungen mit sicheren Datentreuhändern.</strong></p>',
-      '<p>Bürgerinnen und Bürger sollen Nachweise nicht dutzende Male einreichen müssen.</p>',
-      '<ul><li>Datensparsamkeit</li><li>Freiwillige Nutzung</li><li>Offline-Alternative</li></ul>',
+      prose(
+        'Wir fordern das Once-Only-Prinzip für Sozialleistungen mit sicheren Datentreuhändern. Bürgerinnen und Bürger sollen Nachweise nicht dutzende Male einreichen müssen – einmal eingereicht, überall berücksichtigt.',
+        'Datensparsamkeit, freiwillige Nutzung und eine gleichwertige Offline-Alternative sind zwingend. Der Staat darf Digitalisierung nicht als Zwang verstehen, sondern als Entlastung.',
+        'Datentreuhänder unter staatlicher Aufsicht können Daten sicher weiterleiten, ohne zentralen Datenspeicher. Der Entwurf wird noch mit Datenschutzbeauftragten und Trägern abgestimmt.',
+      ),
     ].join(''),
   },
   {
     authorEmail: 'anna.schneider@freiwerk.local',
-    title: 'Wasserstoffkernnetz ausbauen',
+    title: 'H2-Kernnetz',
     summary:
       'Gezielte Investitionen in H2-Infrastruktur für Industrie und Schwerlastverkehr mit klarer Förderlogik.',
     topic: 'wirtschaft',
     status: 'decided',
     divisionSlug: 'niedersachsen',
     deliberationLevel: 'rich',
-    postCount: 9,
-    bodyTheme: 'Energiewirtschaft',
-    bodyDemand:
-      'Wir fordern den bundesweiten Ausbau eines Wasserstoffkernnetzes mit marktwirtschaftlicher Förderung und Technologieoffenheit.',
-    bodyHtml: [
-      '<h2>Ziel</h2>',
-      '<p><strong>Wir fordern den bundesweiten Ausbau eines Wasserstoffkernnetzes mit marktwirtschaftlicher Förderung und Technologieoffenheit.</strong></p>',
-      '<p>Industriestandorte an der Küste und im Binnenland brauchen planbare Anschlüsse.</p>',
-      '<p>Referenz: ',
-      '<a href="https://www.netztransparenz.de/" target="_blank" rel="noopener noreferrer">Netztransparenz</a>.</p>',
-      `<p>${attachmentChip('/uploads/seed-lfa-digital-position.pdf', 'Infrastrukturkarte H2')}</p>`,
-      rationaleParagraph('Wasserstoffwirtschaft'),
-    ].join(''),
+    postCount: 6,
     debateDays: 21,
     publishedDaysAgo: 50,
     ballotDays: 7,
     ballotStartedDaysAgo: 25,
     outcome: 'accepted',
     ballotTally: { approve: 7, reject: 2, abstain: 0 },
+    bodyTheme: 'Energiewirtschaft',
+    bodyDemand:
+      'Wir fordern den bundesweiten Ausbau eines Wasserstoffkernnetzes mit marktwirtschaftlicher Förderung und Technologieoffenheit.',
+    bodyHtml: [
+      prose(
+        'Wir fordern den bundesweiten Ausbau eines Wasserstoffkernnetzes mit marktwirtschaftlicher Förderung und Technologieoffenheit. Industriestandorte an der Küste und im Binnenland brauchen planbare Anschlüsse für grünen Wasserstoff.',
+        'Schwerlastverkehr und energieintensive Produktion können so klimaneutraler werden, wenn Infrastruktur rechtzeitig verfügbar ist. Förderlogik muss transparent sein und Wettbewerb zulassen – keine Dauer-Subvention ohne Wirkungskontrolle.',
+        'Der Antrag wurde angenommen. Nächste Schritte: Leitungsplanung, Netztransparenz und Abstimmung mit Erneuerbare-Energien-Ausbau.',
+      ),
+      '<p>Referenz: ',
+      '<a href="https://www.netztransparenz.de/" target="_blank" rel="noopener noreferrer">Netztransparenz</a>.</p>',
+      `<p>${attachmentChip('/uploads/seed-lfa-digital-position.pdf', 'Infrastrukturkarte H2')}</p>`,
+      rationaleParagraph('Wasserstoffwirtschaft'),
+    ].join(''),
   },
   {
     authorEmail: 'julia.hartmann@freiwerk.local',
-    title: 'Landesplanung Wind anpassen',
+    title:
+      'Schleswig-Holstein: regionale Flächenkulisse für Windenergie mit kommunaler Mitwirkung',
     summary:
       'Regionale Flächenfestlegung statt Detailstreit um Einzelanlagen – Entwurf ohne breite Debatte.',
     topic: 'umwelt',
@@ -694,8 +765,11 @@ export const SEED_MOTIONS: SeedMotion[] = [
     bodyDemand:
       'Wir fordern eine landesweite Flächenkulisse für Windenergie mit kommunaler Mitwirkung.',
     bodyHtml: [
-      '<p><strong>Wir fordern eine landesweite Flächenkulisse für Windenergie mit kommunaler Mitwirkung.</strong></p>',
-      '<p>Planungssicherheit reduziert Konflikte um Einzelstandorte.</p>',
+      prose(
+        'Wir fordern eine landesweite Flächenkulisse für Windenergie mit kommunaler Mitwirkung. Planungssicherheit reduziert Konflikte um Einzelstandorte und beschleunigt den Ausbau erneuerbarer Energien in Schleswig-Holstein.',
+        'Regionale Festlegungen ersetzen nicht Bürgerbeteiligung, sondern strukturieren sie. Kommunen sollen früh mitbestimmen, welche Gebiete für Windenergie in Frage kommen und welche Ausgleichsmechanismen gelten.',
+        'Das Land profitiert als Energie-Exporteur, wenn Genehmigungen planbar werden und Netzanbindungen synchron geplant sind. Der Antrag liegt frisch vor und wartet auf breitere Debatte.',
+      ),
       rationaleParagraph('Regionalplanung'),
     ].join(''),
   },
@@ -770,9 +844,9 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }] },
     { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 4 }] },
     { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'reject', daysAgo: 4 }, { choice: 'approve', daysAgo: 1 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'undecided', daysAgo: 3 }, { choice: 'approve', daysAgo: 0 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'undecided', daysAgo: 3 }, { choice: 'approve', daysAgo: 0 }] },
   ],
-  'Digitalpakt verstetigen': [
+  'Digitalpakt Schule verstetigen: dauerhafte Mittel für Netze, Geräte und Lehrkräfte-Fortbildung': [
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }] },
     { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }, { choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }] },
@@ -785,7 +859,7 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }, { choice: 'abstain', daysAgo: 0 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }] },
   ],
-  'Mehr Zuverdienst beim Bürgergeld': [
+  'Bürgergeld-Zuverdienst': [
     { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'reject', daysAgo: 1 }, { choice: 'reject', daysAgo: 0 }] },
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'reject', daysAgo: 0 }] },
@@ -802,23 +876,28 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }, { choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 4 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }, { choice: 'abstain', daysAgo: 0 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
   ],
   'Kommunale Bürgerforen': [
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }, { choice: 'approve', daysAgo: 0 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }, { choice: 'approve', daysAgo: 0 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 0 }] },
   ],
-  'Fairer Freihandel mit Nachhaltigkeit': [
-    { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'approve', daysAgo: 11 }, { choice: 'reject', daysAgo: 3 }] },
-    { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'approve', daysAgo: 10 }] },
-    { userEmail: 'demo@freiwerk.local', events: [{ choice: 'reject', daysAgo: 9 }, { choice: 'reject', daysAgo: 1 }] },
-    { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 8 }, { choice: 'abstain', daysAgo: 1 }] },
-    { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 6 }] },
+  'Freihandel mit Nachhaltigkeit': [
+    { userEmail: 'demo@freiwerk.local', events: [{ choice: 'reject', daysAgo: 11 }, { choice: 'approve', daysAgo: 1 }] },
+    { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'reject', daysAgo: 10 }, { choice: 'approve', daysAgo: 2 }] },
+    { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'approve', daysAgo: 9 }] },
+    { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 8 }, { choice: 'approve', daysAgo: 3 }] },
+    { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'reject', daysAgo: 7 }, { choice: 'approve', daysAgo: 0 }] },
+    { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 6 }, { choice: 'reject', daysAgo: 1 }] },
+    { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }, { choice: 'reject', daysAgo: 0 }] },
+    { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 4 }, { choice: 'reject', daysAgo: 2 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }, { choice: 'reject', daysAgo: 1 }] },
+    { userEmail: 'mod@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }, { choice: 'reject', daysAgo: 0 }] },
   ],
-  'Prävention digital ausbauen': [
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 6 }, { choice: 'approve', daysAgo: 0 }] },
+  'Prävention ausbauen': [
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 6 }, { choice: 'approve', daysAgo: 0 }] },
     { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 4 }, { choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }] },
@@ -832,24 +911,24 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
   'Transparenzregister kommunaler Beteiligungen': [
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 40 }, { choice: 'approve', daysAgo: 30 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 38 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 36 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 36 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 33 }] },
   ],
-  'Windenergie-Abstände modernisieren': [
+  'Windabstände reformieren': [
     { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'approve', daysAgo: 8 }, { choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 7 }, { choice: 'reject', daysAgo: 2 }] },
     { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'reject', daysAgo: 6 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }] },
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }] },
   ],
-  'Ehrenamtskarte bundesweit': [
+  'Ehrenamtskarte': [
     { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 5 }] },
     { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 4 }, { choice: 'approve', daysAgo: 1 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 3 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 2 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 2 }] },
   ],
-  'Kitaplätze verbindlich sichern': [
-    { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
+  'Rechtsanspruch auf Kitaplätze mit verbindlichen Fristen und transparentem Monitoring': [
+    { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'approve', daysAgo: 0 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'approve', daysAgo: 0 }] },
   ],
   'KRITIS-Schutz stärken': [
@@ -860,7 +939,7 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'thomas.berger@freiwerk.local', events: [{ choice: 'approve', daysAgo: 4 }] },
   ],
   'Wohnungsbau beschleunigen': [
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 18 }, { choice: 'approve', daysAgo: 10 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 18 }, { choice: 'approve', daysAgo: 10 }] },
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 16 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 14 }, { choice: 'approve', daysAgo: 9 }] },
     { userEmail: 'sarah.mueller@freiwerk.local', events: [{ choice: 'reject', daysAgo: 12 }] },
@@ -873,18 +952,18 @@ export const MOOD_TIMELINES_BY_TITLE: Record<string, MoodTimeline[]> = {
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'reject', daysAgo: 22 }] },
     { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'reject', daysAgo: 20 }] },
   ],
-  'Feuerwehr-Funk digitalisieren': [
+  'Digitale BOS-Funknetze für Feuerwehr und Rettungsdienste bundesweit interoperabel': [
     { userEmail: 'lisa.koch@freiwerk.local', events: [{ choice: 'approve', daysAgo: 2 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 1 }] },
   ],
-  'Wasserstoffkernnetz ausbauen': [
+  'H2-Kernnetz': [
     { userEmail: 'anna.schneider@freiwerk.local', events: [{ choice: 'approve', daysAgo: 45 }, { choice: 'approve', daysAgo: 30 }] },
-    { userEmail: 'mark.rothermel@freiwerk.local', events: [{ choice: 'approve', daysAgo: 42 }] },
+    { userEmail: 'niklas.brandt@freiwerk.local', events: [{ choice: 'approve', daysAgo: 42 }] },
     { userEmail: 'felix.weber@freiwerk.local', events: [{ choice: 'approve', daysAgo: 40 }] },
     { userEmail: 'demo@freiwerk.local', events: [{ choice: 'abstain', daysAgo: 38 }] },
     { userEmail: 'admin@freiwerk.local', events: [{ choice: 'approve', daysAgo: 35 }] },
   ],
-  'Landesplanung Wind anpassen': [
+  'Schleswig-Holstein: regionale Flächenkulisse für Windenergie mit kommunaler Mitwirkung': [
     { userEmail: 'julia.hartmann@freiwerk.local', events: [{ choice: 'undecided', daysAgo: 1 }] },
   ],
 }

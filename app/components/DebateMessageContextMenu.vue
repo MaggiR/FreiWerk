@@ -6,6 +6,7 @@ const props = defineProps<{
   x: number
   y: number
   items: DebateMessageMenuItem[]
+  showUpvote?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +16,11 @@ const emit = defineEmits<{
 
 const panelRef = ref<HTMLElement | null>(null)
 const position = ref({ left: props.x, top: props.y })
+
+const hasMenuItems = computed(() => props.items.length > 0)
+const isVisible = computed(
+  () => props.open && (hasMenuItems.value || props.showUpvote),
+)
 
 function clampPosition() {
   const panel = panelRef.value
@@ -50,7 +56,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 watch(
-  () => [props.open, props.x, props.y, props.items.length] as const,
+  () => [props.open, props.x, props.y, props.items.length, props.showUpvote] as const,
   () => {
     if (!props.open) return
     position.value = { left: props.x, top: props.y }
@@ -73,14 +79,17 @@ onUnmounted(() => {
   <Teleport to="body">
     <Transition name="msg-menu" @after-enter="clampPosition">
       <div
-        v-if="open && items.length > 0"
+        v-if="isVisible"
         ref="panelRef"
         class="msg-menu"
-        role="menu"
+        role="presentation"
         :style="{ left: `${position.left}px`, top: `${position.top}px` }"
         @click.stop
       >
-        <div class="msg-menu__unroll">
+        <div v-if="showUpvote" class="msg-menu__upvote">
+          <slot name="upvote" />
+        </div>
+        <div v-if="hasMenuItems" class="msg-menu__unroll" role="menu">
           <div class="msg-menu__inner">
             <button
               v-for="item in items"
@@ -105,12 +114,33 @@ onUnmounted(() => {
 .msg-menu {
   position: fixed;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
   min-width: 11rem;
   transform-origin: top left;
+}
+.msg-menu__upvote {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-sm);
+}
+.msg-menu__upvote :deep(.upvote) {
+  border-color: transparent;
+  background: transparent;
+}
+.msg-menu__upvote :deep(.upvote:hover:not(:disabled)) {
+  background: var(--color-bg);
 }
 .msg-menu__unroll {
   display: grid;
   grid-template-rows: 1fr;
+  width: 100%;
 }
 .msg-menu__inner {
   min-height: 0;

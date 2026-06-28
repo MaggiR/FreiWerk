@@ -76,9 +76,9 @@
   --header-total-height: calc(var(--header-offset-top) + var(--header-height));
   /* Desktop floating icon rail */
   --rail-icon-size: 2.75rem;
-  --rail-fab-size: 3rem;
+  --rail-fab-size: 2.4rem;
   --rail-collapsed: 5.5rem;
-  --rail-expanded: 16rem;
+  --rail-expanded: 17.5rem;
 
   /* Light theme surfaces */
   --color-bg: #f6f8fc;

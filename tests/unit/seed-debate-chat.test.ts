@@ -16,7 +16,7 @@ const userIdByEmail = {
   'lisa.koch@freiwerk.local': 'user-lisa',
   'felix.weber@freiwerk.local': 'user-felix',
   'julia.hartmann@freiwerk.local': 'user-julia',
-  'mark.rothermel@freiwerk.local': 'user-mark',
+  'niklas.brandt@freiwerk.local': 'user-niklas',
   'sarah.mueller@freiwerk.local': 'user-sarah',
 }
 

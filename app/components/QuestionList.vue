@@ -4,7 +4,6 @@ import {
   QUESTION_TITLE_MIN,
   QUESTION_TITLE_MAX,
 } from '#shared/constants'
-import { formatRecentTimestamp } from '~/utils/chatDates'
 
 const props = defineProps<{ motionId: string; debateOpen: boolean }>()
 const sortMode = defineModel<'top' | 'recent'>('sortMode', { default: 'top' })
@@ -222,7 +221,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="qa">
+  <div class="qa" lang="de">
     <p v-if="pending" class="qa__loading">Fragen werden geladen …</p>
 
     <div v-else class="qa__list">
@@ -273,13 +272,9 @@ defineExpose({
                 <span>{{ q.authorName ?? 'Unbekannt' }}</span>
               </span>
               <span class="q__meta-sep" aria-hidden="true">·</span>
-              <time
-                class="q__meta-item q__time"
-                :datetime="q.createdAt"
-                :title="formatDateTime(q.createdAt)"
-              >
-                {{ formatRecentTimestamp(q.createdAt) }}
-              </time>
+              <span class="q__meta-item q__time">
+                <RelativeTime :value="q.createdAt" />
+              </span>
               <template v-if="q.answers.length === 0">
                 <span class="q__meta-sep" aria-hidden="true">·</span>
                 <span class="q__meta-item q__answers-count">
@@ -334,13 +329,11 @@ defineExpose({
                   <span>{{ answerGroupsByQuestionId[q.id]!.accepted!.authorName ?? 'Unbekannt' }}</span>
                 </span>
                 <span class="q__meta-sep" aria-hidden="true">·</span>
-                <time
-                  class="answer__time"
-                  :datetime="answerGroupsByQuestionId[q.id]!.accepted!.createdAt"
-                  :title="formatDateTime(answerGroupsByQuestionId[q.id]!.accepted!.createdAt)"
-                >
-                  {{ formatRecentTimestamp(answerGroupsByQuestionId[q.id]!.accepted!.createdAt) }}
-                </time>
+                <span class="answer__time">
+                  <RelativeTime
+                    :value="answerGroupsByQuestionId[q.id]!.accepted!.createdAt"
+                  />
+                </span>
               </div>
             </div>
             <button
@@ -423,13 +416,9 @@ defineExpose({
                       <span>{{ answer.authorName ?? 'Unbekannt' }}</span>
                     </span>
                     <span class="q__meta-sep" aria-hidden="true">·</span>
-                    <time
-                      class="answer__time"
-                      :datetime="answer.createdAt"
-                      :title="formatDateTime(answer.createdAt)"
-                    >
-                      {{ formatRecentTimestamp(answer.createdAt) }}
-                    </time>
+                    <span class="answer__time">
+                      <RelativeTime :value="answer.createdAt" />
+                    </span>
                   </div>
                 </div>
                 <button
@@ -580,7 +569,7 @@ defineExpose({
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .q__body {
   margin: 0 0 var(--space-2);

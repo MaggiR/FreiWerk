@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { APP_LOGO_MARK_SRC } from '#shared/branding'
+
 const { loggedIn, user, logout, isModerator } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 const route = useRoute()
@@ -26,11 +28,13 @@ watch(
 </script>
 
 <template>
-  <div class="header-wrap">
+  <div class="header-wrap" :class="{ 'header-wrap--landing': route.path === '/' }">
     <header class="header">
       <div class="header__inner">
         <NuxtLink to="/" class="brand" aria-label="FreiWerk Startseite">
-          <span class="brand__mark"><FontAwesomeIcon icon="scale-balanced" /></span>
+          <span class="brand__mark">
+            <img :src="APP_LOGO_MARK_SRC" alt="" class="brand__logo" width="36" height="36">
+          </span>
           <span class="brand__name">FreiWerk</span>
         </NuxtLink>
 
@@ -179,7 +183,7 @@ watch(
 
 /* Desktop replaces the top header with the global left sidebar. */
 @media (min-width: 768px) {
-  .header-wrap {
+  .header-wrap:not(.header-wrap--landing) {
     display: none;
   }
 }
@@ -222,9 +226,16 @@ watch(
   justify-content: center;
   width: 36px;
   height: 36px;
+  flex: 0 0 36px;
   border-radius: var(--radius-sm);
-  background: var(--brand-yellow);
-  color: var(--brand-blue);
+  overflow: hidden;
+}
+
+.brand__logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .nav {

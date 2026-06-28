@@ -26,6 +26,7 @@ export type MotionTabCountId =
 export function buildMotionSidebarGroups(options: {
   isDraft: boolean
   isBallot: boolean
+  ballotVotingOpen?: boolean
   isDecided: boolean
   activeMainId: string | null
   activePanelId: string | null
@@ -46,7 +47,7 @@ export function buildMotionSidebarGroups(options: {
     icon: MOTION_VIEW_META[id].icon,
     count: options.tabCounts?.[id as MotionTabCountId],
     active: id === options.activeMainId,
-    tone: id === 'ballot' ? 'ballot' : 'main',
+    tone: id === 'ballot' && options.ballotVotingOpen ? 'ballot' : 'main',
   }))
 
   const panelItems: SidebarSection[] = PANEL_TAB_IDS.map((id) => ({

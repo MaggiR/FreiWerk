@@ -44,6 +44,12 @@
   overflow-wrap: break-word;
 }
 
+textarea.motion__title,
+textarea.motion__summary {
+  hyphens: none;
+  -webkit-hyphens: none;
+}
+
 textarea.motion__title {
   resize: none;
   overflow: hidden;
@@ -217,8 +223,15 @@ textarea.motion__summary:focus-visible {
   flex-wrap: wrap;
 }
 
-.motion__meta-primary .relative-time {
-  color: var(--color-text-muted);
+.motion__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.motion__meta-item :deep(.relative-time),
+.motion__meta-item :deep(.relative-time__hint) {
+  color: inherit;
 }
 
 .motion__meta--fields {
@@ -247,22 +260,26 @@ textarea.motion__summary:focus-visible {
   --motion-editing-bar-reserve: 5.5rem;
 }
 
+.motion__box--fab-menu:not(.motion__box--editing) {
+  --motion-fab-reserve: 3.5rem;
+}
+
 .motion__body-area {
   flex: 0 0 auto;
 }
 
+.motion__box--fab-menu:not(.motion__box--editing) .suggestions__lead,
+.motion__box--fab-menu:not(.motion__box--editing) .suggestions__hint {
+  padding-inline-end: calc(3.5rem + var(--space-3));
+}
+
 /* Reserve space for the sticky pinned action bar — only once at the card bottom. */
-.motion__box--editing:not(.motion__box--flow-bar)
-  .motion__body-area:not(:has(+ .motion__body-version-bar)) {
+.motion__box--editing:not(.motion__box--flow-bar) .motion__body-area {
   padding-bottom: var(--motion-editing-bar-reserve);
 }
 
 .motion__box--flow-bar .motion-form__anon-hint--motion {
   margin-bottom: 0;
-}
-
-.motion__box--editing .motion__body-version-bar {
-  padding-bottom: var(--motion-editing-bar-reserve);
 }
 
 .motion__box--editing :deep(.suggestions__editor) {

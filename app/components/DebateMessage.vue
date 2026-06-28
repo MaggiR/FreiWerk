@@ -20,6 +20,8 @@ const props = withDefaults(
     inboundRefs?: { id: string; authorName: string | null; excerpt: string }[]
     showReferences?: boolean
     threadFilterActive?: boolean
+    /** Fullscreen debate: upvote sits above the context menu instead of on hover. */
+    upvoteInContextMenu?: boolean
   }>(),
   {
     parentPreview: null,
@@ -30,6 +32,7 @@ const props = withDefaults(
     inboundRefs: () => [],
     showReferences: true,
     threadFilterActive: false,
+    upvoteInContextMenu: false,
   },
 )
 
@@ -173,8 +176,16 @@ const menuItems = computed<DebateMessageMenuItem[]>(() => {
   return items
 })
 
+const canShowContextUpvote = computed(
+  () => props.upvoteInContextMenu && props.debateOpen && !props.post.deleted,
+)
+
+const canOpenMenu = computed(
+  () => menuItems.value.length > 0 || canShowContextUpvote.value,
+)
+
 function openMenuAt(x: number, y: number) {
-  if (menuItems.value.length === 0) return
+  if (!canOpenMenu.value) return
   menuX.value = x
   menuY.value = y
   openMenu(props.post.id)
@@ -194,7 +205,7 @@ function onBubbleClick(event: MouseEvent) {
   if (!isCoarsePointer.value || props.post.deleted) return
   if (isInteractiveRefTarget(event.target)) return
   if (hasActiveTextSelection()) return
-  if (menuItems.value.length === 0) return
+  if (!canOpenMenu.value) return
   menuSelectionExcerpt.value = bodyEl.value
     ? getSelectionExcerptIn(bodyEl.value)
     : null
@@ -422,6 +433,7 @@ watchEffect((onCleanup) => {
       'msg--own': isOwn,
       'msg--deleted': post.deleted,
       'msg--thread-anchor': threadFilterActive,
+      'msg--context-upvote': upvoteInContextMenu,
     }"
     :data-post-id="post.id"
   >
@@ -565,7 +577,7 @@ watchEffect((onCleanup) => {
             </div>
 
             <div
-              v-if="upvoteCount === 0"
+              v-if="upvoteCount === 0 && !upvoteInContextMenu"
               class="msg__hover-menu"
             >
               <span class="msg__upvote">
@@ -629,9 +641,22 @@ watchEffect((onCleanup) => {
         :x="menuX"
         :y="menuY"
         :items="menuItems"
+        :show-upvote="canShowContextUpvote"
         @close="closeMenu(props.post.id)"
         @select="onMenuSelect"
-      />
+      >
+        <template #upvote>
+          <UpvoteButton
+            target-type="post"
+            :target-id="post.id"
+            :count="upvoteCount"
+            :upvoted="upvotedByMe"
+            size="sm"
+            context-label="Beitrag"
+            @change="onUpvoteChange"
+          />
+        </template>
+      </DebateMessageContextMenu>
     </template>
   </article>
 </template>
@@ -828,6 +853,9 @@ watchEffect((onCleanup) => {
   gap: var(--space-2);
   margin-left: auto;
   flex-shrink: 0;
+}
+.msg--context-upvote .msg__hover-menu {
+  display: none;
 }
 .msg__upvote {
   display: none;

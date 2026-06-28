@@ -22,7 +22,6 @@ import {
 import { handleUndoRedoKeyDown } from '~/editor/undoRedoKeydown'
 import { chatComposerKeyExtension } from '~/editor/chatComposerKeys'
 import { handleEmojiPickerBeforeInput } from '~/editor/emojiPickerInput'
-import { formatSuggestionTimestamp } from '~/utils/chatDates'
 
 const SUGGESTION_MARK_SELECTOR =
   'ins[data-id], del[data-id], [data-type="modification"][data-id]'
@@ -857,7 +856,7 @@ const chatBlockTools = computed<ToolItem[]>(() => {
               <span>{{ reviewPopover.item.authorName }}</span>
             </span>
             <span v-if="reviewPopover.item.createdAt" class="editor__review-time">
-              {{ formatSuggestionTimestamp(reviewPopover.item.createdAt) }}
+              <RelativeTime :value="reviewPopover.item.createdAt" />
             </span>
           </div>
           <p v-if="reviewPopover.item.rationale" class="editor__review-rationale">
@@ -951,12 +950,22 @@ const chatBlockTools = computed<ToolItem[]>(() => {
   min-height: 1.75rem;
   max-height: 12rem;
   resize: none;
+  overflow-x: hidden;
   overflow-y: auto;
   background: transparent;
 }
 
+.editor--chat .editor__content--chat:has(:deep(.is-editor-empty)) {
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
 .editor--chat :deep(.editor-surface) {
   min-height: 1.25rem;
+}
+
+.editor--chat :deep(.editor-surface p.is-editor-empty:first-child::before) {
+  white-space: nowrap;
 }
 
 .editor--chat :deep(.editor-surface p) {

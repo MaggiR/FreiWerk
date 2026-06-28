@@ -152,6 +152,7 @@ onUnmounted(() => {
 <template>
   <div
     class="activity"
+    lang="de"
     :class="{
       'activity--panel': layout === 'panel',
       'activity--endless': layout === 'endless',

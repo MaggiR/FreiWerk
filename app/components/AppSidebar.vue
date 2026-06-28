@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { APP_LOGO_MARK_SRC } from '#shared/branding'
+
 const { loggedIn, user, logout, isModerator } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 const route = useRoute()
@@ -243,47 +245,53 @@ function onSidebarScroll() {
       class="appbar__scroll"
       @scroll="onSidebarScroll"
     >
-      <div class="appbar__head">
-        <NuxtLink to="/" class="appbar__brand" aria-label="FreiWerk Startseite">
-          <span class="appbar__brand-mark"><FontAwesomeIcon icon="scale-balanced" /></span>
-          <span class="appbar__label appbar__brand-name">FreiWerk</span>
-        </NuxtLink>
-      </div>
-
-      <nav class="appnav" aria-label="Bereiche">
-        <div
-          :ref="setMotionsTriggerRef"
-          class="appnav__group"
-          @mouseenter="onMotionsFlyoutEnter"
-          @mouseleave="onMotionsFlyoutLeave"
-        >
-          <NuxtLink
-            to="/motions"
-            class="appnav__item appnav__item--head"
-            :class="{ 'is-active': motionsHeadActive }"
-            :aria-current="motionsAllActive ? 'page' : undefined"
-            aria-label="Anträge durchsuchen"
-            aria-haspopup="true"
-            :aria-expanded="isMotionsFlyoutOpen"
-          >
-            <span class="appnav__icon"><FontAwesomeIcon icon="magnifying-glass" /></span>
-            <span class="appbar__label appnav__label">Anträge durchsuchen</span>
+      <div class="appbar__primary">
+        <div class="appbar__head">
+          <NuxtLink to="/" class="appbar__brand" aria-label="FreiWerk Startseite">
+            <span class="appbar__brand-mark">
+              <img :src="APP_LOGO_MARK_SRC" alt="" class="appbar__brand-logo" width="44" height="44">
+            </span>
+            <span class="appbar__label appbar__brand-name">FreiWerk</span>
           </NuxtLink>
         </div>
 
-        <NuxtLink
-          to="/motions/new"
-          class="appnav__fab-wrap"
-          :class="{ 'is-active': createMotionActive }"
-          :aria-current="createMotionActive ? 'page' : undefined"
-          aria-label="Antrag erstellen"
-        >
-          <span class="appnav__fab">
-            <FontAwesomeIcon icon="plus" />
-          </span>
-          <span class="appbar__label appnav__fab-label">Antrag erstellen</span>
-        </NuxtLink>
-      </nav>
+        <nav class="appnav" aria-label="Bereiche">
+          <div
+            :ref="setMotionsTriggerRef"
+            class="appnav__group"
+            @mouseenter="onMotionsFlyoutEnter"
+            @mouseleave="onMotionsFlyoutLeave"
+          >
+            <NuxtLink
+              to="/motions"
+              class="appnav__item appnav__item--head"
+              :class="{ 'is-active': motionsHeadActive }"
+              :aria-current="motionsAllActive ? 'page' : undefined"
+              aria-label="Anträge durchsuchen"
+              aria-haspopup="true"
+              :aria-expanded="isMotionsFlyoutOpen"
+            >
+              <span class="appnav__icon"><FontAwesomeIcon icon="magnifying-glass" /></span>
+              <span class="appbar__label appnav__label">Anträge durchsuchen</span>
+            </NuxtLink>
+          </div>
+
+          <NuxtLink
+            to="/motions/new"
+            class="appnav__fab-wrap"
+            :class="{ 'is-active': createMotionActive }"
+            :aria-current="createMotionActive ? 'page' : undefined"
+            aria-label="Antrag erstellen"
+          >
+            <span class="appnav__fab-slot">
+              <span class="appnav__fab">
+                <FontAwesomeIcon icon="plus" />
+              </span>
+            </span>
+            <span class="appbar__label appnav__fab-label">Antrag erstellen</span>
+          </NuxtLink>
+        </nav>
+      </div>
 
       <ClientOnly>
         <template v-for="group in groups" :key="group.id">
@@ -326,12 +334,6 @@ function onSidebarScroll() {
         </template>
       </ClientOnly>
     </div>
-
-    <div
-      v-if="footSeparated"
-      class="appbar__divider appbar__foot-divider"
-      aria-hidden="true"
-    />
 
     <div class="appbar__foot">
       <div
@@ -487,8 +489,8 @@ function onSidebarScroll() {
     display: flex;
     flex-direction: column;
     width: var(--rail-collapsed);
-    padding: var(--space-4) var(--space-2);
-    gap: var(--space-2);
+    padding: 0;
+    gap: 0;
     background: transparent;
     border: none;
     border-right: 1px solid transparent;
@@ -508,6 +510,7 @@ function onSidebarScroll() {
     border-right-color: var(--glass-border);
     -webkit-backdrop-filter: blur(var(--glass-blur));
     backdrop-filter: blur(var(--glass-blur));
+    pointer-events: auto;
   }
 }
 
@@ -524,6 +527,17 @@ function onSidebarScroll() {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-2) 0;
+  box-sizing: border-box;
+}
+
+.appbar__primary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
   width: 100%;
   min-width: 0;
 }
@@ -558,26 +572,24 @@ function onSidebarScroll() {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: 0;
   width: 100%;
   min-width: 0;
   flex-shrink: 0;
-  padding-top: var(--space-1);
-}
-
-.appbar__foot-divider {
-  flex-shrink: 0;
-  pointer-events: none;
-  margin: var(--space-1) var(--space-1) 0;
+  padding: 0 var(--space-2) var(--space-4);
+  box-sizing: border-box;
 }
 
 @media (min-width: 768px) {
   .appbar--expanded .appbar__scroll,
   .appbar--expanded .appbar__foot,
+  .appbar--expanded .appbar__primary,
   .appbar--flyout-open .appbar__scroll,
   .appbar--flyout-open .appbar__foot,
+  .appbar--flyout-open .appbar__primary,
   .appbar:hover .appbar__scroll,
-  .appbar:hover .appbar__foot {
+  .appbar:hover .appbar__foot,
+  .appbar:hover .appbar__primary {
     align-items: stretch;
     min-width: calc(var(--rail-expanded) - 2 * var(--space-2));
   }
@@ -587,8 +599,8 @@ function onSidebarScroll() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-1);
   align-self: flex-start;
+  width: 100%;
   max-width: 100%;
 }
 
@@ -605,7 +617,8 @@ function onSidebarScroll() {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   padding: var(--space-1);
   text-decoration: none;
@@ -623,9 +636,14 @@ function onSidebarScroll() {
   width: var(--rail-icon-size);
   height: var(--rail-icon-size);
   border-radius: var(--radius-sm);
-  background: var(--brand-yellow);
-  color: var(--brand-blue);
-  font-size: 1.35rem;
+  overflow: hidden;
+}
+
+.appbar__brand-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .appbar__toggle {
@@ -650,7 +668,7 @@ function onSidebarScroll() {
 @media (min-width: 768px) {
   .appbar__toggle {
     position: absolute;
-    top: var(--space-4);
+    top: var(--space-3);
     right: var(--space-2);
     z-index: 2;
   }
@@ -749,8 +767,11 @@ function onSidebarScroll() {
 
 @media (min-width: 768px) {
   .appbar--expanded .appnav__item,
+  .appbar--expanded .appnav__fab-wrap,
   .appbar--flyout-open .appnav__item,
-  .appbar:hover .appnav__item {
+  .appbar--flyout-open .appnav__fab-wrap,
+  .appbar:hover .appnav__item,
+  .appbar:hover .appnav__fab-wrap {
     width: 100%;
     align-self: stretch;
     padding: var(--space-1) var(--space-3);
@@ -760,6 +781,12 @@ function onSidebarScroll() {
 .appnav__item:hover:not(.is-active) {
   color: var(--color-accent);
   transform: scale(1.04);
+  text-decoration: none;
+}
+
+.appnav__item.is-active:hover,
+.appnav__fab-wrap:hover {
+  text-decoration: none;
 }
 
 /* Collapsed: active tint sits on the icon circle only. */
@@ -930,6 +957,15 @@ function onSidebarScroll() {
   filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--color-bg) 80%, transparent));
 }
 
+.appnav__fab-slot {
+  flex: 0 0 var(--rail-icon-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--rail-icon-size);
+  height: var(--rail-icon-size);
+}
+
 .appnav__fab {
   display: inline-flex;
   align-items: center;
@@ -937,12 +973,11 @@ function onSidebarScroll() {
   flex: 0 0 var(--rail-fab-size);
   width: var(--rail-fab-size);
   height: var(--rail-fab-size);
-  margin-left: calc((var(--rail-icon-size) - var(--rail-fab-size)) / 2);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--brand-yellow);
   color: var(--brand-blue);
-  font-size: 1.45rem;
+  font-size: 1.16rem;
   transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.2s ease;
   box-shadow:
     0 2px 8px color-mix(in srgb, var(--brand-yellow) 45%, transparent),
@@ -1107,6 +1142,11 @@ function onSidebarScroll() {
   .appbar-flyout__item:hover:not(.is-active) {
     background: color-mix(in srgb, var(--color-text) 8%, transparent);
     color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .appbar-flyout__item.is-active:hover {
+    text-decoration: none;
   }
 
   .appbar-flyout__item.is-active {

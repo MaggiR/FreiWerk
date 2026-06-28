@@ -8,6 +8,7 @@ import {
   formatRelativeTime,
   formatSuggestionTimestamp,
   htmlPreview,
+  splitRelativeTimeDisplay,
 } from '../../app/utils/chatDates'
 
 describe('chatDayKey', () => {
@@ -103,6 +104,26 @@ describe('formatRelativeTime', () => {
     const label = formatRelativeTime(new Date(2026, 2, 15, 8, 0), now)
     expect(label).toMatch(/Mon/)
     expect(label).not.toMatch(/15\.03\.2026/)
+  })
+})
+
+describe('splitRelativeTimeDisplay', () => {
+  const now = new Date(2026, 5, 19, 15, 0)
+
+  it('splits optional prefix from the hoverable relative label', () => {
+    const value = new Date(2026, 5, 9, 12, 0)
+    const parts = splitRelativeTimeDisplay(value, now, 'Veröffentlicht')
+
+    expect(parts.prefix).toBe('Veröffentlicht')
+    expect(parts.relative).toMatch(/10/)
+    expect(parts.exact).toMatch(/^Dienstag/)
+    expect(parts.datetime).toBe(value.toISOString())
+  })
+
+  it('omits prefix when not provided', () => {
+    const parts = splitRelativeTimeDisplay(new Date(2026, 5, 19, 14, 30), now)
+    expect(parts.prefix).toBeNull()
+    expect(parts.relative).toMatch(/30/)
   })
 })
 

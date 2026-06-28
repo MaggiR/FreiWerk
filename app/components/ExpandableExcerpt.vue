@@ -52,7 +52,7 @@ watchEffect((onCleanup) => {
 </script>
 
 <template>
-  <span class="expandable-excerpt" :class="{ 'expandable-excerpt--block': block }">
+  <span class="expandable-excerpt" lang="de" :class="{ 'expandable-excerpt--block': block }">
     <span
       ref="textRef"
       class="expandable-excerpt__text"
@@ -83,8 +83,10 @@ watchEffect((onCleanup) => {
 }
 .expandable-excerpt__text {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 .expandable-excerpt__text--collapsed {
   display: -webkit-box;

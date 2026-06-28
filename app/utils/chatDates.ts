@@ -132,6 +132,27 @@ export function formatRelativeTime(value: string | Date, now = new Date()): stri
   return RELATIVE_TIME.format(sign * absYears, 'year')
 }
 
+/** Split label for `<RelativeTime>`: optional static prefix + hoverable relative part. */
+export function splitRelativeTimeDisplay(
+  value: string | Date,
+  now = new Date(),
+  prefix?: string,
+): {
+  prefix: string | null
+  relative: string
+  exact: string
+  datetime: string
+} {
+  const relative = formatRelativeTime(value, now)
+  const trimmedPrefix = prefix?.trim() || null
+  return {
+    prefix: trimmedPrefix,
+    relative,
+    exact: formatExactDateTime(value),
+    datetime: toIsoTimestamp(value),
+  }
+}
+
 /** Exact weekday + calendar date + clock time for timestamp tooltips. */
 export function formatExactDateTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value

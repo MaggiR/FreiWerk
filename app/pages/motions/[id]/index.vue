@@ -32,18 +32,26 @@ if (error.value) {
 }
 
 const motion = computed(() => data.value?.motion)
+const isDraft = computed(() => motion.value?.status === 'draft')
 const watchCount = computed(() => data.value?.watchCount ?? 0)
 const isWatched = computed(() => data.value?.isWatched ?? false)
 const versionCount = computed(() => data.value?.versionCount ?? 0)
 const argumentCount = ref(0)
-const questionCount = ref(0)
 const resourceCount = ref(0)
+
+const { data: questionsData } = await useFetch(
+  () => (isDraft.value ? null : `/api/motions/${id}/questions`),
+  { key: `questions-${id}` },
+)
+
+const questionCount = computed(
+  () => questionsData.value?.questions?.length ?? data.value?.questionCount ?? 0,
+)
 const versionUpdatedAt = computed(
   () => data.value?.versionUpdatedAt ?? motion.value?.updatedAt ?? null,
 )
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
-const isDraft = computed(() => motion.value?.status === 'draft')
 
 const { data: moodData } = await useFetch(
   () => (isDraft.value ? null : `/api/motions/${id}/mood`),
@@ -55,6 +63,12 @@ const moodVoteCount = computed(
 )
 const isDebate = computed(() => motion.value?.status === 'debate')
 const isBallot = computed(() => motion.value?.status === 'ballot')
+const ballotVotingOpen = computed(() => {
+  const m = motion.value
+  if (!m || m.status !== 'ballot') return false
+  if (!m.ballotEndsAt) return true
+  return new Date(m.ballotEndsAt).getTime() > Date.now()
+})
 const isDecided = computed(() => motion.value?.status === 'decided')
 const isArchived = computed(() => Boolean(motion.value?.archivedAt))
 const canArchive = computed(() => isAuthor.value || isModerator.value)
@@ -65,7 +79,6 @@ watch(
   (payload) => {
     if (!payload || payload.motion.status === 'draft') return
     argumentCount.value = payload.argumentCount ?? 0
-    questionCount.value = payload.questionCount ?? 0
     resourceCount.value = payload.resourceCount ?? 0
   },
   { immediate: true },
@@ -249,6 +262,7 @@ const sidebarGroups = computed<SidebarGroup[]>(() =>
   buildMotionSidebarGroups({
     isDraft: isDraft.value,
     isBallot: isBallot.value,
+    ballotVotingOpen: ballotVotingOpen.value,
     isDecided: isDecided.value,
     activeMainId: railActiveMainId.value,
     activePanelId: railActivePanelId.value,
@@ -1020,7 +1034,10 @@ function onBarAction(id: string) {
   <article
     v-if="motion"
     class="motion"
-    :class="{ 'motion--wide': !isDraft }"
+    :class="{
+      'motion--wide': !isDraft,
+      'motion--debate-active': isDebateViewActive,
+    }"
   >
     <header class="motion__head">
       <div class="motion__topbar">
@@ -1069,18 +1086,19 @@ function onBarAction(id: string) {
           <span v-else class="motion__author-link">
             <FontAwesomeIcon icon="user" /> Anonym
           </span>
-          <RelativeTime
-            v-if="motion.publishedAt"
+        </span>
+        <span v-if="motion.publishedAt" class="motion__meta-item">
+          <FontAwesomeIcon icon="clock" aria-hidden="true" />
+          Veröffentlicht <RelativeTime
             :value="motion.publishedAt"
-            prefix="Veröffentlicht"
           />
         </span>
-        <span v-if="motion.status === 'debate' && motion.debateEndsAt">
-          <FontAwesomeIcon icon="comments" />
+        <span v-if="motion.status === 'debate' && motion.debateEndsAt" class="motion__meta-item">
+          <FontAwesomeIcon icon="comments" aria-hidden="true" />
           Beratung {{ timeRemaining(motion.debateEndsAt) }}
         </span>
-        <span v-else-if="isBallot && motion.ballotEndsAt">
-          <FontAwesomeIcon icon="check-to-slot" />
+        <span v-else-if="isBallot && motion.ballotEndsAt" class="motion__meta-item">
+          <FontAwesomeIcon icon="check-to-slot" aria-hidden="true" />
           Abstimmung {{ timeRemaining(motion.ballotEndsAt) }}
         </span>
       </div>
@@ -1118,7 +1136,7 @@ function onBarAction(id: string) {
           class="motion__tab"
           :class="{
             'is-active': isTabActive(tab.id),
-            'motion__tab--ballot': tab.id === 'ballot',
+            'motion__tab--ballot': tab.id === 'ballot' && ballotVotingOpen,
           }"
           @click="onTabClick(tab.id)"
         >
@@ -1169,13 +1187,15 @@ function onBarAction(id: string) {
               'motion__box--fab-menu': hasFabMenu,
             }"
           >
-            <Transition name="swap">
-              <div v-if="!isSuggestionEditing" class="motion__body-area">
-                <div class="motion__body-content" :data-motion-body="motion.id">
-                  <RichText :html="motion.bodyHtml" />
+            <div class="motion__box-main">
+              <Transition name="swap">
+                <div v-if="!isSuggestionEditing" class="motion__body-area">
+                  <div class="motion__body-content" :data-motion-body="motion.id">
+                    <RichText :html="motion.bodyHtml" />
+                  </div>
                 </div>
-              </div>
-            </Transition>
+              </Transition>
+            </div>
             <div
               v-if="versionUpdatedAt && !isSuggestionEditing"
               class="motion__body-version-bar"
@@ -1220,50 +1240,52 @@ function onBarAction(id: string) {
                 'motion__box--fab-menu': hasFabMenu,
               }"
             >
-              <Transition name="swap">
-                <div v-if="!isSuggestionEditing" class="motion__body-area">
-                <MotionExcerptReferenceMenu
-                  :motion-id="motion.id"
-                  :motion-version="motion.currentVersion"
-                  :enabled="excerptReferenceEnabled"
-                >
-                  <div class="motion__body-content" :data-motion-body="motion.id">
-                    <div class="motion__body-swap">
-                      <div
-                        class="motion__body-layer"
-                        :class="{ 'is-visible': !showSuggestionDiff }"
-                        :aria-hidden="showSuggestionDiff"
-                      >
-                        <RichText :html="motion.bodyHtml" />
+              <div class="motion__box-main">
+                <Transition name="swap">
+                  <div v-if="!isSuggestionEditing" class="motion__body-area">
+                  <MotionExcerptReferenceMenu
+                    :motion-id="motion.id"
+                    :motion-version="motion.currentVersion"
+                    :enabled="excerptReferenceEnabled"
+                  >
+                    <div class="motion__body-content" :data-motion-body="motion.id">
+                      <div class="motion__body-swap">
+                        <div
+                          class="motion__body-layer"
+                          :class="{ 'is-visible': !showSuggestionDiff }"
+                          :aria-hidden="showSuggestionDiff"
+                        >
+                          <RichText :html="motion.bodyHtml" />
+                        </div>
+                        <div
+                          v-if="isDebate && suggestionCount > 0"
+                          :id="`motion-body-diff-${motion.id}`"
+                          class="motion__body-layer"
+                          :class="{ 'is-visible': showSuggestionDiff }"
+                          :aria-hidden="!showSuggestionDiff"
+                        />
                       </div>
-                      <div
-                        v-if="isDebate && suggestionCount > 0"
-                        :id="`motion-body-diff-${motion.id}`"
-                        class="motion__body-layer"
-                        :class="{ 'is-visible': showSuggestionDiff }"
-                        :aria-hidden="!showSuggestionDiff"
-                      />
                     </div>
+                  </MotionExcerptReferenceMenu>
                   </div>
-                </MotionExcerptReferenceMenu>
-                </div>
-              </Transition>
-              <MotionSuggestions
-                ref="suggestionsRef"
-                v-model:show-diff="showSuggestionDiff"
-                v-model:mode="suggestionMode"
-                v-model:busy="suggestionBusy"
-                v-model:count="suggestionCount"
-                v-model:review-pending-count="reviewPendingCount"
-                :motion-id="motion.id"
-                :motion-body-html="motion.bodyHtml"
-                :propose-signal="proposeSignal"
-                :edit-signal="editSignal"
-                :title-draft="isAuthorEditing ? editTitle : undefined"
-                :summary-draft="isAuthorEditing ? editSummary : undefined"
-                :header-baseline="headerBaseline"
-                @saved="refreshNuxtData(motionDataKey)"
-              />
+                </Transition>
+                <MotionSuggestions
+                  ref="suggestionsRef"
+                  v-model:show-diff="showSuggestionDiff"
+                  v-model:mode="suggestionMode"
+                  v-model:busy="suggestionBusy"
+                  v-model:count="suggestionCount"
+                  v-model:review-pending-count="reviewPendingCount"
+                  :motion-id="motion.id"
+                  :motion-body-html="motion.bodyHtml"
+                  :propose-signal="proposeSignal"
+                  :edit-signal="editSignal"
+                  :title-draft="isAuthorEditing ? editTitle : undefined"
+                  :summary-draft="isAuthorEditing ? editSummary : undefined"
+                  :header-baseline="headerBaseline"
+                  @saved="refreshNuxtData(motionDataKey)"
+                />
+              </div>
               <div
                 v-if="versionUpdatedAt && !isSuggestionEditing"
                 class="motion__body-version-bar"
@@ -1292,7 +1314,7 @@ function onBarAction(id: string) {
             />
           </div>
           <div v-else-if="mobileActiveView === 'versions'" class="motion__tabpanel">
-            <MotionViewHeading view="versions" :count="mainTabCount('versions')" />
+            <MotionViewHeading view="versions" />
             <MotionVersions :motion-id="motion.id" />
           </div>
           <MotionTabView
@@ -1300,10 +1322,10 @@ function onBarAction(id: string) {
             v-model:debate-post-count="debatePostCount"
             v-model:debate-post-sort="debatePostSort"
             v-model:argument-item-count="argumentCount"
-            v-model:question-item-count="questionCount"
             v-model:resource-item-count="resourceCount"
             :view="mobileActiveView as MotionTabViewId"
             :motion-id="motion.id"
+            :motion-title="motion.title"
             :motion-version="motion.currentVersion"
             :debate-open="debateOpen"
             :can-moderate="isModerator"
@@ -1337,51 +1359,53 @@ function onBarAction(id: string) {
               'motion__box--fab-menu': hasFabMenu,
             }"
           >
-            <Transition name="swap">
-              <div v-if="!isSuggestionEditing" class="motion__body-area">
-                <MotionExcerptReferenceMenu
-                  :motion-id="motion.id"
-                  :motion-version="motion.currentVersion"
-                  :enabled="excerptReferenceEnabled"
-                >
-                  <div class="motion__body-content" :data-motion-body="motion.id">
-                    <div class="motion__body-swap">
-                      <div
-                        class="motion__body-layer"
-                        :class="{ 'is-visible': !showSuggestionDiff }"
-                        :aria-hidden="showSuggestionDiff"
-                      >
-                        <RichText :html="motion.bodyHtml" />
+            <div class="motion__box-main">
+              <Transition name="swap">
+                <div v-if="!isSuggestionEditing" class="motion__body-area">
+                  <MotionExcerptReferenceMenu
+                    :motion-id="motion.id"
+                    :motion-version="motion.currentVersion"
+                    :enabled="excerptReferenceEnabled"
+                  >
+                    <div class="motion__body-content" :data-motion-body="motion.id">
+                      <div class="motion__body-swap">
+                        <div
+                          class="motion__body-layer"
+                          :class="{ 'is-visible': !showSuggestionDiff }"
+                          :aria-hidden="showSuggestionDiff"
+                        >
+                          <RichText :html="motion.bodyHtml" />
+                        </div>
+                        <div
+                          v-if="isDebate && suggestionCount > 0"
+                          :id="`motion-body-diff-${motion.id}`"
+                          class="motion__body-layer"
+                          :class="{ 'is-visible': showSuggestionDiff }"
+                          :aria-hidden="!showSuggestionDiff"
+                        />
                       </div>
-                      <div
-                        v-if="isDebate && suggestionCount > 0"
-                        :id="`motion-body-diff-${motion.id}`"
-                        class="motion__body-layer"
-                        :class="{ 'is-visible': showSuggestionDiff }"
-                        :aria-hidden="!showSuggestionDiff"
-                      />
                     </div>
-                  </div>
-                </MotionExcerptReferenceMenu>
-              </div>
-            </Transition>
+                  </MotionExcerptReferenceMenu>
+                </div>
+              </Transition>
 
-            <MotionSuggestions
-              ref="suggestionsRef"
-              v-model:show-diff="showSuggestionDiff"
-              v-model:mode="suggestionMode"
-              v-model:busy="suggestionBusy"
-              v-model:count="suggestionCount"
-              v-model:review-pending-count="reviewPendingCount"
-              :motion-id="motion.id"
-              :motion-body-html="motion.bodyHtml"
-              :propose-signal="proposeSignal"
-              :edit-signal="editSignal"
-              :title-draft="isAuthorEditing ? editTitle : undefined"
-              :summary-draft="isAuthorEditing ? editSummary : undefined"
-              :header-baseline="headerBaseline"
-              @saved="refreshNuxtData(motionDataKey)"
-            />
+              <MotionSuggestions
+                ref="suggestionsRef"
+                v-model:show-diff="showSuggestionDiff"
+                v-model:mode="suggestionMode"
+                v-model:busy="suggestionBusy"
+                v-model:count="suggestionCount"
+                v-model:review-pending-count="reviewPendingCount"
+                :motion-id="motion.id"
+                :motion-body-html="motion.bodyHtml"
+                :propose-signal="proposeSignal"
+                :edit-signal="editSignal"
+                :title-draft="isAuthorEditing ? editTitle : undefined"
+                :summary-draft="isAuthorEditing ? editSummary : undefined"
+                :header-baseline="headerBaseline"
+                @saved="refreshNuxtData(motionDataKey)"
+              />
+            </div>
 
             <div
               v-if="versionUpdatedAt && !isSuggestionEditing"
@@ -1404,42 +1428,31 @@ function onBarAction(id: string) {
           </FwCard>
         </div>
 
-        <div
-          v-show="visibleMainTab === 'ballot'"
-          class="motion__tabpanel motion__tabpanel--ballot"
-        >
-          <MotionViewHeading view="ballot" />
-          <MotionBallot
-            :motion-id="motion.id"
-            :can-manage="canManageBallot"
-            @changed="refreshNuxtData(motionDataKey)"
-          />
-        </div>
-
-        <div
-          v-show="visibleMainTab === 'versions'"
-          class="motion__tabpanel"
-        >
-          <MotionViewHeading view="versions" :count="mainTabCount('versions')" />
-          <MotionVersions :motion-id="motion.id" />
-        </div>
-
         <Transition name="tab-panel">
           <div
-            v-if="
-              visibleMainTab !== 'antrag'
-                && visibleMainTab !== 'ballot'
-                && visibleMainTab !== 'versions'
-            "
+            v-if="visibleMainTab !== 'antrag'"
             :key="visibleMainTab"
             class="motion__tabpanel"
+            :class="{ 'motion__tabpanel--ballot': visibleMainTab === 'ballot' }"
           >
+            <template v-if="visibleMainTab === 'ballot'">
+              <MotionViewHeading view="ballot" />
+              <MotionBallot
+                :motion-id="motion.id"
+                :can-manage="canManageBallot"
+                @changed="refreshNuxtData(motionDataKey)"
+              />
+            </template>
+            <template v-else-if="visibleMainTab === 'versions'">
+              <MotionViewHeading view="versions" />
+              <MotionVersions :motion-id="motion.id" />
+            </template>
             <MotionTabView
+              v-else
               :view="visibleMainTab as MotionTabViewId"
               v-model:debate-post-count="debatePostCount"
               v-model:debate-post-sort="debatePostSort"
               v-model:argument-item-count="argumentCount"
-              v-model:question-item-count="questionCount"
               v-model:resource-item-count="resourceCount"
               :motion-id="motion.id"
               :motion-version="motion.currentVersion"
@@ -1475,7 +1488,6 @@ function onBarAction(id: string) {
               v-model:debate-post-count="debatePostCount"
               v-model:debate-post-sort="debatePostSort"
               v-model:argument-item-count="argumentCount"
-              v-model:question-item-count="questionCount"
               v-model:resource-item-count="resourceCount"
               :motion-id="motion.id"
               :motion-version="motion.currentVersion"
@@ -1515,6 +1527,55 @@ function onBarAction(id: string) {
 }
 .motion--wide {
   max-width: 1320px;
+}
+.motion--debate-active.motion--wide:has(.motion__split--stacked) {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--header-total-height) - var(--space-6) - var(--space-8));
+}
+@media (min-width: 768px) {
+  .motion--debate-active.motion--wide:has(.motion__split--stacked) {
+    min-height: calc(100dvh - var(--space-6) - var(--space-8));
+  }
+}
+.motion--debate-active .motion__split--stacked {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.motion--debate-active .motion__split--stacked .motion__pane--right {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+.motion--debate-active .motion__animated-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.motion--debate-active .motion__animated-view :deep(.tab-view--debate-dock) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+.motion--debate-active .motion__split:not(.motion__split--stacked) .motion__pane--right {
+  position: sticky;
+  top: 0;
+  height: calc(100dvh - var(--space-6) - var(--space-8));
+  max-height: calc(100dvh - var(--space-6) - var(--space-8));
+  align-self: flex-start;
+  transition:
+    flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.28s ease,
+    min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s ease,
+    height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .motion__head {
   margin-bottom: var(--space-4);
@@ -1716,10 +1777,8 @@ function onBarAction(id: string) {
 }
 .motion__pane--right {
   width: 100%;
-  height: min(32rem, 70vh);
 }
 .motion__split--stacked .motion__pane--right {
-  height: auto;
   min-height: min(32rem, 70vh);
 }
 .motion__tabpanel {
@@ -1727,29 +1786,33 @@ function onBarAction(id: string) {
 }
 .motion__animated-view {
   min-width: 0;
+}
+.motion:not(.motion--debate-active) .motion__animated-view {
   min-height: min(32rem, 70vh);
 }
-@media (max-width: 767px) {
-  .motion__animated-view--debate-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 120;
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
-    height: 100dvh;
-    padding:
-      env(safe-area-inset-top)
-      env(safe-area-inset-right)
-      env(safe-area-inset-bottom)
-      env(safe-area-inset-left);
-    background: var(--color-bg);
-  }
-  .motion__animated-view--debate-fullscreen :deep(.tab-view) {
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-  }
+.motion__animated-view--debate-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  height: 100dvh;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
+  background: var(--color-bg);
+}
+.motion__animated-view--debate-fullscreen :deep(.tab-view) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+.motion__animated-view--debate-fullscreen :deep(.chat) {
+  border: none;
+  border-radius: 0;
 }
 .motion__tabpanel--persistent {
   animation: tab-panel-in 0.28s ease;
@@ -1774,8 +1837,11 @@ function onBarAction(id: string) {
 .motion__split:not(.motion__split--stacked) .motion__pane--right {
   transition:
     flex 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.24s ease,
-    min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.28s ease,
+    min-width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.28s ease;
+  transform: translateY(0);
 }
 .motion__split:not(.motion__split--stacked) .motion__pane--left {
   overflow-x: clip;
@@ -1795,6 +1861,7 @@ function onBarAction(id: string) {
   min-width: 0 !important;
   overflow: hidden;
   opacity: 0;
+  transform: translateY(0.45rem);
   pointer-events: none;
 }
 .motion__split:not(.motion__split--stacked).is-main-hidden:not(.is-panel-hidden) .motion__pane--right {
@@ -1824,9 +1891,13 @@ function onBarAction(id: string) {
 .motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view__head) {
   margin-top: 0;
   margin-bottom: var(--space-4);
+  flex-direction: row;
+  align-items: center;
 }
 .motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view__head .motion-view-heading) {
   margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.25;
 }
 .motion__split:not(.motion__split--stacked) .motion__pane--right :deep(.tab-view) {
   flex: 1;
@@ -2128,18 +2199,17 @@ textarea.motion__summary:focus-visible {
   margin-bottom: var(--space-4);
 }
 .motion__meta span,
+.motion__meta-item,
 .motion__author-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.motion__meta-primary .relative-time {
-  display: inline;
-}
 .motion__author-link {
   color: var(--color-text-muted);
   text-decoration: none;
+  font-weight: 600;
 }
 .motion__author-link:hover {
   color: var(--color-accent);
@@ -2149,24 +2219,22 @@ textarea.motion__summary:focus-visible {
   flex-direction: column;
 }
 
-.motion__split:not(.motion__split--stacked) .motion__tabpanel--persistent {
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - var(--header-total-height) - var(--space-8));
-}
-
 .motion__body-version-bar {
   padding-top: var(--space-1);
   align-self: stretch;
 }
 
+/*
+ * At the card bottom the version row also serves as the FAB's resting slot:
+ * it is at least as tall as the FAB and reserves room on the right, so the
+ * sticky FAB rests beside the version text without covering the last motion line.
+ */
 .motion__box--fab-menu:not(.motion__box--editing) .motion__body-version-bar {
-  padding-inline-end: calc(3.5rem + var(--space-4));
-}
-
-.motion__box--fab-menu:not(.motion__box--editing) :deep(.suggestions__lead),
-.motion__box--fab-menu:not(.motion__box--editing) :deep(.suggestions__hint) {
-  padding-inline-end: calc(3.5rem + var(--space-3));
+  display: flex;
+  align-items: center;
+  min-height: var(--motion-fab-reserve);
+  padding-top: var(--space-3);
+  padding-inline-end: calc(var(--motion-fab-reserve) + var(--space-3));
 }
 
 .motion__box--editing :deep(.suggestions__lead),
@@ -2287,18 +2355,24 @@ textarea.motion__summary:focus-visible {
   }
 }
 
-/* Tab panel cross-fade */
+/* Tab panel cross-fade (matches tab-panel-in: fade + slight rise) */
 .tab-panel-enter-active {
-  transition: opacity 0.24s ease;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease;
 }
 .tab-panel-leave-active {
-  transition: opacity 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 .tab-panel-enter-from {
   opacity: 0;
+  transform: translateY(0.45rem);
 }
 .tab-panel-leave-to {
   opacity: 0;
+  transform: translateY(0.45rem);
 }
 @media (max-width: 767px) {
   .tab-panel-enter-from,

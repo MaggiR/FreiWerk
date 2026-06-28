@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { parseAppMode } from './shared/appMode'
+import { APP_FAVICON_SRC } from './shared/branding'
 
 const appMode = parseAppMode(process.env.NUXT_PUBLIC_APP_MODE)
 
@@ -104,6 +105,10 @@ export default defineNuxtConfig({
           content:
             'FreiWerk — digitale Beteiligungsplattform für politische Initiativen.',
         },
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', href: APP_FAVICON_SRC },
+        { rel: 'apple-touch-icon', href: APP_FAVICON_SRC },
       ],
     },
   },

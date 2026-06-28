@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatExactDateTime, formatRelativeTime, toIsoTimestamp } from '~/utils/chatDates'
+import { splitRelativeTimeDisplay } from '~/utils/chatDates'
 
 const props = defineProps<{
   value: string | Date
@@ -21,30 +21,37 @@ onUnmounted(() => {
   if (tickTimer) clearInterval(tickTimer)
 })
 
-const label = computed(() => {
-  const relative = formatRelativeTime(props.value, now.value)
-  const trimmedPrefix = props.prefix?.trim()
-  if (!trimmedPrefix) return relative
-  if (relative === 'gerade eben') return `${trimmedPrefix} gerade eben`
-  return `${trimmedPrefix} ${relative}`
-})
-const exact = computed(() => formatExactDateTime(props.value))
-const datetime = computed(() => toIsoTimestamp(props.value))
+const display = computed(() =>
+  splitRelativeTimeDisplay(props.value, now.value, props.prefix),
+)
 </script>
 
 <template>
+  <span v-if="display.prefix" class="relative-time">
+    <span class="relative-time__prefix">{{ display.prefix }}</span>
+    <time
+      class="relative-time__hint"
+      :datetime="display.datetime"
+      :title="display.exact"
+    >
+      {{ display.relative }}
+    </time>
+  </span>
   <time
-    class="relative-time"
-    :datetime="datetime"
-    :title="exact"
+    v-else
+    class="relative-time relative-time__hint"
+    :datetime="display.datetime"
+    :title="display.exact"
   >
-    {{ label }}
+    {{ display.relative }}
   </time>
 </template>
 
 <style scoped>
 .relative-time {
-  cursor: help;
-  text-decoration: none;
+  display: inline;
+}
+.relative-time__hint:hover {
+  color: var(--color-accent);
 }
 </style>

@@ -121,10 +121,43 @@ select:focus {
 }
 
 /* Hyphenation is for read-only display only, not while typing in the editor. */
-.rich-text[contenteditable='true'],
-.editor-surface[contenteditable='true'] {
+:is(textarea, input, select, [contenteditable='true']) {
   hyphens: none;
   -webkit-hyphens: none;
+}
+
+.editor-surface:not([contenteditable='true']) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* Plain-text and card prose without .rich-text wrapper. */
+:is(
+  .motion-card__title,
+  .motion-card__context,
+  .motion-card__summary,
+  .motion__title:not(textarea),
+  .motion__summary:not(textarea),
+  .q__title,
+  .q__body,
+  .answer__body,
+  .res__title,
+  .res__desc,
+  .arg,
+  .arg__title,
+  .arg__body,
+  .msg__bubble,
+  .versions__summary,
+  .activity__text,
+  .expandable-excerpt__text,
+  .suggestions__lead,
+  .suggestions__hint,
+  .link-preview__description
+) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
 }
 .rich-text h1,
 .rich-text h2,

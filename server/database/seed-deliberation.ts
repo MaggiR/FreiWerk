@@ -132,7 +132,7 @@ const SUGGESTIONS_BY_TITLE: Record<string, SuggestionSeed[]> = {
       daysAgo: 2,
     },
   ],
-  'Digitalpakt verstetigen': [
+  'Digitalpakt Schule verstetigen: dauerhafte Mittel für Netze, Geräte und Lehrkräfte-Fortbildung': [
     {
       id: 1,
       authorEmail: 'lisa.koch@freiwerk.local',
@@ -167,7 +167,7 @@ const SUGGESTIONS_BY_TITLE: Record<string, SuggestionSeed[]> = {
       daysAgo: 1,
     },
   ],
-  'Mehr Zuverdienst beim Bürgergeld': [
+  'Bürgergeld-Zuverdienst': [
     {
       id: 1,
       authorEmail: 'sarah.mueller@freiwerk.local',
@@ -237,14 +237,14 @@ const SUGGESTIONS_BY_TITLE: Record<string, SuggestionSeed[]> = {
     },
     {
       id: 2,
-      authorEmail: 'mark.rothermel@freiwerk.local',
+      authorEmail: 'niklas.brandt@freiwerk.local',
       type: 'insertion',
       anchor: 'klare ',
       text: 'schriftlich fixierte ',
       daysAgo: 1,
     },
   ],
-  'Fairer Freihandel mit Nachhaltigkeit': [
+  'Freihandel mit Nachhaltigkeit': [
     {
       id: 1,
       authorEmail: 'lisa.koch@freiwerk.local',
@@ -261,10 +261,10 @@ const SUGGESTIONS_BY_TITLE: Record<string, SuggestionSeed[]> = {
       daysAgo: 1,
     },
   ],
-  'Prävention digital ausbauen': [
+  'Prävention ausbauen': [
     {
       id: 1,
-      authorEmail: 'mark.rothermel@freiwerk.local',
+      authorEmail: 'niklas.brandt@freiwerk.local',
       type: 'insertion',
       anchor: 'bundesweites ',
       text: 'zusätzliches ',
@@ -324,7 +324,7 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
       daysAgo: 1,
     },
     {
-      authorEmail: 'mark.rothermel@freiwerk.local',
+      authorEmail: 'niklas.brandt@freiwerk.local',
       stance: 'pro',
       title: 'Bürgerfreundliche Wallet-Oberflächen',
       bodyHtml: '<p>Die Nutzung muss ohne technisches Vorwissen möglich sein.</p>',
@@ -382,7 +382,7 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
   ],
   resources: [
     {
-      authorEmail: 'mark.rothermel@freiwerk.local',
+      authorEmail: 'niklas.brandt@freiwerk.local',
       title: 'Ein PDF',
       description: 'Eindeutig eine Datei',
       kind: 'file',
@@ -391,7 +391,7 @@ const EU_DIGITAL_IDENTITY: MotionDeliberationPack = {
       daysAgo: 1,
     },
     {
-      authorEmail: 'mark.rothermel@freiwerk.local',
+      authorEmail: 'niklas.brandt@freiwerk.local',
       title: 'Beschluss des Bundesverfassungsgerichts',
       kind: 'link',
       url: 'https://www.bundesverfassungsgericht.de/',
@@ -528,7 +528,7 @@ function defaultPack(title: string, demand: string, theme: string): MotionDelibe
         daysAgo: 2,
       },
       {
-        authorEmail: 'mark.rothermel@freiwerk.local',
+        authorEmail: 'niklas.brandt@freiwerk.local',
         title: 'Studie zur Umsetzbarkeit',
         kind: 'file',
         url: '/uploads/seed-feasibility-study.pdf',
@@ -541,7 +541,7 @@ function defaultPack(title: string, demand: string, theme: string): MotionDelibe
 
 const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
   'Europäische Digitale Identität': EU_DIGITAL_IDENTITY,
-  'Windenergie-Abstände modernisieren': {
+  'Windabstände reformieren': {
     suggestions: [
       {
         id: 1,
@@ -680,7 +680,7 @@ const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
       },
     ],
   },
-  'Wasserstoffkernnetz ausbauen': {
+  'H2-Kernnetz': {
     suggestions: [],
     arguments: [
       {
@@ -703,7 +703,7 @@ const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
     ],
     questions: [
       {
-        authorEmail: 'mark.rothermel@freiwerk.local',
+        authorEmail: 'niklas.brandt@freiwerk.local',
         title: 'Finanzierung geklärt?',
         bodyHtml: '<p>Wie hoch sind die erwarteten Netzkosten?</p>',
         status: 'answered',
@@ -720,7 +720,7 @@ const PACK_BY_TITLE: Record<string, MotionDeliberationPack> = {
     ],
     resources: [
       {
-        authorEmail: 'mark.rothermel@freiwerk.local',
+        authorEmail: 'niklas.brandt@freiwerk.local',
         title: 'Infrastrukturkarte H2',
         kind: 'file',
         url: '/uploads/seed-lfa-digital-position.pdf',

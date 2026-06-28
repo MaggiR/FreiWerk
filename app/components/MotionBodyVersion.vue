@@ -8,7 +8,7 @@ defineProps<{
 <template>
   <p class="motion-body-version app-hint">
     <template v-if="version > 0">Version {{ version }} · </template>
-    Zuletzt geändert am {{ formatDate(updatedAt) }}
+    Zuletzt geändert <RelativeTime :value="updatedAt" />
   </p>
 </template>
 

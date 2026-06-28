@@ -55,7 +55,7 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
 </script>
 
 <template>
-  <div class="versions">
+  <div class="versions" lang="de">
     <p v-if="pending" class="versions__loading">Versionen werden geladen ...</p>
 
     <p v-else-if="versions.length === 0" class="versions__empty">
@@ -93,7 +93,8 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
           <h2 class="versions__title">{{ activeVersion.title }}</h2>
           <div class="versions__meta">
             <span>
-              <FontAwesomeIcon icon="clock" /> {{ formatDate(activeVersion.createdAt) }}
+              <FontAwesomeIcon icon="clock" />
+              <RelativeTime :value="activeVersion.createdAt" />
             </span>
             <span v-if="activeVersion.createdByName">
               <FontAwesomeIcon icon="user" /> {{ activeVersion.createdByName }}

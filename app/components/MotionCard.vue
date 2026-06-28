@@ -15,17 +15,7 @@ const emit = defineEmits<{
   <NuxtLink :to="`/motions/${motion.id}`" class="motion-card-link">
     <FwCard class="motion-card">
       <div class="motion-card__top">
-        <div class="motion-card__head">
-          <MotionStatusBadge :status="motion.status" :outcome="motion.outcome" />
-          <FwBadge v-if="motion.divisionName" tone="neutral" class="motion-card__badge">
-            <FontAwesomeIcon icon="layer-group" aria-hidden="true" />
-            {{ motion.divisionName }}
-          </FwBadge>
-          <FwBadge tone="tertiary" class="motion-card__badge">{{ topicLabel(motion.topic) }}</FwBadge>
-          <FwBadge v-if="motion.archivedAt" tone="neutral">
-            <FontAwesomeIcon icon="box-archive" /> Archiviert
-          </FwBadge>
-        </div>
+        <MotionStatusBadge :status="motion.status" :outcome="motion.outcome" />
         <MotionWatchStar
           :motion-id="motion.id"
           :watched="motion.isWatched ?? false"
@@ -36,6 +26,18 @@ const emit = defineEmits<{
       <h3 class="motion-card__title">
         <HighlightText :text="motion.title" :query="highlightQuery" />
       </h3>
+
+      <p
+        v-if="motion.divisionName || motion.topic || motion.archivedAt"
+        class="motion-card__context"
+      >
+        <template v-if="motion.archivedAt">Archiviert</template>
+        <template v-if="motion.archivedAt && (motion.divisionName || motion.topic)"> · </template>
+        <template v-if="motion.divisionName">{{ motion.divisionName }}</template>
+        <template v-if="motion.divisionName && motion.topic"> · </template>
+        <template v-if="motion.topic">{{ topicLabel(motion.topic) }}</template>
+      </p>
+
       <p class="motion-card__summary">
         <HighlightText :text="motion.summary" :query="highlightQuery" />
       </p>
@@ -85,23 +87,8 @@ const emit = defineEmits<{
   gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
-.motion-card__head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  flex: 1;
-  min-width: 0;
-}
-.motion-card__badge {
-  max-width: 100%;
-  font-size: 0.72rem;
-  padding: 0.12rem 0.45rem;
-  line-height: 1.25;
-}
-.motion-card__badge :deep(svg) {
-  font-size: 0.68rem;
-}
 .motion-card__title,
+.motion-card__context,
 .motion-card__summary {
   hyphens: auto;
   -webkit-hyphens: auto;
@@ -109,8 +96,14 @@ const emit = defineEmits<{
 }
 
 .motion-card__title {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   font-size: 1.15rem;
+}
+.motion-card__context {
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
 }
 .motion-card__summary {
   margin: 0 0 var(--space-4);

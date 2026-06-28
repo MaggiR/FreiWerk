@@ -149,7 +149,12 @@ async function main() {
         ballotEndsAt,
         outcome: motion.outcome ?? null,
         currentVersion: isPublished ? 1 : 0,
-        createdAt: publishedAt ?? now,
+        createdAt:
+          motion.createdDaysAgo != null
+            ? daysAgo(now, motion.createdDaysAgo)
+            : publishedAt != null
+              ? daysAgo(now, (motion.publishedDaysAgo ?? 0) + 2)
+              : now,
         updatedAt: now,
       })
       .returning()

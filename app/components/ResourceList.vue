@@ -6,7 +6,6 @@ import {
   RESOURCE_TITLE_MAX,
 } from '#shared/constants'
 import { resourceDisplayTitle, resourceFileExtension } from '~/utils/resources'
-import { formatAddedAt, formatDateTime } from '~/utils/format'
 
 const props = defineProps<{ motionId: string; debateOpen: boolean }>()
 const itemCount = defineModel<number>('itemCount', { default: 0 })
@@ -153,7 +152,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="res">
+  <div class="res" lang="de">
     <p v-if="pending" class="res__loading">Ressourcen werden geladen …</p>
 
     <div v-else class="res__list">
@@ -209,13 +208,9 @@ defineExpose({
               <span>{{ resource.authorName ?? 'Unbekannt' }}</span>
             </span>
             <span class="res__meta-sep" aria-hidden="true">·</span>
-            <time
-              class="res__meta-item res__date"
-              :datetime="resource.createdAt"
-              :title="formatDateTime(resource.createdAt)"
-            >
-              {{ formatAddedAt(resource.createdAt) }}
-            </time>
+            <span class="res__meta-item res__date">
+              Hinzugefügt <RelativeTime :value="resource.createdAt" />
+            </span>
             <template v-if="resource.status !== 'accepted'">
               <span class="res__meta-sep" aria-hidden="true">·</span>
               <span

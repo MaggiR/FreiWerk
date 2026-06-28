@@ -3,6 +3,8 @@ import {
   buildMotionBody,
   assertMotionBodyLength,
   SEED_MOTIONS,
+  SEED_USERS,
+  seedProfileAvatarUrl,
 } from '../../server/database/seed-data'
 
 describe('seed motion bodies', () => {
@@ -34,5 +36,16 @@ describe('seed motion bodies', () => {
     expect(() =>
       assertMotionBodyLength(withLink!.bodyHtml!, withLink!.title, 'custom'),
     ).not.toThrow()
+  })
+
+  it('assigns one unique profile avatar per seed user matching gender', () => {
+    expect(SEED_USERS).toHaveLength(10)
+    const urls = SEED_USERS.map((user) => seedProfileAvatarUrl(user))
+    expect(new Set(urls).size).toBe(10)
+    for (const user of SEED_USERS) {
+      expect(seedProfileAvatarUrl(user)).toBe(
+        `/imgs/profile_${user.gender}_${user.avatarIndex}.png`,
+      )
+    }
   })
 })

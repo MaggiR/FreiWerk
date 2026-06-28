@@ -4,6 +4,8 @@ const router = useRouter()
 const { open: openAuthModal } = useAuthModal()
 const { expanded: sidebarPinned } = useAppSidebar()
 
+const showSidebar = computed(() => route.path !== '/')
+
 function syncAuthQuery() {
   const auth = route.query.auth
   if (auth !== 'login' && auth !== 'register') return
@@ -21,10 +23,13 @@ watch(() => route.query.auth, syncAuthQuery, { immediate: true })
 <template>
   <div
     class="app-shell"
-    :class="{ 'app-shell--sidebar-pinned': sidebarPinned }"
+    :class="{
+      'app-shell--sidebar-pinned': sidebarPinned && showSidebar,
+      'app-shell--no-sidebar': !showSidebar,
+    }"
   >
     <AppHeader />
-    <AppSidebar />
+    <AppSidebar v-if="showSidebar" />
     <AuthModal />
     <ToastHost />
     <main class="app-main">
@@ -69,6 +74,21 @@ watch(() => route.query.auth, syncAuthQuery, { immediate: true })
 
   .app-shell--sidebar-pinned {
     --sidebar-inset: var(--rail-expanded);
+  }
+
+  .app-shell--no-sidebar {
+    --sidebar-inset: 0px;
+  }
+
+  .app-shell--no-sidebar .app-main {
+    margin-left: 0;
+    width: 100%;
+    padding-top: calc(var(--header-total-height) + var(--space-6));
+  }
+
+  .app-shell--no-sidebar .app-footer {
+    margin-left: 0;
+    width: 100%;
   }
 
   .app-main {
