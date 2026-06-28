@@ -17,15 +17,49 @@ import {
 } from '../../shared/constants'
 import { isValidUploadUrl, isValidUploadFileUrl } from './uploads'
 
-export const registerSchema = z.object({
+// Only allow internal, absolute redirect paths to avoid open-redirect abuse.
+const redirectPathSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine(
+    (value) => value.startsWith('/') && !value.startsWith('//'),
+    'Ungültiger Weiterleitungspfad.',
+  )
+
+// Request a passwordless login: an email gets a one-time magic link.
+export const magicLinkRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
-  password: z.string().min(8).max(200),
-  displayName: z.string().trim().min(2).max(120),
+  redirect: redirectPathSchema.optional(),
 })
 
-export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(255),
-  password: z.string().min(1).max(200),
+// Redeem a magic link via the token from the email.
+export const magicLinkVerifySchema = z.object({
+  token: z.string().trim().min(10).max(512),
+})
+
+// Initial profile setup after the first magic-link login (Stammdaten). The
+// display name is composed from first and last name; the avatar is optional.
+export const onboardingSchema = z.object({
+  firstName: z.string().trim().min(1).max(60),
+  lastName: z.string().trim().min(1).max(60),
+  fn: z
+    .string()
+    .trim()
+    .max(120)
+    .transform((value) => (value.length === 0 ? null : value))
+    .nullable()
+    .optional(),
+  avatarUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .nullable()
+    .optional()
+    .refine(
+      (value) => value == null || isValidUploadUrl(value),
+      'Ungültige Profilbild-URL.',
+    ),
 })
 
 export const motionCreateSchema = z.object({

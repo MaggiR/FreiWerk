@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { usesTopHeaderLayout } from '#shared/constants'
+
 const route = useRoute()
 const router = useRouter()
 const { open: openAuthModal } = useAuthModal()
 const { expanded: sidebarPinned } = useAppSidebar()
 
-const showSidebar = computed(() => route.path !== '/')
+const showSidebar = computed(() => !usesTopHeaderLayout(route.path))
 
 function syncAuthQuery() {
   const auth = route.query.auth

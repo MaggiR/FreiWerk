@@ -24,10 +24,17 @@ Do **not** run `npm install` on the host. Dependencies are installed inside Dock
 
 On container start the app runs `npm install` (when needed), migrations, seed-if-empty, and `nuxt dev`. DB and uploads persist in Docker volumes across restarts.
 
+**Authentication:** Passwordless (magic-link). On the login dialog, entering an
+email sends a one-time login link by email. When SMTP is not configured
+(`NUXT_SMTP_HOST` empty, the default for local/demo), the link is printed to the
+app container logs instead of being emailed. First-time logins are routed through
+an onboarding page (`/willkommen`) to capture name and function.
+
 **Demo accounts** (after seed):
 
-- `demo@freiwerk.local` / `password123`
-- `admin@freiwerk.local` / `password123`
+- `demo@freiwerk.local` — entering this address logs straight into the demo
+  profile (no email needed), so reviewers can try FreiWerk instantly.
+- `admin@freiwerk.local` — admin profile; log in via the normal magic-link flow.
 
 ## Coding conventions
 

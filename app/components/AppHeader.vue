@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { APP_LOGO_MARK_SRC } from '#shared/branding'
+import { usesTopHeaderLayout } from '#shared/constants'
 
 const { loggedIn, user, logout, isModerator } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
+const { heroVisible } = useLandingHeader()
 const route = useRoute()
 const menuOpen = ref(false)
 const motionsSubmenuOpen = ref(false)
+
+// On the logged-out marketing landing the header stays hidden over the hero and
+// slides in only once the visitor scrolls past it.
+const isMarketingLanding = computed(() => route.path === '/' && !loggedIn.value)
+const hideForHero = computed(() => isMarketingLanding.value && heroVisible.value)
+const usesTopHeader = computed(() => usesTopHeaderLayout(route.path))
 
 const myMotionsTo = computed(() => ({
   path: '/motions',
@@ -28,7 +36,13 @@ watch(
 </script>
 
 <template>
-  <div class="header-wrap" :class="{ 'header-wrap--landing': route.path === '/' }">
+  <div
+    class="header-wrap"
+    :class="{
+      'header-wrap--landing': usesTopHeader,
+      'header-wrap--hidden': hideForHero,
+    }"
+  >
     <header class="header">
       <div class="header__inner">
         <NuxtLink to="/" class="brand" aria-label="FreiWerk Startseite">
@@ -55,7 +69,7 @@ watch(
           :class="{ 'nav--open': menuOpen }"
           aria-label="Hauptnavigation"
         >
-          <div class="nav-links">
+          <div v-if="loggedIn" class="nav-links">
             <div class="nav-links__head">
               <NuxtLink to="/motions" class="nav__link nav__link--primary">
                 <FontAwesomeIcon icon="file-lines" aria-hidden="true" />
@@ -111,6 +125,11 @@ watch(
               </NuxtLink>
             </div>
           </div>
+
+          <NuxtLink to="/ueber" class="nav__link nav__link--primary">
+            <FontAwesomeIcon icon="circle-info" aria-hidden="true" />
+            Über
+          </NuxtLink>
 
           <NuxtLink
             v-if="isModerator"
@@ -179,6 +198,23 @@ watch(
   z-index: 50;
   padding: 0 var(--space-4);
   pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+
+/* Hidden while the marketing hero is in view; slides down once scrolled past. */
+.header-wrap--hidden {
+  transform: translateY(calc(-100% - var(--header-offset-top) - var(--space-3)));
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-wrap {
+    transition: opacity 0.3s ease;
+  }
+  .header-wrap--hidden {
+    transform: none;
+  }
 }
 
 /* Desktop replaces the top header with the global left sidebar. */

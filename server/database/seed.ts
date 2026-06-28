@@ -86,6 +86,8 @@ async function main() {
         fn: user.fn,
         divisionId: divisionIdBySlug[user.divisionSlug],
         avatarUrl: seedProfileAvatarUrl(user),
+        // Seeded accounts skip the onboarding flow.
+        onboardedAt: now,
       })),
     )
     .returning()

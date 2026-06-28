@@ -3,17 +3,15 @@ import { isUnauthorized } from '~/utils/error'
 
 export const SESSION_EXPIRED_MESSAGE = 'Sitzung abgelaufen. Bitte erneut anmelden.'
 
-interface Credentials {
-  email: string
-  password: string
-}
-
-interface RegisterInput extends Credentials {
-  displayName: string
+export interface MagicLinkRequestResult {
+  /** 'demo' = logged in immediately; 'magic-link' = email with link sent. */
+  mode: 'demo' | 'magic-link'
+  loggedIn?: boolean
+  sent?: boolean
 }
 
 /**
- * Thin wrapper around nuxt-auth-utils `useUserSession` with auth actions.
+ * Thin wrapper around nuxt-auth-utils `useUserSession` with passwordless auth.
  */
 export function useAuthUser() {
   const { loggedIn, user, fetch: refreshSession, clear } = useUserSession()
@@ -22,6 +20,7 @@ export function useAuthUser() {
   const isModerator = computed(
     () => user.value?.role === 'moderator' || user.value?.role === 'admin',
   )
+  const needsOnboarding = computed(() => user.value?.needsOnboarding === true)
 
   async function syncSessionAfterAuthMutation() {
     await refreshSession()
@@ -32,32 +31,31 @@ export function useAuthUser() {
     await refreshSession()
   }
 
-  async function login(credentials: Credentials) {
-    await $fetch('/api/auth/login', {
-      method: 'POST',
-      body: credentials,
-      credentials: 'include',
-    })
-    await syncSessionAfterAuthMutation()
-    if (!loggedIn.value) {
-      throw new Error(
-        'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
-      )
+  /**
+   * Start a passwordless login. Returns whether the user was logged in directly
+   * (demo account) or a magic-link email was dispatched.
+   */
+  async function requestMagicLink(
+    email: string,
+    redirect?: string | null,
+  ): Promise<MagicLinkRequestResult> {
+    const result = await $fetch<MagicLinkRequestResult>(
+      '/api/auth/magic-link/request',
+      {
+        method: 'POST',
+        body: { email, ...(redirect ? { redirect } : {}) },
+        credentials: 'include',
+      },
+    )
+    if (result.mode === 'demo') {
+      await syncSessionAfterAuthMutation()
+      if (!loggedIn.value) {
+        throw new Error(
+          'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
+        )
+      }
     }
-  }
-
-  async function register(input: RegisterInput) {
-    await $fetch('/api/auth/register', {
-      method: 'POST',
-      body: input,
-      credentials: 'include',
-    })
-    await syncSessionAfterAuthMutation()
-    if (!loggedIn.value) {
-      throw new Error(
-        'Registrierung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
-      )
-    }
+    return result
   }
 
   async function logout() {
@@ -78,8 +76,8 @@ export function useAuthUser() {
     user,
     isAdmin,
     isModerator,
-    login,
-    register,
+    needsOnboarding,
+    requestMagicLink,
     logout,
     refreshSession,
     handleAuthError,

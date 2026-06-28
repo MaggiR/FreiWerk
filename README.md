@@ -9,26 +9,6 @@ Parallel zur Debatte zeigt ein laufendes, unverbindliches Stimmungsbild, wie sic
 
 FreiWerk versteht sich als **Marktplatz liberaler Ideen**: offen für Initiative, transparent in der Debatte und verbindlich in der Entscheidung. FreiWerk zielt nicht darauf ab, bestehende Strukturen wie Parteitage zu ersetzen, sondern sie zu ergänzen.
 
-## Der Mehrwert von FreiWerk
-### Akzeptanz durch Beteiligung und Transparenz
-Gute Entscheidungen brauchen nicht nur Mehrheiten, sondern auch Akzeptanz. Wer die Möglichkeit hat, Ideen einzubringen, Argumente auszutauschen und Entscheidungsprozesse transparent nachzuvollziehen, identifiziert sich stärker mit dem Ergebnis – selbst dann, wenn die eigene Position sich nicht durchsetzt.
-FreiWerk macht politische Willensbildung nachvollziehbar und stärkt das Vertrauen in gemeinsame Entscheidungen. Die Plattform wird so zum programmatischen Bindeglied der liberalen Community.
-FreiWerk bietet Mitgliedern die Möglichkeit, sich unabhängig von Zeit, Ort oder Funktion aktiv einzubringen und sichtbaren Einfluss auf die programmatische Arbeit zu nehmen. Dadurch macht die Plattform Mitgliedschaft attraktiver und erlebbarer.
-### Schneller zu guten Entscheidungen
-Gesellschaftliche, wirtschaftliche und technologische Entwicklungen beschleunigen sich zunehmend. Politische Organisationen stehen vor der Herausforderung, mit dieser Dynamik Schritt zu halten, ohne dabei an Qualität oder demokratischer Legitimation einzubüßen.
-FreiWerk ergänzt bestehende Gremienstrukturen um einen kontinuierlichen sowie ortsunabhängigen Beteiligungsprozess. Ideen, Argumente und Stimmungsbilder werden früh sichtbar und können schneller auf der richtigen Gliederungsebene zu belastbaren Entscheidungen weiterentwickelt werden.
-### Die liberale Schwarmintelligenz aktivieren
-In der liberalen Community steckt ein enormes Maß an Wissen, Erfahrung und Kreativität. Heute fließt jedoch nur ein kleiner Teil dieses Potenzials in den programmatischen Prozess ein.
-FreiWerk senkt die Hürden zur Mitwirkung und ermöglicht es jedem Mitglied, Ideen einzubringen, Argumente beizutragen und an der Weiterentwicklung von Anträgen mitzuwirken. Gute Ideen sollen unabhängig von Funktion, Amt oder Vernetzung die Chance erhalten, gehört, diskutiert und weiterentwickelt zu werden und sich im Wettbewerb mit anderen Ideen durchsetzen zu können.
-### Programmatische Schlagkraft erhöhen
-Durch die systematische Einbindung der Mitglieder erhöht FreiWerk die Zahl und Qualität programmatischer Impulse. Die Plattform macht die Liberalen zu einer lernenden Organisation, die neue Ideen schneller identifizieren, bewerten und in konkrete Politik übersetzen kann. So wird die liberale Community zu einer treibenden Reform- und Zukunftskraft.
-### Wissen sichern und nutzbar machen
-Über Jahrzehnte entstandene Beschlüsse und Debatten enthalten wertvolles Wissen, sind jedoch häufig schwer auffindbar.
-FreiWerk schafft ein durchsuchbares, dauerhaft verfügbares Wissensarchiv. Frühere Beschlüsse, Anträge und Debatten können einfach recherchiert werden. Bereits bestehende Positionen werden automatisiert identifiziert, um Doppelarbeit zu reduzieren.
-### Die Qualität politischer Debatten steigern
-Leidenschaftliche politische Debatten sind ein wesentlicher Bestandteil liberaler Kultur. Gleichzeitig gehen in langen Chatverläufen, E-Mail-Ketten oder Sitzungen häufig wichtige Argumente verloren oder werden mehrfach unnötig wiederholt.
-FreiWerk strukturiert Debatten entlang von Argumenten statt entlang chronologischer Nachrichten. KI-gestützte Zusammenfassungen helfen dabei, die wichtigsten Positionen, Gegenargumente und offenen Fragen schnell zu erfassen. Dadurch werden Diskussionen nachvollziehbarer, sachorientierter und produktiver.
-
 ---
 ## Features
 ### 1. Mitgliederzugang und Rollen

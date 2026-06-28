@@ -168,7 +168,9 @@ export const divisions = pgTable('divisions', {
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  // Nullable since passwordless (magic-link) accounts never set a password.
+  // Retained for the seeded demo/admin accounts and potential future use.
+  passwordHash: text('password_hash'),
   displayName: text('display_name').notNull(),
   // Public profile image stored under /uploads/.
   avatarUrl: text('avatar_url'),
@@ -178,6 +180,9 @@ export const users = pgTable('users', {
   divisionId: uuid('division_id').references(() => divisions.id, {
     onDelete: 'set null',
   }),
+  // Set once a member completes the initial profile setup (Stammdaten). Null
+  // means the account still needs onboarding after its first magic-link login.
+  onboardedAt: timestamp('onboarded_at', { withTimezone: true }),
   // Moderation ban: set when a moderator/admin blocks the account (Phase 5).
   bannedAt: timestamp('banned_at', { withTimezone: true }),
   banReason: text('ban_reason'),
@@ -188,6 +193,31 @@ export const users = pgTable('users', {
     .notNull()
     .defaultNow(),
 })
+
+// Single-use, time-limited tokens for passwordless (magic-link) login. Only a
+// SHA-256 hash of the token is stored; the raw token lives solely in the email
+// link. A row is consumed (consumedAt set) the moment a link is redeemed.
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    email: text('email').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    // Optional post-login redirect captured when the link was requested.
+    redirectPath: text('redirect_path'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex('magic_link_tokens_token_hash_idx').on(
+      table.tokenHash,
+    ),
+    emailIdx: index('magic_link_tokens_email_idx').on(table.email),
+  }),
+)
 
 export const motions = pgTable(
   'motions',
@@ -920,6 +950,8 @@ export const motionWorkingDocsRelations = relations(
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type MagicLinkToken = typeof magicLinkTokens.$inferSelect
+export type NewMagicLinkToken = typeof magicLinkTokens.$inferInsert
 export type Division = typeof divisions.$inferSelect
 export type Motion = typeof motions.$inferSelect
 export type NewMotion = typeof motions.$inferInsert

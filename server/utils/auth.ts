@@ -12,6 +12,35 @@ export interface SessionUser {
   role: UserRole
 }
 
+/** Shape stored in the sealed session cookie (see shared/auth.d.ts). */
+export interface SessionUserPublic {
+  id: string
+  email: string
+  displayName: string
+  role: UserRole
+  avatarUrl: string | null
+  needsOnboarding: boolean
+}
+
+/** Build the public session user object from a DB user row. */
+export function toSessionUser(user: {
+  id: string
+  email: string
+  displayName: string
+  role: UserRole
+  avatarUrl: string | null
+  onboardedAt: Date | null
+}): SessionUserPublic {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    role: user.role,
+    avatarUrl: user.avatarUrl,
+    needsOnboarding: user.onboardedAt == null,
+  }
+}
+
 /**
  * Require an authenticated session whose user still exists in the database.
  * Stale sessions (e.g. after a DB reseed) are cleared and rejected with 401.

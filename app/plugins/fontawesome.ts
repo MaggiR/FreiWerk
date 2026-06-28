@@ -90,6 +90,14 @@ import {
   faCopy,
   faEllipsisVertical,
   faThumbtack,
+  faWandMagicSparkles,
+  faEnvelopeCircleCheck,
+  faEnvelope,
+  faRocket,
+  faArrowRight,
+  faBolt,
+  faSpinner,
+  faUsers,
 } from '@fortawesome/free-solid-svg-icons'
 import '@fortawesome/fontawesome-svg-core/styles.css'
 
@@ -185,6 +193,14 @@ library.add(
   faCopy,
   faEllipsisVertical,
   faThumbtack,
+  faWandMagicSparkles,
+  faEnvelopeCircleCheck,
+  faEnvelope,
+  faRocket,
+  faArrowRight,
+  faBolt,
+  faSpinner,
+  faUsers,
 )
 
 export default defineNuxtPlugin((nuxtApp) => {

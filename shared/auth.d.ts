@@ -8,6 +8,8 @@ declare module '#auth-utils' {
     displayName: string
     role: UserRole
     avatarUrl: string | null
+    // True until the member completes the initial profile setup (Stammdaten).
+    needsOnboarding: boolean
   }
 
   interface UserSession {

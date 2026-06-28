@@ -31,6 +31,15 @@ services:
       NUXT_DEV_ALLOWED_HOSTS: ${NUXT_DEV_ALLOWED_HOSTS:-}
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: dev-only-session-password-change-me-please-32
+      # Passwordless login email (SMTP). Empty host => magic links are printed to
+      # this container's logs instead of being emailed. Override in .env to send
+      # real mail (see .env.example for the NUXT_SMTP_* variables).
+      NUXT_SMTP_HOST: ${NUXT_SMTP_HOST:-}
+      NUXT_SMTP_PORT: ${NUXT_SMTP_PORT:-587}
+      NUXT_SMTP_SECURE: ${NUXT_SMTP_SECURE:-}
+      NUXT_SMTP_USER: ${NUXT_SMTP_USER:-}
+      NUXT_SMTP_PASS: ${NUXT_SMTP_PASS:-}
+      NUXT_SMTP_FROM: ${NUXT_SMTP_FROM:-FreiWerk <no-reply@freiwerk.local>}
       POSTGRES_HOST: db
       POSTGRES_PORT: '5432'
       POSTGRES_USER: freiwerk

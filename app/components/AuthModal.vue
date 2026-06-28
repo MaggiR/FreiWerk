@@ -1,26 +1,26 @@
 <script setup lang="ts">
-const { isOpen, mode, redirectPath, close, switchMode } = useAuthModal()
-const { login, register } = useAuthUser()
+const { isOpen, redirectPath, close } = useAuthModal()
+const { requestMagicLink } = useAuthUser()
+
+type Step = 'request' | 'sent'
 
 const email = ref('')
-const password = ref('')
-const displayName = ref('')
+const step = ref<Step>('request')
 const error = ref('')
 const pending = ref(false)
 const backdropPressed = ref(false)
 
-watch(isOpen, (open) => {
-  if (!open) {
-    email.value = ''
-    password.value = ''
-    displayName.value = ''
-    error.value = ''
-    pending.value = false
-  }
-})
+const route = useRoute()
 
-watch(mode, () => {
+function reset() {
+  email.value = ''
+  step.value = 'request'
   error.value = ''
+  pending.value = false
+}
+
+watch(isOpen, (open) => {
+  if (!open) reset()
 })
 
 function onBackdropMouseDown(event: MouseEvent) {
@@ -35,49 +35,29 @@ function onBackdropClick(event: MouseEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') {
-    close()
-  }
+  if (event.key === 'Escape') close()
 }
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 
-const route = useRoute()
-
-async function onLoginSubmit() {
+async function onSubmit() {
   error.value = ''
   pending.value = true
   try {
-    await login({ email: email.value, password: password.value })
     const target = redirectPath.value ?? route.fullPath
-    close()
-    if (target !== route.fullPath) {
-      await navigateTo(target)
+    const result = await requestMagicLink(email.value, target)
+    if (result.mode === 'demo') {
+      close()
+      // The demo account is already onboarded; go to the requested target.
+      if (target && target !== route.fullPath) {
+        await navigateTo(target)
+      }
+      return
     }
+    step.value = 'sent'
   } catch (err: unknown) {
     error.value = extractError(err, 'Anmeldung fehlgeschlagen.')
-  } finally {
-    pending.value = false
-  }
-}
-
-async function onRegisterSubmit() {
-  error.value = ''
-  pending.value = true
-  try {
-    await register({
-      displayName: displayName.value,
-      email: email.value,
-      password: password.value,
-    })
-    const target = redirectPath.value ?? route.fullPath
-    close()
-    if (target !== route.fullPath) {
-      await navigateTo(target)
-    }
-  } catch (err: unknown) {
-    error.value = extractError(err, 'Registrierung fehlgeschlagen.')
   } finally {
     pending.value = false
   }
@@ -91,7 +71,7 @@ async function onRegisterSubmit() {
       class="auth-modal"
       role="dialog"
       aria-modal="true"
-      :aria-labelledby="mode === 'login' ? 'auth-modal-login-title' : 'auth-modal-register-title'"
+      aria-labelledby="auth-modal-title"
       @mousedown="onBackdropMouseDown"
       @click="onBackdropClick"
     >
@@ -105,67 +85,19 @@ async function onRegisterSubmit() {
           <FontAwesomeIcon icon="xmark" />
         </button>
 
-        <template v-if="mode === 'login'">
-          <h2 id="auth-modal-login-title" class="auth-modal__title">Anmelden</h2>
-          <p class="auth-modal__sub">Willkommen zurück bei FreiWerk.</p>
-
-          <form class="auth-modal__form" @submit.prevent="onLoginSubmit">
-            <label class="field">
-              <span>E-Mail</span>
-              <input
-                v-model="email"
-                type="email"
-                autocomplete="email"
-                required
-                placeholder="demo@freiwerk.local"
-              >
-            </label>
-
-            <label class="field">
-              <span>Passwort</span>
-              <input
-                v-model="password"
-                type="password"
-                autocomplete="current-password"
-                required
-                placeholder="password123"
-              >
-            </label>
-
-            <p v-if="error" class="form-error">{{ error }}</p>
-
-            <FwButton type="submit" :disabled="pending" block>
-              {{ pending ? 'Anmelden...' : 'Anmelden' }}
-            </FwButton>
-          </form>
-
-          <p class="auth-modal__foot">
-            Noch kein Konto?
-            <button type="button" class="auth-modal__switch" @click="switchMode('register')">
-              Jetzt registrieren
-            </button>
+        <template v-if="step === 'request'">
+          <div class="auth-modal__icon" aria-hidden="true">
+            <FontAwesomeIcon icon="wand-magic-sparkles" />
+          </div>
+          <h2 id="auth-modal-title" class="auth-modal__title">Anmelden ohne Passwort</h2>
+          <p class="auth-modal__sub">
+            Gib deine E-Mail-Adresse ein. Wir senden dir einen sicheren
+            Anmeldelink — kein Passwort nötig.
           </p>
-        </template>
 
-        <template v-else>
-          <h2 id="auth-modal-register-title" class="auth-modal__title">Konto erstellen</h2>
-          <p class="auth-modal__sub">Bring deine Ideen in die liberale Debatte ein.</p>
-
-          <form class="auth-modal__form" @submit.prevent="onRegisterSubmit">
+          <form class="auth-modal__form" @submit.prevent="onSubmit">
             <label class="field">
-              <span>Anzeigename</span>
-              <input
-                v-model="displayName"
-                type="text"
-                autocomplete="name"
-                required
-                minlength="2"
-                placeholder="Vor- und Nachname"
-              >
-            </label>
-
-            <label class="field">
-              <span>E-Mail</span>
+              <span>E-Mail-Adresse</span>
               <input
                 v-model="email"
                 type="email"
@@ -175,31 +107,36 @@ async function onRegisterSubmit() {
               >
             </label>
 
-            <label class="field">
-              <span>Passwort</span>
-              <input
-                v-model="password"
-                type="password"
-                autocomplete="new-password"
-                required
-                minlength="8"
-                placeholder="Mindestens 8 Zeichen"
-              >
-            </label>
-
             <p v-if="error" class="form-error">{{ error }}</p>
 
             <FwButton type="submit" :disabled="pending" block>
-              {{ pending ? 'Wird erstellt...' : 'Registrieren' }}
+              <FontAwesomeIcon v-if="!pending" icon="paper-plane" />
+              {{ pending ? 'Wird gesendet …' : 'Anmeldelink senden' }}
             </FwButton>
           </form>
+        </template>
 
-          <p class="auth-modal__foot">
-            Bereits registriert?
-            <button type="button" class="auth-modal__switch" @click="switchMode('login')">
-              Zur Anmeldung
-            </button>
+        <template v-else>
+          <div class="auth-modal__icon auth-modal__icon--success" aria-hidden="true">
+            <FontAwesomeIcon icon="envelope-circle-check" />
+          </div>
+          <h2 id="auth-modal-title" class="auth-modal__title">E-Mail unterwegs</h2>
+          <p class="auth-modal__sub">
+            Falls ein Konto möglich ist, haben wir einen Anmeldelink an
+            <strong>{{ email }}</strong> geschickt. Öffne die E-Mail und klicke auf
+            den Link, um dich anzumelden.
           </p>
+          <p class="auth-modal__hint">
+            Der Link ist 30 Minuten gültig. Keine E-Mail erhalten? Prüfe deinen
+            Spam-Ordner oder fordere einen neuen Link an.
+          </p>
+
+          <div class="auth-modal__actions">
+            <FwButton variant="ghost" block @click="step = 'request'">
+              Andere Adresse verwenden
+            </FwButton>
+            <FwButton block @click="close">Schließen</FwButton>
+          </div>
         </template>
       </FwCard>
     </div>
@@ -230,6 +167,7 @@ async function onRegisterSubmit() {
   max-width: 420px;
   max-height: calc(100vh - var(--space-8));
   overflow-y: auto;
+  text-align: center;
 }
 
 .auth-modal__close {
@@ -254,6 +192,24 @@ async function onRegisterSubmit() {
   color: var(--color-text);
 }
 
+.auth-modal__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: var(--space-2) auto var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--brand-yellow);
+  color: var(--brand-blue);
+  font-size: 1.5rem;
+}
+
+.auth-modal__icon--success {
+  background: color-mix(in srgb, #0a9f5e 18%, transparent);
+  color: #0a9f5e;
+}
+
 .auth-modal__title {
   margin: 0 0 var(--space-1);
   font-size: 1.5rem;
@@ -264,26 +220,22 @@ async function onRegisterSubmit() {
   color: var(--color-text-muted);
 }
 
+.auth-modal__hint {
+  margin: 0 0 var(--space-5);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 .auth-modal__form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  text-align: left;
 }
 
-.auth-modal__foot {
-  margin: var(--space-5) 0 0;
-  text-align: center;
-  color: var(--color-text-muted);
-}
-
-.auth-modal__switch {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--color-accent);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
+.auth-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 </style>

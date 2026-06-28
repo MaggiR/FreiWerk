@@ -1,6 +1,13 @@
 // Shared constants used by both the Nuxt app (forms/labels) and the server
 // (Zod validation). German labels are user-facing; keys are English domain terms.
 
+/** Routes that use the sticky top header instead of the desktop sidebar rail. */
+export const TOP_HEADER_ROUTES = ['/', '/ueber'] as const
+
+export function usesTopHeaderLayout(path: string): boolean {
+  return (TOP_HEADER_ROUTES as readonly string[]).includes(path)
+}
+
 export const TOPICS = [
   'wirtschaft',
   'bildung',
@@ -105,6 +112,21 @@ export const ROLE_LABELS: Record<string, string> = {
   moderator: 'Moderator:in',
   admin: 'Administrator:in',
 }
+
+// ---------- Passwordless authentication ----------
+
+/**
+ * Built-in demo account. Entering this address in the login dialog skips the
+ * email step and logs straight into the shared demo profile, so reviewers can
+ * try FreiWerk without receiving a real magic-link email.
+ */
+export const DEMO_EMAIL = 'demo@freiwerk.local'
+
+/** How long a magic-link token stays valid after it is issued. */
+export const MAGIC_LINK_TTL_MINUTES = 30
+
+/** Minimum delay between two magic-link requests for the same email address. */
+export const MAGIC_LINK_RESEND_COOLDOWN_SECONDS = 60
 
 // ---------- Phase 5: moderation & reports ----------
 

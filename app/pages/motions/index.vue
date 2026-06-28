@@ -7,6 +7,10 @@ import {
   type Topic,
 } from '#shared/constants'
 
+// The motion overview is members-only; logged-out visitors are bounced to the
+// landing page with the login modal opened.
+definePageMeta({ middleware: 'auth' })
+
 type ActiveFilterKey =
   | 'status'
   | 'topic'

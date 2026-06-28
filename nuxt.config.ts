@@ -40,6 +40,17 @@ export default defineNuxtConfig({
         sameSite: 'lax',
       },
     },
+    // SMTP settings for passwordless (magic-link) login emails. Overridden via
+    // NUXT_SMTP_* env vars. When `host` is empty, login links are logged to the
+    // server console instead of being emailed (handy for local/demo runs).
+    smtp: {
+      host: '',
+      port: '587',
+      secure: '',
+      user: '',
+      pass: '',
+      from: '',
+    },
     public: {
       appName: 'FreiWerk',
       appMode,

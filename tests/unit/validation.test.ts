@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  registerSchema,
-  loginSchema,
+  magicLinkRequestSchema,
+  magicLinkVerifySchema,
+  onboardingSchema,
   motionCreateSchema,
   motionDraftSaveSchema,
   moodVoteSchema,
@@ -28,30 +29,66 @@ import {
   resourceUpdateSchema,
 } from '../../server/utils/validation'
 
-describe('registerSchema', () => {
-  it('normalizes email and accepts valid input', () => {
-    const parsed = registerSchema.parse({
+describe('magicLinkRequestSchema', () => {
+  it('normalizes email and accepts an optional internal redirect', () => {
+    const parsed = magicLinkRequestSchema.parse({
       email: '  Demo@FreiWerk.Local ',
-      password: 'password123',
-      displayName: 'Demo',
+      redirect: '/motions/new',
     })
     expect(parsed.email).toBe('demo@freiwerk.local')
+    expect(parsed.redirect).toBe('/motions/new')
   })
 
-  it('rejects short passwords', () => {
+  it('accepts a request without a redirect', () => {
+    const parsed = magicLinkRequestSchema.parse({ email: 'a@b.de' })
+    expect(parsed.redirect).toBeUndefined()
+  })
+
+  it('rejects invalid emails and external/protocol-relative redirects', () => {
+    expect(() => magicLinkRequestSchema.parse({ email: 'nope' })).toThrow()
     expect(() =>
-      registerSchema.parse({
-        email: 'a@b.de',
-        password: 'short',
-        displayName: 'Demo',
-      }),
+      magicLinkRequestSchema.parse({ email: 'a@b.de', redirect: 'https://evil.example' }),
+    ).toThrow()
+    expect(() =>
+      magicLinkRequestSchema.parse({ email: 'a@b.de', redirect: '//evil.example' }),
     ).toThrow()
   })
 })
 
-describe('loginSchema', () => {
-  it('requires a non-empty password', () => {
-    expect(() => loginSchema.parse({ email: 'a@b.de', password: '' })).toThrow()
+describe('magicLinkVerifySchema', () => {
+  it('accepts a plausible token', () => {
+    expect(magicLinkVerifySchema.parse({ token: 'a'.repeat(43) }).token).toHaveLength(43)
+  })
+
+  it('rejects an empty or too-short token', () => {
+    expect(() => magicLinkVerifySchema.parse({ token: '' })).toThrow()
+    expect(() => magicLinkVerifySchema.parse({ token: 'short' })).toThrow()
+  })
+})
+
+describe('onboardingSchema', () => {
+  it('accepts first/last name with optional function and avatar', () => {
+    const parsed = onboardingSchema.parse({
+      firstName: ' Max ',
+      lastName: ' Mustermann ',
+      fn: '',
+      avatarUrl: '/uploads/550e8400-e29b-41d4-a716-446655440000.png',
+    })
+    expect(parsed.firstName).toBe('Max')
+    expect(parsed.lastName).toBe('Mustermann')
+    expect(parsed.fn).toBeNull()
+    expect(parsed.avatarUrl).toContain('/uploads/')
+  })
+
+  it('rejects missing names and invalid avatar URLs', () => {
+    expect(() => onboardingSchema.parse({ firstName: '', lastName: 'x' })).toThrow()
+    expect(() =>
+      onboardingSchema.parse({
+        firstName: 'Max',
+        lastName: 'Muster',
+        avatarUrl: 'https://evil.example/a.png',
+      }),
+    ).toThrow()
   })
 })
 

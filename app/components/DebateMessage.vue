@@ -494,9 +494,9 @@ watchEffect((onCleanup) => {
               role="button"
               tabindex="0"
               :aria-label="`Zur Antwort auf ${parentPreview.authorName ?? 'Unbekannt'} springen`"
-              @click="emit('jump', parentPreview.postId)"
-              @keydown.enter.prevent="emit('jump', parentPreview.postId)"
-              @keydown.space.prevent="emit('jump', parentPreview.postId)"
+              @click="emit('jump', parentPreview.postId, parentPreview.excerpt)"
+              @keydown.enter.prevent="emit('jump', parentPreview.postId, parentPreview.excerpt)"
+              @keydown.space.prevent="emit('jump', parentPreview.postId, parentPreview.excerpt)"
             >
               <div class="msg__ref-header">
                 <FontAwesomeIcon class="msg__ref-icon" icon="reply" />
