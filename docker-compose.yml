@@ -31,6 +31,9 @@ services:
       NUXT_DEV_ALLOWED_HOSTS: ${NUXT_DEV_ALLOWED_HOSTS:-}
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: dev-only-session-password-change-me-please-32
+      # Set to "true" only when the app is served over HTTPS. Over plain HTTP
+      # (the default for local/demo), Secure cookies break login on remote hosts.
+      NUXT_SESSION_COOKIE_SECURE: ${NUXT_SESSION_COOKIE_SECURE:-false}
       # Passwordless login email (SMTP). Empty host => magic links are printed to
       # this container's logs instead of being emailed. Override in .env to send
       # real mail (see .env.example for the NUXT_SMTP_* variables).
@@ -67,6 +70,10 @@ services:
       NUXT_PUBLIC_APP_MODE: production
       DATABASE_URL: postgresql://freiwerk:freiwerk@db:5432/freiwerk
       NUXT_SESSION_PASSWORD: prod-change-me-to-a-long-random-secret-32chars
+      # Set to "true" once the deployment is fronted by HTTPS (TLS terminated at
+      # nginx or an upstream proxy). The bundled nginx serves plain HTTP, so the
+      # default stays false to keep magic-link/demo login working.
+      NUXT_SESSION_COOKIE_SECURE: ${NUXT_SESSION_COOKIE_SECURE:-false}
       POSTGRES_HOST: db
       POSTGRES_PORT: '5432'
       POSTGRES_USER: freiwerk

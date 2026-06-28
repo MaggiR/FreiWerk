@@ -9,6 +9,13 @@ const allowedHosts = process.env.NUXT_DEV_ALLOWED_HOSTS
   .map((host) => host.trim())
   .filter(Boolean)
 
+// Session cookies carry the `Secure` attribute only when served over HTTPS.
+// Browsers allow `Secure` cookies on localhost over HTTP (so local dev works),
+// but reject them on remote hosts served over plain HTTP — which silently breaks
+// login on HTTP demo deployments behind nginx. Default to false so those work;
+// set NUXT_SESSION_COOKIE_SECURE=true for real HTTPS deployments.
+const sessionCookieSecure = process.env.NUXT_SESSION_COOKIE_SECURE === 'true'
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: appMode === 'dev' },
@@ -38,6 +45,8 @@ export default defineNuxtConfig({
       maxAge: 60 * 60 * 24 * 7, // 7 days
       cookie: {
         sameSite: 'lax',
+        // Overridden at runtime via NUXT_SESSION_COOKIE_SECURE (see above).
+        secure: sessionCookieSecure,
       },
     },
     // SMTP settings for passwordless (magic-link) login emails. Overridden via
