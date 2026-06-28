@@ -1,3 +1,4 @@
+import { sanitizeAuthRedirectPath } from '#shared/authRedirect'
 import { eq } from 'drizzle-orm'
 import { db } from '../../../database/client'
 import { users } from '../../../database/schema'
@@ -18,7 +19,7 @@ import { DEMO_EMAIL, MAGIC_LINK_TTL_MINUTES } from '../../../../shared/constants
 export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, magicLinkRequestSchema.parse)
   const email = body.email
-  const redirect = body.redirect ?? null
+  const redirect = sanitizeAuthRedirectPath(body.redirect ?? null)
 
   // Demo shortcut: log straight into the shared demo profile (no email sent).
   if (email === DEMO_EMAIL) {

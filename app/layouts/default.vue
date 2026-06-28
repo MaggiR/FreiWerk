@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { usesTopHeaderLayout } from '#shared/constants'
+import { sanitizeAuthRedirectPath } from '#shared/authRedirect'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,7 +13,10 @@ function syncAuthQuery() {
   const auth = route.query.auth
   if (auth !== 'login' && auth !== 'register') return
 
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
+  const redirect =
+    typeof route.query.redirect === 'string'
+      ? sanitizeAuthRedirectPath(route.query.redirect) ?? undefined
+      : undefined
   openAuthModal(auth, redirect)
 
   const { auth: _auth, redirect: _redirect, ...rest } = route.query

@@ -1,4 +1,5 @@
 import { computed } from 'vue'
+import { sanitizeAuthRedirectPath } from '#shared/authRedirect'
 import { isUnauthorized } from '~/utils/error'
 
 export const SESSION_EXPIRED_MESSAGE = 'Sitzung abgelaufen. Bitte erneut anmelden.'
@@ -22,13 +23,19 @@ export function useAuthUser() {
   )
   const needsOnboarding = computed(() => user.value?.needsOnboarding === true)
 
-  async function syncSessionAfterAuthMutation() {
-    await refreshSession()
-    if (loggedIn.value) return
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => resolve())
-    })
-    await refreshSession()
+  async function ensureLoggedInSession() {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      await refreshSession()
+      if (loggedIn.value) return
+      if (!import.meta.client) return
+      await new Promise<void>((resolve) => {
+        if (attempt === 0) {
+          requestAnimationFrame(() => resolve())
+          return
+        }
+        window.setTimeout(resolve, 40 * attempt)
+      })
+    }
   }
 
   /**
@@ -39,16 +46,17 @@ export function useAuthUser() {
     email: string,
     redirect?: string | null,
   ): Promise<MagicLinkRequestResult> {
+    const safeRedirect = sanitizeAuthRedirectPath(redirect ?? null)
     const result = await $fetch<MagicLinkRequestResult>(
       '/api/auth/magic-link/request',
       {
         method: 'POST',
-        body: { email, ...(redirect ? { redirect } : {}) },
+        body: { email, ...(safeRedirect ? { redirect: safeRedirect } : {}) },
         credentials: 'include',
       },
     )
     if (result.mode === 'demo') {
-      await syncSessionAfterAuthMutation()
+      await ensureLoggedInSession()
       if (!loggedIn.value) {
         throw new Error(
           'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
@@ -80,6 +88,7 @@ export function useAuthUser() {
     requestMagicLink,
     logout,
     refreshSession,
+    ensureLoggedInSession,
     handleAuthError,
     SESSION_EXPIRED_MESSAGE,
   }

@@ -145,14 +145,14 @@ export default defineEventHandler(async (event) => {
         canModerate ||
         (currentUserId != null && row.authorId === currentUserId),
     ).length
-    questionCount = questionCountRow?.count ?? 0
+    questionCount = questionCountRow[0]?.count ?? 0
     resourceCount = resourceRows.filter(
       (row) =>
         row.status === 'accepted' ||
         canModerate ||
         (currentUserId != null && row.authorId === currentUserId),
     ).length
-    moodVoteCount = moodCountRow?.count ?? 0
+    moodVoteCount = moodCountRow[0]?.count ?? 0
   }
 
   return {

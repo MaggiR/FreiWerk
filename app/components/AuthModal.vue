@@ -122,9 +122,9 @@ async function onSubmit() {
           </div>
           <h2 id="auth-modal-title" class="auth-modal__title">E-Mail unterwegs</h2>
           <p class="auth-modal__sub">
-            Falls ein Konto möglich ist, haben wir einen Anmeldelink an
+            Wir haben dir einen Anmeldelink an
             <strong>{{ email }}</strong> geschickt. Öffne die E-Mail und klicke auf
-            den Link, um dich anzumelden.
+            den Link, um dich anzumelde bzw. zu registrieren.
           </p>
           <p class="auth-modal__hint">
             Der Link ist 30 Minuten gültig. Keine E-Mail erhalten? Prüfe deinen

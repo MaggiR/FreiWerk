@@ -32,8 +32,10 @@ export default defineNuxtPlugin({
         if (response.status !== 401 || !loggedIn.value || isAuthMutationUrl(request)) {
           return
         }
+        const route = useRouter().currentRoute.value
+        if (route.path === '/auth/verify') return
         await clear()
-        openAuthModal('login', useRouter().currentRoute.value.fullPath)
+        openAuthModal('login', route.fullPath)
       },
     })
   },

@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { sanitizeAuthRedirectPath } from '#shared/authRedirect'
+import { redeemMagicLinkToken } from '~/utils/magicLinkVerify'
+
 const route = useRoute()
-const { refreshSession } = useAuthUser()
+const { loggedIn, ensureLoggedInSession } = useAuthUser()
 const { open: openAuthModal } = useAuthModal()
 
 useHead({ title: 'Anmeldung — FreiWerk' })
@@ -9,17 +12,8 @@ type State = 'verifying' | 'error'
 const state = ref<State>('verifying')
 const errorMessage = ref('')
 
-interface VerifyResponse {
-  user: { needsOnboarding: boolean }
-  needsOnboarding: boolean
-  redirect: string | null
-}
-
 function safeRedirect(target: string | null): string {
-  if (target && target.startsWith('/') && !target.startsWith('//')) {
-    return target
-  }
-  return '/'
+  return sanitizeAuthRedirectPath(target) ?? '/'
 }
 
 async function verify() {
@@ -31,23 +25,27 @@ async function verify() {
   }
 
   try {
-    const result = await $fetch<VerifyResponse>('/api/auth/magic-link/verify', {
-      method: 'POST',
-      body: { token },
-      credentials: 'include',
-    })
-    await refreshSession()
+    const result = await redeemMagicLinkToken(token)
+    await ensureLoggedInSession()
+
+    if (!loggedIn.value) {
+      throw new Error(
+        'Anmeldung konnte nicht abgeschlossen werden. Bitte Cookies und Seiten-URL prüfen.',
+      )
+    }
+
+    const destination = safeRedirect(result.redirect)
 
     if (result.needsOnboarding) {
       await navigateTo({
         path: '/willkommen',
-        query: { redirect: safeRedirect(result.redirect) },
+        query: { redirect: destination },
         replace: true,
       })
       return
     }
 
-    await navigateTo(safeRedirect(result.redirect), { replace: true })
+    await navigateTo(destination, { replace: true })
   } catch (err: unknown) {
     state.value = 'error'
     errorMessage.value = extractError(

@@ -15,11 +15,25 @@ const { user } = useAuthUser()
 
 const draftId = ref<string | null>(props.motionId ?? null)
 
-const fetchUrl = computed(() =>
-  props.motionId ? `/api/motions/${props.motionId}` : undefined,
-)
+type MotionDraftLoadResponse = {
+  motion: {
+    status: string
+    authorId: string | null
+    title: string
+    summary: string
+    topic: string
+    divisionId: string | null
+    bodyHtml: string
+    isAnonymous: boolean
+  }
+}
 
-const { data, error: loadError } = await useFetch(fetchUrl)
+const fetchResult = props.motionId
+  ? await useFetch<MotionDraftLoadResponse>(`/api/motions/${props.motionId}`)
+  : null
+
+const data = fetchResult?.data ?? ref<MotionDraftLoadResponse | null>(null)
+const loadError = fetchResult?.error ?? ref(null)
 
 if (props.motionId && loadError.value) {
   throw createError({ statusCode: 404, statusMessage: 'Antrag nicht gefunden.' })

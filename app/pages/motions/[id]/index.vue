@@ -39,9 +39,13 @@ const versionCount = computed(() => data.value?.versionCount ?? 0)
 const argumentCount = ref(0)
 const resourceCount = ref(0)
 
-const { data: questionsData } = await useFetch(
-  () => (isDraft.value ? null : `/api/motions/${id}/questions`),
-  { key: `questions-${id}` },
+const { data: questionsData } = await useFetch<{ questions: unknown[] }>(
+  `/api/motions/${id}/questions`,
+  {
+    key: `questions-${id}`,
+    immediate: !isDraft.value,
+    watch: [isDraft],
+  },
 )
 
 const questionCount = computed(
@@ -53,9 +57,13 @@ const versionUpdatedAt = computed(
 
 const isAuthor = computed(() => motion.value?.authorId === user.value?.id)
 
-const { data: moodData } = await useFetch(
-  () => (isDraft.value ? null : `/api/motions/${id}/mood`),
-  { key: `mood-${id}` },
+const { data: moodData } = await useFetch<{ totalVotes: number }>(
+  `/api/motions/${id}/mood`,
+  {
+    key: `mood-${id}`,
+    immediate: !isDraft.value,
+    watch: [isDraft],
+  },
 )
 
 const moodVoteCount = computed(
@@ -221,6 +229,7 @@ const motionTabCounts = computed(() => ({
 }))
 
 function mainTabCount(tabId: MainTab): number | undefined {
+  if (tabId === 'ballot') return undefined
   const count = motionTabCounts.value[tabId]
   return count > 0 ? count : undefined
 }
@@ -234,13 +243,6 @@ function isMainTab(id: ViewTab): id is MainTab {
   return id !== 'debate' && id !== 'activity'
 }
 
-/** Panel entries for the desktop rail, with the live unread badge on the debate item. */
-const railPanelItems = computed(() =>
-  panelTabs.map((tab) => ({
-    ...tab,
-    count: tab.id === 'debate' ? debateUnreadCount.value : undefined,
-  })),
-)
 const railActiveMainId = computed(() => {
   if (!isWideLayout.value) {
     return isMainTab(mobileActiveView.value) ? mobileActiveView.value : null

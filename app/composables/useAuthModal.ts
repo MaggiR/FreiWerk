@@ -1,3 +1,5 @@
+import { sanitizeAuthRedirectPath } from '#shared/authRedirect'
+
 export type AuthModalMode = 'login' | 'register'
 
 export function useAuthModal() {
@@ -8,7 +10,11 @@ export function useAuthModal() {
   function open(authMode: AuthModalMode = 'login', redirect?: string | null) {
     mode.value = authMode
     const route = useRoute()
-    redirectPath.value = redirect !== undefined ? redirect : route.fullPath
+    const fallback = sanitizeAuthRedirectPath(route.fullPath) ?? route.path
+    redirectPath.value =
+      redirect !== undefined
+        ? sanitizeAuthRedirectPath(redirect) ?? fallback
+        : fallback
     isOpen.value = true
   }
 

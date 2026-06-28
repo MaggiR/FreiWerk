@@ -2,18 +2,16 @@ import type { SidebarGroup, SidebarSection } from '~/composables/useAppSidebar'
 import { MOTION_VIEW_META } from '#shared/constants'
 import type { MotionViewId } from '#shared/constants'
 
-const MAIN_TAB_IDS = [
-  'antrag',
-  'ballot',
-  'arguments',
-  'questions',
-  'mood',
-  'resources',
-  'versions',
-] as const
 const PANEL_TAB_IDS = ['debate', 'activity'] as const
 
-type MainTabId = (typeof MAIN_TAB_IDS)[number]
+type MainTabId =
+  | 'antrag'
+  | 'ballot'
+  | 'arguments'
+  | 'questions'
+  | 'mood'
+  | 'resources'
+  | 'versions'
 
 export type MotionTabCountId =
   | 'antrag'

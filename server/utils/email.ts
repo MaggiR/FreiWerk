@@ -1,4 +1,4 @@
-import { APP_NAME } from '../../shared/branding'
+import { APP_LOGO_MARK_SRC, APP_NAME } from '../../shared/branding'
 
 export interface SendMagicLinkEmailInput {
   to: string
@@ -42,6 +42,10 @@ function readSmtpConfig(): SmtpConfig | null {
   }
 }
 
+function magicLinkLogoUrl(loginUrl: string): string {
+  return `${new URL(loginUrl).origin}${APP_LOGO_MARK_SRC}`
+}
+
 function renderMagicLinkEmail(url: string, ttlMinutes: number): {
   subject: string
   text: string
@@ -60,6 +64,8 @@ function renderMagicLinkEmail(url: string, ttlMinutes: number): {
     `— ${APP_NAME}`,
   ].join('\n')
 
+  const logoUrl = magicLinkLogoUrl(url)
+
   const html = `<!doctype html>
 <html lang="de">
   <body style="margin:0;background:#f4f6fb;padding:24px;font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;">
@@ -68,8 +74,13 @@ function renderMagicLinkEmail(url: string, ttlMinutes: number): {
         <td align="center">
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(3,45,103,0.12);">
             <tr>
-              <td style="background:#032D67;padding:24px 28px;">
-                <span style="color:#FFE000;font-size:20px;font-weight:700;">${APP_NAME}</span>
+              <td style="background:#032D67;padding:24px 28px;text-align:center;">
+                <img
+                  src="${logoUrl}"
+                  width="256"
+                  alt="${APP_NAME}"
+                  style="display:block;width:256px;max-width:100%;height:auto;margin:0 auto;border:0;"
+                />
               </td>
             </tr>
             <tr>
